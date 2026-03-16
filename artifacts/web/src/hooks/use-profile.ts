@@ -34,9 +34,7 @@ export function useProfile() {
   const completeOnboardingMutation = useCompleteOnboarding({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: AUTH_KEY });
-        queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetActivePlanQueryKey() });
+        queryClient.clear();
         setLocation("/dashboard");
       }
     }
