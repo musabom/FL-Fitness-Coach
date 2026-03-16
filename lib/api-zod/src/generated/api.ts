@@ -26,7 +26,8 @@ export const SignupBody = zod.object({
   email: zod.string().email(),
   password: zod.string().min(signupBodyPasswordMin),
   passwordConfirm: zod.string().min(signupBodyPasswordConfirmMin),
-  fullName: zod.string().optional(),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
 });
 
 /**
@@ -40,7 +41,8 @@ export const LoginBody = zod.object({
 export const LoginResponse = zod.object({
   id: zod.number(),
   email: zod.string(),
-  fullName: zod.string().nullish(),
+  firstName: zod.string().nullish(),
+  lastName: zod.string().nullish(),
   role: zod.string(),
   hasProfile: zod.boolean(),
 });
@@ -58,7 +60,8 @@ export const LogoutResponse = zod.object({
 export const GetMeResponse = zod.object({
   id: zod.number(),
   email: zod.string(),
-  fullName: zod.string().nullish(),
+  firstName: zod.string().nullish(),
+  lastName: zod.string().nullish(),
   role: zod.string(),
   hasProfile: zod.boolean(),
 });

@@ -11,7 +11,8 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -24,7 +25,7 @@ export default function Signup() {
     }
 
     signup.mutate(
-      { email, password, passwordConfirm, fullName },
+      { email, password, passwordConfirm, firstName, lastName },
       {
         onError: (err: unknown) => {
           const apiErr = err as { data?: { error?: string } };
@@ -63,14 +64,25 @@ export default function Signup() {
             </div>
           )}
           
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">Full Name (Optional)</label>
-            <Input 
-              type="text" 
-              placeholder="John Doe" 
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground px-1">First Name (Optional)</label>
+              <Input 
+                type="text" 
+                placeholder="John" 
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground px-1">Last Name (Optional)</label>
+              <Input 
+                type="text" 
+                placeholder="Doe" 
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">

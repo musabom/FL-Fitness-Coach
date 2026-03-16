@@ -10,7 +10,8 @@ import {
 interface AuthUser {
   id: number;
   email: string;
-  fullName: string | null;
+  firstName: string | null;
+  lastName: string | null;
   role: string;
   hasProfile: boolean;
 }
@@ -56,7 +57,7 @@ export function useAuth() {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string; passwordConfirm: string; fullName?: string }) => {
+    mutationFn: async (data: { email: string; password: string; passwordConfirm: string; firstName?: string; lastName?: string }) => {
       return customFetch<AuthUser>("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify(data),

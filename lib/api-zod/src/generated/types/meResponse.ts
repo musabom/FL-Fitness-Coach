@@ -10,7 +10,7 @@ export interface MeResponse {
   id: number;
   email: string;
   /** @nullable */
-  fullName?: string | null;
+  firstName?: string | null;
   role: string;
   hasProfile: boolean;
 }
