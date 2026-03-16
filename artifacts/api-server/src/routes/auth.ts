@@ -23,6 +23,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   }
 
   const { email, password, passwordConfirm, firstName, lastName } = parsed.data;
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || null;
 
   if (password !== passwordConfirm) {
     res.status(400).json({ error: "Passwords do not match" });
@@ -40,8 +41,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   const [user] = await db.insert(usersTable).values({
     email: email.toLowerCase(),
     password: hashedPassword,
-    firstName: firstName || null,
-    lastName: lastName || null,
+    fullName: fullName,
   }).returning();
 
   req.session.userId = user.id;
@@ -49,8 +49,8 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   res.status(201).json({
     id: user.id,
     email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    firstName: null,
+    lastName: null,
     role: user.role,
     hasProfile: false,
   });
@@ -84,8 +84,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   res.json({
     id: user.id,
     email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    firstName: null,
+    lastName: null,
     role: user.role,
     hasProfile: !!profile,
   });
@@ -116,8 +116,8 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   res.json({
     id: user.id,
     email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    firstName: null,
+    lastName: null,
     role: user.role,
     hasProfile: !!profile,
   });
