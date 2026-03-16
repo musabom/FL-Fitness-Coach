@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, plansTable } from "@workspace/db";
+import { db, plansTable, userProfilesTable } from "@workspace/db";
 
 declare module "express-session" {
   interface SessionData {
@@ -28,6 +28,10 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     return;
   }
 
+  const [profile] = await db.select()
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.userId, userId));
+
   res.json({
     id: plan.id,
     version: plan.version,
@@ -50,15 +54,23 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     trigger: plan.trigger,
     active: plan.active,
     createdAt: plan.createdAt.toISOString(),
-    profile: {
-      heightCm: plan.snapshotHeightCm,
-      weightKg: plan.snapshotWeightKg,
-      targetWeightKg: plan.snapshotTargetWeightKg,
-      age: plan.snapshotAge,
-      gender: plan.snapshotGender,
-      goalMode: plan.snapshotGoalMode,
-      activityLevel: plan.snapshotActivityLevel,
-    },
+    ...(profile ? {
+      profile: {
+        id: profile.id,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        targetWeightKg: profile.targetWeightKg,
+        age: profile.age,
+        gender: profile.gender,
+        goalMode: profile.goalMode,
+        activityLevel: profile.activityLevel,
+        trainingDays: profile.trainingDays,
+        trainingLocation: profile.trainingLocation,
+        dietaryPreferences: profile.dietaryPreferences as string[],
+        injuryFlags: profile.injuryFlags as string[],
+        goalOverride: profile.goalOverride,
+      },
+    } : {}),
   });
 });
 

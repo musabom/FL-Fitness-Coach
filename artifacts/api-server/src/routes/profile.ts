@@ -229,38 +229,44 @@ router.patch("/profile", async (req, res): Promise<void> => {
     return;
   }
 
-  const [updatedProfile] = await db.update(userProfilesTable)
-    .set(updateData)
-    .where(eq(userProfilesTable.userId, userId))
-    .returning();
+  const result = await db.transaction(async (tx) => {
+    const [updatedProfile] = await tx.update(userProfilesTable)
+      .set(updateData)
+      .where(eq(userProfilesTable.userId, userId))
+      .returning();
 
-  await db.update(plansTable)
-    .set({ active: false })
-    .where(and(eq(plansTable.userId, userId), eq(plansTable.active, true)));
+    await tx.update(plansTable)
+      .set({ active: false })
+      .where(and(eq(plansTable.userId, userId), eq(plansTable.active, true)));
 
-  const [latestPlan] = await db.select()
-    .from(plansTable)
-    .where(eq(plansTable.userId, userId))
-    .orderBy(desc(plansTable.version))
-    .limit(1);
+    const [latestPlan] = await tx.select()
+      .from(plansTable)
+      .where(eq(plansTable.userId, userId))
+      .orderBy(desc(plansTable.version))
+      .limit(1);
 
-  const newVersion = latestPlan ? latestPlan.version + 1 : 1;
+    const newVersion = latestPlan ? latestPlan.version + 1 : 1;
 
-  const { planValues } = buildPlanInsertValues(
-    userId, newVersion,
-    {
-      weightKg: updatedProfile.weightKg,
-      targetWeightKg: updatedProfile.targetWeightKg,
-      heightCm: updatedProfile.heightCm,
-      age: updatedProfile.age,
-      gender: updatedProfile.gender,
-      goalMode: updatedProfile.goalMode,
-      activityLevel: updatedProfile.activityLevel,
-    },
-    "manual_edit"
-  );
+    const { planValues } = buildPlanInsertValues(
+      userId, newVersion,
+      {
+        weightKg: updatedProfile.weightKg,
+        targetWeightKg: updatedProfile.targetWeightKg,
+        heightCm: updatedProfile.heightCm,
+        age: updatedProfile.age,
+        gender: updatedProfile.gender,
+        goalMode: updatedProfile.goalMode,
+        activityLevel: updatedProfile.activityLevel,
+      },
+      "manual_edit"
+    );
 
-  const [newPlan] = await db.insert(plansTable).values(planValues).returning();
+    const [newPlan] = await tx.insert(plansTable).values(planValues).returning();
+
+    return { updatedProfile, newPlan };
+  });
+
+  const { updatedProfile, newPlan } = result;
 
   res.json({
     id: newPlan.id,
