@@ -5,7 +5,7 @@ import {
   CompleteOnboardingBody,
   UpdateProfileBody,
 } from "@workspace/api-zod";
-import { calculatePlan } from "../lib/plan-calculator";
+import { calculatePlan, getAvailableGoals } from "../lib/plan-calculator";
 
 declare module "express-session" {
   interface SessionData {
@@ -21,6 +21,55 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
     return null;
   }
   return req.session.userId;
+}
+
+function validateGoalMode(currentWeightKg: number, targetWeightKg: number, goalMode: string, goalOverride: boolean): string | null {
+  if (goalOverride) return null;
+  const { availableGoals, validationError } = getAvailableGoals(currentWeightKg, targetWeightKg);
+  if (validationError) return validationError;
+  const allowed = availableGoals.map(g => g.mode);
+  if (!allowed.includes(goalMode)) {
+    return `Goal mode "${goalMode}" is not available for your current weight gap. Available: ${allowed.join(", ")}`;
+  }
+  return null;
+}
+
+function buildPlanInsertValues(
+  userId: number,
+  version: number,
+  profileData: { weightKg: number; targetWeightKg: number; heightCm: number; age: number; gender: string; goalMode: string; activityLevel: string },
+  trigger: "onboarding" | "manual_edit" | "weight_update" | "checkin_adjustment"
+) {
+  const planResult = calculatePlan(profileData);
+  return {
+    planValues: {
+      userId,
+      version,
+      phase: profileData.goalMode,
+      calorieTarget: planResult.calorieTarget,
+      proteinG: planResult.proteinG,
+      carbsG: planResult.carbsG,
+      fatG: planResult.fatG,
+      tdeeEstimated: planResult.tdeeEstimated,
+      deficitSurplusKcal: planResult.deficitSurplusKcal,
+      bfEstimatePct: planResult.bfEstimatePct,
+      bfSource: planResult.bfSource,
+      weeklyExpectedChangeKg: planResult.weeklyExpectedChangeKg,
+      weeksEstimateLow: planResult.weeksEstimateLow,
+      weeksEstimateHigh: planResult.weeksEstimateHigh,
+      summaryText: planResult.summaryText,
+      snapshotWeightKg: profileData.weightKg,
+      snapshotTargetWeightKg: profileData.targetWeightKg,
+      snapshotGoalMode: profileData.goalMode,
+      snapshotActivityLevel: profileData.activityLevel,
+      snapshotHeightCm: profileData.heightCm,
+      snapshotAge: profileData.age,
+      snapshotGender: profileData.gender,
+      trigger,
+      active: true,
+    },
+    planResult,
+  };
 }
 
 router.post("/onboarding", async (req, res): Promise<void> => {
@@ -41,6 +90,12 @@ router.post("/onboarding", async (req, res): Promise<void> => {
 
   const data = parsed.data;
 
+  const goalError = validateGoalMode(data.weightKg, data.targetWeightKg, data.goalMode, data.goalOverride ?? false);
+  if (goalError) {
+    res.status(400).json({ error: goalError });
+    return;
+  }
+
   const [profile] = await db.insert(userProfilesTable).values({
     userId,
     heightCm: data.heightCm,
@@ -57,31 +112,13 @@ router.post("/onboarding", async (req, res): Promise<void> => {
     goalOverride: data.goalOverride ?? false,
   }).returning();
 
-  const planResult = calculatePlan({
-    weightKg: data.weightKg,
-    targetWeightKg: data.targetWeightKg,
-    heightCm: data.heightCm,
-    age: data.age,
-    gender: data.gender,
-    goalMode: data.goalMode,
-    activityLevel: data.activityLevel,
-  });
+  const { planValues, planResult } = buildPlanInsertValues(
+    userId, 1,
+    { weightKg: data.weightKg, targetWeightKg: data.targetWeightKg, heightCm: data.heightCm, age: data.age, gender: data.gender, goalMode: data.goalMode, activityLevel: data.activityLevel },
+    "onboarding"
+  );
 
-  const [plan] = await db.insert(plansTable).values({
-    userId,
-    version: 1,
-    phase: data.goalMode,
-    calorieTarget: planResult.calorieTarget,
-    proteinG: planResult.proteinG,
-    carbsG: planResult.carbsG,
-    fatG: planResult.fatG,
-    tdeeEstimated: planResult.tdeeEstimated,
-    deficitSurplusKcal: planResult.deficitSurplusKcal,
-    bfEstimatePct: planResult.bfEstimatePct,
-    bfSource: planResult.bfSource,
-    trigger: "onboarding",
-    active: true,
-  }).returning();
+  const [plan] = await db.insert(plansTable).values(planValues).returning();
 
   res.status(201).json({
     id: plan.id,
@@ -95,13 +132,13 @@ router.post("/onboarding", async (req, res): Promise<void> => {
     deficitSurplusKcal: plan.deficitSurplusKcal,
     bfEstimatePct: plan.bfEstimatePct,
     bfSource: plan.bfSource,
-    goalMode: data.goalMode,
-    weightKg: data.weightKg,
-    targetWeightKg: data.targetWeightKg,
-    weeklyExpectedChangeKg: planResult.weeklyExpectedChangeKg,
-    weeksEstimateLow: planResult.weeksEstimateLow,
-    weeksEstimateHigh: planResult.weeksEstimateHigh,
-    summaryText: planResult.summaryText,
+    goalMode: plan.snapshotGoalMode,
+    weightKg: plan.snapshotWeightKg,
+    targetWeightKg: plan.snapshotTargetWeightKg,
+    weeklyExpectedChangeKg: plan.weeklyExpectedChangeKg,
+    weeksEstimateLow: plan.weeksEstimateLow,
+    weeksEstimateHigh: plan.weeksEstimateHigh,
+    summaryText: plan.summaryText,
     trigger: plan.trigger,
     active: plan.active,
     createdAt: plan.createdAt.toISOString(),
@@ -181,6 +218,17 @@ router.patch("/profile", async (req, res): Promise<void> => {
   if (d.injuryFlags !== undefined) updateData.injuryFlags = d.injuryFlags;
   if (d.goalOverride !== undefined) updateData.goalOverride = d.goalOverride;
 
+  const mergedWeight = d.weightKg ?? existingProfile.weightKg;
+  const mergedTarget = d.targetWeightKg ?? existingProfile.targetWeightKg;
+  const mergedGoal = d.goalMode ?? existingProfile.goalMode;
+  const mergedOverride = d.goalOverride ?? existingProfile.goalOverride;
+
+  const goalError = validateGoalMode(mergedWeight, mergedTarget, mergedGoal, mergedOverride);
+  if (goalError) {
+    res.status(400).json({ error: goalError });
+    return;
+  }
+
   const [updatedProfile] = await db.update(userProfilesTable)
     .set(updateData)
     .where(eq(userProfilesTable.userId, userId))
@@ -198,31 +246,21 @@ router.patch("/profile", async (req, res): Promise<void> => {
 
   const newVersion = latestPlan ? latestPlan.version + 1 : 1;
 
-  const planResult = calculatePlan({
-    weightKg: updatedProfile.weightKg,
-    targetWeightKg: updatedProfile.targetWeightKg,
-    heightCm: updatedProfile.heightCm,
-    age: updatedProfile.age,
-    gender: updatedProfile.gender,
-    goalMode: updatedProfile.goalMode,
-    activityLevel: updatedProfile.activityLevel,
-  });
+  const { planValues } = buildPlanInsertValues(
+    userId, newVersion,
+    {
+      weightKg: updatedProfile.weightKg,
+      targetWeightKg: updatedProfile.targetWeightKg,
+      heightCm: updatedProfile.heightCm,
+      age: updatedProfile.age,
+      gender: updatedProfile.gender,
+      goalMode: updatedProfile.goalMode,
+      activityLevel: updatedProfile.activityLevel,
+    },
+    "manual_edit"
+  );
 
-  const [newPlan] = await db.insert(plansTable).values({
-    userId,
-    version: newVersion,
-    phase: updatedProfile.goalMode,
-    calorieTarget: planResult.calorieTarget,
-    proteinG: planResult.proteinG,
-    carbsG: planResult.carbsG,
-    fatG: planResult.fatG,
-    tdeeEstimated: planResult.tdeeEstimated,
-    deficitSurplusKcal: planResult.deficitSurplusKcal,
-    bfEstimatePct: planResult.bfEstimatePct,
-    bfSource: planResult.bfSource,
-    trigger: "manual_edit",
-    active: true,
-  }).returning();
+  const [newPlan] = await db.insert(plansTable).values(planValues).returning();
 
   res.json({
     id: newPlan.id,
@@ -236,13 +274,13 @@ router.patch("/profile", async (req, res): Promise<void> => {
     deficitSurplusKcal: newPlan.deficitSurplusKcal,
     bfEstimatePct: newPlan.bfEstimatePct,
     bfSource: newPlan.bfSource,
-    goalMode: updatedProfile.goalMode,
-    weightKg: updatedProfile.weightKg,
-    targetWeightKg: updatedProfile.targetWeightKg,
-    weeklyExpectedChangeKg: planResult.weeklyExpectedChangeKg,
-    weeksEstimateLow: planResult.weeksEstimateLow,
-    weeksEstimateHigh: planResult.weeksEstimateHigh,
-    summaryText: planResult.summaryText,
+    goalMode: newPlan.snapshotGoalMode,
+    weightKg: newPlan.snapshotWeightKg,
+    targetWeightKg: newPlan.snapshotTargetWeightKg,
+    weeklyExpectedChangeKg: newPlan.weeklyExpectedChangeKg,
+    weeksEstimateLow: newPlan.weeksEstimateLow,
+    weeksEstimateHigh: newPlan.weeksEstimateHigh,
+    summaryText: newPlan.summaryText,
     trigger: newPlan.trigger,
     active: newPlan.active,
     createdAt: newPlan.createdAt.toISOString(),

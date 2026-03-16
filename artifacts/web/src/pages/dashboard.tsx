@@ -80,6 +80,7 @@ export default function Dashboard() {
             <div className="w-full h-1 bg-[#3B82F6]/20 mt-3 rounded-full overflow-hidden">
               <div className="h-full bg-[#3B82F6] w-[100%]" />
             </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Builds & repairs muscle tissue</p>
           </Card>
           <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
             <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Carbs</div>
@@ -87,6 +88,7 @@ export default function Dashboard() {
             <div className="w-full h-1 bg-[#F59E0B]/20 mt-3 rounded-full overflow-hidden">
               <div className="h-full bg-[#F59E0B] w-[100%]" />
             </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Fuels training & recovery</p>
           </Card>
           <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
             <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Fat</div>
@@ -94,6 +96,7 @@ export default function Dashboard() {
             <div className="w-full h-1 bg-[#EAB308]/20 mt-3 rounded-full overflow-hidden">
               <div className="h-full bg-[#EAB308] w-[100%]" />
             </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Supports hormones & health</p>
           </Card>
         </section>
 
