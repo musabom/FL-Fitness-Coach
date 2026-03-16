@@ -98,33 +98,13 @@ export const CompleteOnboardingBody = zod.object({
     .number()
     .min(completeOnboardingBodyAgeMin)
     .max(completeOnboardingBodyAgeMax),
-  gender: zod.enum(["male", "female", "prefer_not_to_say"]),
-  goalMode: zod.enum(["recomposition", "cut", "lean_bulk", "maintenance"]),
-  activityLevel: zod.enum([
-    "sedentary",
-    "lightly_active",
-    "moderately_active",
-    "very_active",
-  ]),
-  trainingDays: zod.union([
-    zod.literal(3),
-    zod.literal(4),
-    zod.literal(5),
-    zod.literal(6),
-  ]),
-  trainingLocation: zod.enum(["gym", "home", "both"]),
-  dietaryPreferences: zod.array(
-    zod.enum([
-      "halal",
-      "vegetarian",
-      "vegan",
-      "gluten_free",
-      "dairy_free",
-      "none",
-    ]),
-  ),
-  injuryFlags: zod.array(zod.enum(["knee", "shoulder", "lower_back", "none"])),
-  goalOverride: zod.boolean().optional(),
+  gender: zod.enum(["male", "female"]),
+  goalMode: zod.enum(["cut", "recomposition", "lean_bulk", "maintenance"]),
+  activityLevel: zod.enum(["sedentary", "lightly_active", "moderately_active", "very_active"]),
+  trainingDays: zod.union([zod.literal(3), zod.literal(4), zod.literal(5), zod.literal(6)]).optional().default(3),
+  trainingLocation: zod.enum(["gym", "home", "both"]).optional().default("gym"),
+  dietaryPreferences: zod.array(zod.string()).optional().default(["none"]),
+  injuryFlags: zod.array(zod.string()).optional().default(["none"]),
 });
 
 /**
