@@ -17,6 +17,7 @@ export function useProfile() {
 
   const profileQuery = useGetProfile({
     query: {
+      queryKey: getGetProfileQueryKey(),
       retry: false,
     }
   });

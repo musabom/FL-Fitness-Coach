@@ -1,0 +1,17 @@
+{
+  "name": "Body Composition App",
+  "short_name": "BodyComp",
+  "description": "Precision body composition management and nutrition planning",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F0F0F",
+  "theme_color": "#0D9E75",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -5,15 +5,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, Check, Loader2 } from "lucide-react";
 
+interface ProfileFormData {
+  heightCm: number;
+  weightKg: number;
+  targetWeightKg: number;
+  age: number;
+  activityLevel: string;
+  trainingDays: number;
+}
+
 export default function ProfileEdit() {
   const [, setLocation] = useLocation();
   const { profile, isLoading, updateProfile } = useProfile();
-  const [formData, setFormData] = useState<any>(null);
+  const [formData, setFormData] = useState<ProfileFormData | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (profile) {
-      setFormData(profile);
+      setFormData({
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        targetWeightKg: profile.targetWeightKg,
+        age: profile.age,
+        activityLevel: profile.activityLevel,
+        trainingDays: profile.trainingDays,
+      });
     }
   }, [profile]);
 
@@ -29,12 +45,12 @@ export default function ProfileEdit() {
     updateProfile.mutate(
       { 
         data: {
-          ...formData,
           heightCm: Number(formData.heightCm),
           weightKg: Number(formData.weightKg),
           targetWeightKg: Number(formData.targetWeightKg),
           age: Number(formData.age),
-          trainingDays: Number(formData.trainingDays),
+          trainingDays: formData.trainingDays as 3 | 4 | 5 | 6,
+          activityLevel: formData.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
         } 
       },
       {
@@ -73,7 +89,7 @@ export default function ProfileEdit() {
             <Input 
               type="number" 
               value={formData.heightCm} 
-              onChange={e => setFormData({...formData, heightCm: e.target.value})} 
+              onChange={e => setFormData({...formData, heightCm: Number(e.target.value)})} 
             />
           </div>
 
@@ -83,7 +99,7 @@ export default function ProfileEdit() {
               <Input 
                 type="number" 
                 value={formData.weightKg} 
-                onChange={e => setFormData({...formData, weightKg: e.target.value})} 
+                onChange={e => setFormData({...formData, weightKg: Number(e.target.value)})} 
               />
             </div>
             <div className="space-y-1.5">
@@ -92,7 +108,7 @@ export default function ProfileEdit() {
                 type="number" 
                 className="border-primary/50 bg-primary/5"
                 value={formData.targetWeightKg} 
-                onChange={e => setFormData({...formData, targetWeightKg: e.target.value})} 
+                onChange={e => setFormData({...formData, targetWeightKg: Number(e.target.value)})} 
               />
             </div>
           </div>
@@ -102,7 +118,7 @@ export default function ProfileEdit() {
             <Input 
               type="number" 
               value={formData.age} 
-              onChange={e => setFormData({...formData, age: e.target.value})} 
+              onChange={e => setFormData({...formData, age: Number(e.target.value)})} 
             />
           </div>
         </section>
@@ -129,7 +145,7 @@ export default function ProfileEdit() {
             <select 
               className="flex h-14 w-full rounded-xl border border-card-border bg-input px-4 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={formData.trainingDays}
-              onChange={e => setFormData({...formData, trainingDays: e.target.value})}
+              onChange={e => setFormData({...formData, trainingDays: Number(e.target.value)})}
             >
               <option value="3">3 Days</option>
               <option value="4">4 Days</option>

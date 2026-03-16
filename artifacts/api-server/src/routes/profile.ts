@@ -15,7 +15,7 @@ declare module "express-session" {
 
 const router: IRouter = Router();
 
-function requireAuth(req: any, res: any): number | null {
+function requireAuth(req: import("express").Request, res: import("express").Response): number | null {
   if (!req.session.userId) {
     res.status(401).json({ error: "Not authenticated" });
     return null;
@@ -186,152 +186,82 @@ router.patch("/profile", async (req, res): Promise<void> => {
     .where(eq(userProfilesTable.userId, userId))
     .returning();
 
-  const needsRecalc =
-    d.weightKg !== undefined ||
-    d.targetWeightKg !== undefined ||
-    d.goalMode !== undefined ||
-    d.activityLevel !== undefined ||
-    d.age !== undefined ||
-    d.heightCm !== undefined ||
-    d.gender !== undefined;
+  await db.update(plansTable)
+    .set({ active: false })
+    .where(and(eq(plansTable.userId, userId), eq(plansTable.active, true)));
 
-  if (needsRecalc) {
-    await db.update(plansTable)
-      .set({ active: false })
-      .where(and(eq(plansTable.userId, userId), eq(plansTable.active, true)));
+  const [latestPlan] = await db.select()
+    .from(plansTable)
+    .where(eq(plansTable.userId, userId))
+    .orderBy(desc(plansTable.version))
+    .limit(1);
 
-    const [latestPlan] = await db.select()
-      .from(plansTable)
-      .where(eq(plansTable.userId, userId))
-      .orderBy(desc(plansTable.version))
-      .limit(1);
+  const newVersion = latestPlan ? latestPlan.version + 1 : 1;
 
-    const newVersion = latestPlan ? latestPlan.version + 1 : 1;
+  const planResult = calculatePlan({
+    weightKg: updatedProfile.weightKg,
+    targetWeightKg: updatedProfile.targetWeightKg,
+    heightCm: updatedProfile.heightCm,
+    age: updatedProfile.age,
+    gender: updatedProfile.gender,
+    goalMode: updatedProfile.goalMode,
+    activityLevel: updatedProfile.activityLevel,
+  });
 
-    const planResult = calculatePlan({
+  const [newPlan] = await db.insert(plansTable).values({
+    userId,
+    version: newVersion,
+    phase: updatedProfile.goalMode,
+    calorieTarget: planResult.calorieTarget,
+    proteinG: planResult.proteinG,
+    carbsG: planResult.carbsG,
+    fatG: planResult.fatG,
+    tdeeEstimated: planResult.tdeeEstimated,
+    deficitSurplusKcal: planResult.deficitSurplusKcal,
+    bfEstimatePct: planResult.bfEstimatePct,
+    bfSource: planResult.bfSource,
+    trigger: "manual_edit",
+    active: true,
+  }).returning();
+
+  res.json({
+    id: newPlan.id,
+    version: newPlan.version,
+    phase: newPlan.phase,
+    calorieTarget: newPlan.calorieTarget,
+    proteinG: newPlan.proteinG,
+    carbsG: newPlan.carbsG,
+    fatG: newPlan.fatG,
+    tdeeEstimated: newPlan.tdeeEstimated,
+    deficitSurplusKcal: newPlan.deficitSurplusKcal,
+    bfEstimatePct: newPlan.bfEstimatePct,
+    bfSource: newPlan.bfSource,
+    goalMode: updatedProfile.goalMode,
+    weightKg: updatedProfile.weightKg,
+    targetWeightKg: updatedProfile.targetWeightKg,
+    weeklyExpectedChangeKg: planResult.weeklyExpectedChangeKg,
+    weeksEstimateLow: planResult.weeksEstimateLow,
+    weeksEstimateHigh: planResult.weeksEstimateHigh,
+    summaryText: planResult.summaryText,
+    trigger: newPlan.trigger,
+    active: newPlan.active,
+    createdAt: newPlan.createdAt.toISOString(),
+    profile: {
+      id: updatedProfile.id,
+      heightCm: updatedProfile.heightCm,
       weightKg: updatedProfile.weightKg,
       targetWeightKg: updatedProfile.targetWeightKg,
-      heightCm: updatedProfile.heightCm,
       age: updatedProfile.age,
       gender: updatedProfile.gender,
       goalMode: updatedProfile.goalMode,
       activityLevel: updatedProfile.activityLevel,
-    });
-
-    const [newPlan] = await db.insert(plansTable).values({
-      userId,
-      version: newVersion,
-      phase: updatedProfile.goalMode,
-      calorieTarget: planResult.calorieTarget,
-      proteinG: planResult.proteinG,
-      carbsG: planResult.carbsG,
-      fatG: planResult.fatG,
-      tdeeEstimated: planResult.tdeeEstimated,
-      deficitSurplusKcal: planResult.deficitSurplusKcal,
-      bfEstimatePct: planResult.bfEstimatePct,
-      bfSource: planResult.bfSource,
-      trigger: "manual_edit",
-      active: true,
-    }).returning();
-
-    res.json({
-      id: newPlan.id,
-      version: newPlan.version,
-      phase: newPlan.phase,
-      calorieTarget: newPlan.calorieTarget,
-      proteinG: newPlan.proteinG,
-      carbsG: newPlan.carbsG,
-      fatG: newPlan.fatG,
-      tdeeEstimated: newPlan.tdeeEstimated,
-      deficitSurplusKcal: newPlan.deficitSurplusKcal,
-      bfEstimatePct: newPlan.bfEstimatePct,
-      bfSource: newPlan.bfSource,
-      goalMode: updatedProfile.goalMode,
-      weightKg: updatedProfile.weightKg,
-      targetWeightKg: updatedProfile.targetWeightKg,
-      weeklyExpectedChangeKg: planResult.weeklyExpectedChangeKg,
-      weeksEstimateLow: planResult.weeksEstimateLow,
-      weeksEstimateHigh: planResult.weeksEstimateHigh,
-      summaryText: planResult.summaryText,
-      trigger: newPlan.trigger,
-      active: newPlan.active,
-      createdAt: newPlan.createdAt.toISOString(),
-      profile: {
-        id: updatedProfile.id,
-        heightCm: updatedProfile.heightCm,
-        weightKg: updatedProfile.weightKg,
-        targetWeightKg: updatedProfile.targetWeightKg,
-        age: updatedProfile.age,
-        gender: updatedProfile.gender,
-        goalMode: updatedProfile.goalMode,
-        activityLevel: updatedProfile.activityLevel,
-        trainingDays: updatedProfile.trainingDays,
-        trainingLocation: updatedProfile.trainingLocation,
-        dietaryPreferences: updatedProfile.dietaryPreferences as string[],
-        injuryFlags: updatedProfile.injuryFlags as string[],
-        goalOverride: updatedProfile.goalOverride,
-      },
-    });
-  } else {
-    const [activePlan] = await db.select()
-      .from(plansTable)
-      .where(and(eq(plansTable.userId, userId), eq(plansTable.active, true)))
-      .limit(1);
-
-    if (!activePlan) {
-      res.status(404).json({ error: "No active plan found" });
-      return;
-    }
-
-    const planResult = calculatePlan({
-      weightKg: updatedProfile.weightKg,
-      targetWeightKg: updatedProfile.targetWeightKg,
-      heightCm: updatedProfile.heightCm,
-      age: updatedProfile.age,
-      gender: updatedProfile.gender,
-      goalMode: updatedProfile.goalMode,
-      activityLevel: updatedProfile.activityLevel,
-    });
-
-    res.json({
-      id: activePlan.id,
-      version: activePlan.version,
-      phase: activePlan.phase,
-      calorieTarget: activePlan.calorieTarget,
-      proteinG: activePlan.proteinG,
-      carbsG: activePlan.carbsG,
-      fatG: activePlan.fatG,
-      tdeeEstimated: activePlan.tdeeEstimated,
-      deficitSurplusKcal: activePlan.deficitSurplusKcal,
-      bfEstimatePct: activePlan.bfEstimatePct,
-      bfSource: activePlan.bfSource,
-      goalMode: updatedProfile.goalMode,
-      weightKg: updatedProfile.weightKg,
-      targetWeightKg: updatedProfile.targetWeightKg,
-      weeklyExpectedChangeKg: planResult.weeklyExpectedChangeKg,
-      weeksEstimateLow: planResult.weeksEstimateLow,
-      weeksEstimateHigh: planResult.weeksEstimateHigh,
-      summaryText: planResult.summaryText,
-      trigger: activePlan.trigger,
-      active: activePlan.active,
-      createdAt: activePlan.createdAt.toISOString(),
-      profile: {
-        id: updatedProfile.id,
-        heightCm: updatedProfile.heightCm,
-        weightKg: updatedProfile.weightKg,
-        targetWeightKg: updatedProfile.targetWeightKg,
-        age: updatedProfile.age,
-        gender: updatedProfile.gender,
-        goalMode: updatedProfile.goalMode,
-        activityLevel: updatedProfile.activityLevel,
-        trainingDays: updatedProfile.trainingDays,
-        trainingLocation: updatedProfile.trainingLocation,
-        dietaryPreferences: updatedProfile.dietaryPreferences as string[],
-        injuryFlags: updatedProfile.injuryFlags as string[],
-        goalOverride: updatedProfile.goalOverride,
-      },
-    });
-  }
+      trainingDays: updatedProfile.trainingDays,
+      trainingLocation: updatedProfile.trainingLocation,
+      dietaryPreferences: updatedProfile.dietaryPreferences as string[],
+      injuryFlags: updatedProfile.injuryFlags as string[],
+      goalOverride: updatedProfile.goalOverride,
+    },
+  });
 });
 
 export default router;

@@ -26,8 +26,9 @@ export default function Signup() {
     signup.mutate(
       { email, password, passwordConfirm, fullName },
       {
-        onError: (err: any) => {
-          setError(err.data?.error || "Failed to create account");
+        onError: (err: unknown) => {
+          const apiErr = err as { data?: { error?: string } };
+          setError(apiErr.data?.error || "Failed to create account");
         }
       }
     );

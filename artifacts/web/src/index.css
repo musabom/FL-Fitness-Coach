@@ -4,7 +4,7 @@
 @theme inline {
   --font-sans: 'Inter', sans-serif;
   
-  --color-background: #0a0a0a;
+  --color-background: #0F0F0F;
   --color-foreground: #ffffff;
   
   --color-primary: #0D9E75;
@@ -34,7 +34,7 @@
 }
 
 :root {
-  --background: 0 0% 4%;
+  --background: 0 0% 6%;
   --foreground: 0 0% 100%;
 }
 

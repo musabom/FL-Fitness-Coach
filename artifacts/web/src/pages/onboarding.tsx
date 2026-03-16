@@ -7,6 +7,26 @@ import { OptionCard } from "@/components/OptionCard";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface OnboardingFormData {
+  heightCm: string;
+  weightKg: string;
+  targetWeightKg: string;
+  age: string;
+  gender: string;
+  goalMode: string;
+  activityLevel: string;
+  trainingDays: number;
+  trainingLocation: string;
+  dietaryPreferences: string[];
+  injuryFlags: string[];
+}
+
+interface GoalOption {
+  mode: string;
+  label: string;
+  description: string;
+}
+
 export default function Onboarding() {
   const { completeOnboarding, useGetAvailableGoals } = useProfile();
   const getGoalsMutation = useGetAvailableGoals();
@@ -14,7 +34,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const totalSteps = 11;
 
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<OnboardingFormData>({
     heightCm: "",
     weightKg: "",
     targetWeightKg: "",
@@ -28,7 +48,7 @@ export default function Onboarding() {
     injuryFlags: [],
   });
 
-  const [availableGoals, setAvailableGoals] = useState<any[]>([]);
+  const [availableGoals, setAvailableGoals] = useState<GoalOption[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(false);
 
   useEffect(() => {
@@ -38,7 +58,7 @@ export default function Onboarding() {
         { data: { currentWeightKg: Number(formData.weightKg), targetWeightKg: Number(formData.targetWeightKg) } },
         {
           onSuccess: (res) => {
-            setAvailableGoals(res.availableGoals);
+            setAvailableGoals(res.availableGoals as GoalOption[]);
             setGoalsLoading(false);
           },
           onError: () => {
@@ -58,39 +78,41 @@ export default function Onboarding() {
   };
 
   const submitForm = () => {
-    const payload = {
-      ...formData,
+    completeOnboarding.mutate({ data: {
       heightCm: Number(formData.heightCm),
       weightKg: Number(formData.weightKg),
       targetWeightKg: Number(formData.targetWeightKg),
       age: Number(formData.age),
-      dietaryPreferences: formData.dietaryPreferences.length === 0 ? ["none"] : formData.dietaryPreferences,
-      injuryFlags: formData.injuryFlags.length === 0 ? ["none"] : formData.injuryFlags,
-    };
-    
-    completeOnboarding.mutate({ data: payload });
+      gender: formData.gender as "male" | "female" | "prefer_not_to_say",
+      goalMode: formData.goalMode as "cut" | "recomposition" | "lean_bulk" | "maintenance",
+      activityLevel: formData.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
+      trainingDays: formData.trainingDays as 3 | 4 | 5 | 6,
+      trainingLocation: formData.trainingLocation as "gym" | "home" | "both",
+      dietaryPreferences: (formData.dietaryPreferences.length === 0 ? ["none"] : formData.dietaryPreferences) as ("none" | "vegetarian" | "vegan" | "halal" | "gluten_free" | "dairy_free")[],
+      injuryFlags: (formData.injuryFlags.length === 0 ? ["none"] : formData.injuryFlags) as ("none" | "knee" | "shoulder" | "lower_back")[],
+    } });
   };
 
   const isStepValid = () => {
     switch (step) {
-      case 1: return formData.heightCm > 0;
-      case 2: return formData.weightKg > 0;
-      case 3: return formData.targetWeightKg > 0;
-      case 4: return formData.age > 0;
+      case 1: return Number(formData.heightCm) > 0;
+      case 2: return Number(formData.weightKg) > 0;
+      case 3: return Number(formData.targetWeightKg) > 0;
+      case 4: return Number(formData.age) > 0;
       case 5: return formData.gender !== "";
       case 6: return formData.goalMode !== "";
       case 7: return formData.activityLevel !== "";
       case 8: return formData.trainingDays > 0;
       case 9: return formData.trainingLocation !== "";
-      case 10: return true; // checkboxes optional
-      case 11: return true; // checkboxes optional
+      case 10: return true;
+      case 11: return true;
       default: return false;
     }
   };
 
-  const toggleArrayItem = (field: string, value: string) => {
-    setFormData((prev: any) => {
-      const array = prev[field] as string[];
+  const toggleArrayItem = (field: "dietaryPreferences" | "injuryFlags", value: string) => {
+    setFormData((prev) => {
+      const array = prev[field];
       if (value === "none") {
         return { ...prev, [field]: ["none"] };
       }
@@ -101,7 +123,7 @@ export default function Onboarding() {
     });
   };
 
-  const renderStepContent = () => {
+  const renderStepContent = (): React.ReactNode => {
     switch (step) {
       case 1:
         return (
@@ -319,6 +341,8 @@ export default function Onboarding() {
             </div>
           </div>
         );
+      default:
+        return null;
     }
   };
 
@@ -333,7 +357,7 @@ export default function Onboarding() {
             <ChevronLeft className="w-5 h-5" />
           </button>
         ) : (
-          <div className="w-10 h-10" /> // Spacer
+          <div className="w-10 h-10" />
         )}
         <div className="flex-1">
           <Progress value={(step / totalSteps) * 100} />
