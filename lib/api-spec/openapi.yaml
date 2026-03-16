@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Body Composition Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: profile
+    description: User profile
+  - name: plan
+    description: Plan management
+  - name: goals
+    description: Goal filtering
 paths:
   /healthz:
     get:
@@ -24,6 +32,221 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/signup:
+    post:
+      operationId: signup
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Sign out
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /onboarding:
+    post:
+      operationId: completeOnboarding
+      tags: [profile]
+      summary: Complete onboarding questionnaire
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingBody"
+      responses:
+        "201":
+          description: Profile created and plan calculated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update profile and recalculate plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Profile updated and plan recalculated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /plan/active:
+    get:
+      operationId: getActivePlan
+      tags: [plan]
+      summary: Get the active plan
+      responses:
+        "200":
+          description: Active plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No active plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /goals/available:
+    post:
+      operationId: getAvailableGoals
+      tags: [goals]
+      summary: Get available goal modes based on weight gap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalFilterBody"
+      responses:
+        "200":
+          description: Available goals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableGoalsResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +256,340 @@ components:
           type: string
       required:
         - status
-
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+    SignupBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        passwordConfirm:
+          type: string
+          minLength: 8
+        fullName:
+          type: string
+      required:
+        - email
+        - password
+        - passwordConfirm
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        fullName:
+          type: ["string", "null"]
+        role:
+          type: string
+        hasProfile:
+          type: boolean
+      required:
+        - id
+        - email
+        - role
+        - hasProfile
+    MeResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        fullName:
+          type: ["string", "null"]
+        role:
+          type: string
+        hasProfile:
+          type: boolean
+      required:
+        - id
+        - email
+        - role
+        - hasProfile
+    OnboardingBody:
+      type: object
+      properties:
+        heightCm:
+          type: integer
+          minimum: 100
+          maximum: 250
+        weightKg:
+          type: number
+          minimum: 30
+          maximum: 300
+        targetWeightKg:
+          type: number
+          minimum: 30
+          maximum: 300
+        age:
+          type: integer
+          minimum: 16
+          maximum: 100
+        gender:
+          type: string
+          enum: [male, female, prefer_not_to_say]
+        goalMode:
+          type: string
+          enum: [recomposition, cut, lean_bulk, maintenance]
+        activityLevel:
+          type: string
+          enum: [sedentary, lightly_active, moderately_active, very_active]
+        trainingDays:
+          type: integer
+          enum: [3, 4, 5, 6]
+        trainingLocation:
+          type: string
+          enum: [gym, home, both]
+        dietaryPreferences:
+          type: array
+          items:
+            type: string
+            enum: [halal, vegetarian, vegan, gluten_free, dairy_free, none]
+        injuryFlags:
+          type: array
+          items:
+            type: string
+            enum: [knee, shoulder, lower_back, none]
+        goalOverride:
+          type: boolean
+      required:
+        - heightCm
+        - weightKg
+        - targetWeightKg
+        - age
+        - gender
+        - goalMode
+        - activityLevel
+        - trainingDays
+        - trainingLocation
+        - dietaryPreferences
+        - injuryFlags
+    UpdateProfileBody:
+      type: object
+      properties:
+        heightCm:
+          type: integer
+          minimum: 100
+          maximum: 250
+        weightKg:
+          type: number
+          minimum: 30
+          maximum: 300
+        targetWeightKg:
+          type: number
+          minimum: 30
+          maximum: 300
+        age:
+          type: integer
+          minimum: 16
+          maximum: 100
+        gender:
+          type: string
+          enum: [male, female, prefer_not_to_say]
+        goalMode:
+          type: string
+          enum: [recomposition, cut, lean_bulk, maintenance]
+        activityLevel:
+          type: string
+          enum: [sedentary, lightly_active, moderately_active, very_active]
+        trainingDays:
+          type: integer
+          enum: [3, 4, 5, 6]
+        trainingLocation:
+          type: string
+          enum: [gym, home, both]
+        dietaryPreferences:
+          type: array
+          items:
+            type: string
+            enum: [halal, vegetarian, vegan, gluten_free, dairy_free, none]
+        injuryFlags:
+          type: array
+          items:
+            type: string
+            enum: [knee, shoulder, lower_back, none]
+        goalOverride:
+          type: boolean
+    ProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        heightCm:
+          type: integer
+        weightKg:
+          type: number
+        targetWeightKg:
+          type: number
+        age:
+          type: integer
+        gender:
+          type: string
+        goalMode:
+          type: string
+        activityLevel:
+          type: string
+        trainingDays:
+          type: integer
+        trainingLocation:
+          type: string
+        dietaryPreferences:
+          type: array
+          items:
+            type: string
+        injuryFlags:
+          type: array
+          items:
+            type: string
+        goalOverride:
+          type: boolean
+      required:
+        - id
+        - heightCm
+        - weightKg
+        - targetWeightKg
+        - age
+        - gender
+        - goalMode
+        - activityLevel
+        - trainingDays
+        - trainingLocation
+        - dietaryPreferences
+        - injuryFlags
+        - goalOverride
+    PlanResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+        phase:
+          type: string
+        calorieTarget:
+          type: integer
+        proteinG:
+          type: integer
+        carbsG:
+          type: integer
+        fatG:
+          type: integer
+        tdeeEstimated:
+          type: integer
+        deficitSurplusKcal:
+          type: integer
+        bfEstimatePct:
+          type: ["number", "null"]
+        bfSource:
+          type: string
+        goalMode:
+          type: string
+        weightKg:
+          type: number
+        targetWeightKg:
+          type: number
+        weeklyExpectedChangeKg:
+          type: number
+        weeksEstimateLow:
+          type: ["integer", "null"]
+        weeksEstimateHigh:
+          type: ["integer", "null"]
+        summaryText:
+          type: string
+        trigger:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        profile:
+          $ref: "#/components/schemas/ProfileResponse"
+      required:
+        - id
+        - version
+        - phase
+        - calorieTarget
+        - proteinG
+        - carbsG
+        - fatG
+        - tdeeEstimated
+        - deficitSurplusKcal
+        - bfSource
+        - goalMode
+        - weightKg
+        - targetWeightKg
+        - weeklyExpectedChangeKg
+        - summaryText
+        - trigger
+        - active
+        - createdAt
+    GoalFilterBody:
+      type: object
+      properties:
+        currentWeightKg:
+          type: number
+          minimum: 30
+          maximum: 300
+        targetWeightKg:
+          type: number
+          minimum: 30
+          maximum: 300
+      required:
+        - currentWeightKg
+        - targetWeightKg
+    AvailableGoalsResponse:
+      type: object
+      properties:
+        availableGoals:
+          type: array
+          items:
+            type: object
+            properties:
+              mode:
+                type: string
+                enum: [recomposition, cut, lean_bulk, maintenance]
+              label:
+                type: string
+              description:
+                type: string
+            required:
+              - mode
+              - label
+              - description
+        weightGap:
+          type: number
+        validationError:
+          type: ["string", "null"]
+      required:
+        - availableGoals
+        - weightGap

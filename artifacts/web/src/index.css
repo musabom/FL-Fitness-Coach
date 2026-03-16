@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+  
+  --color-background: #0a0a0a;
+  --color-foreground: #ffffff;
+  
+  --color-primary: #0D9E75;
+  --color-primary-foreground: #ffffff;
+  
+  --color-card: #121212;
+  --color-card-border: #262626;
+  --color-card-foreground: #ffffff;
+  
+  --color-muted: #1f1f1f;
+  --color-muted-foreground: #a1a1aa;
+  
+  --color-border: #262626;
+  --color-input: #1a1a1a;
+  --color-ring: #0D9E75;
+  
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  
+  --color-warning: #f59e0b;
+  
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+:root {
+  --background: 0 0% 4%;
+  --foreground: 0 0% 100%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased font-sans selection:bg-primary/30 selection:text-primary-foreground;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Chrome, Safari, Edge, Opera - hide arrows on number inputs */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Firefox - hide arrows on number inputs */
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* Mobile container constraints for desktop view */
+.mobile-container {
+  @apply w-full max-w-[430px] mx-auto min-h-screen bg-background relative shadow-2xl shadow-black/50 border-x border-white/5;
+}

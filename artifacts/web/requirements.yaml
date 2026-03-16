@@ -1,0 +1,13 @@
+packages:
+  "framer-motion": "Smooth page transitions and progress bar animations"
+  "clsx": "Utility for constructing className strings"
+  "tailwind-merge": "Utility to resolve conflicting Tailwind classes"
+
+images:
+  - path: "artifacts/web/public/images/auth-bg.png"
+    description: "Abstract dark background with subtle deep teal geometric light leaks, minimalistic, clinical, high contrast, 4k"
+    aspect_ratio: "9:16"
+
+notes:
+  - "Assuming @workspace/api-client-react is correctly linked in package.json to provide the Orval hooks"
+  - "App is strictly mobile-first (max 430px wide)"
