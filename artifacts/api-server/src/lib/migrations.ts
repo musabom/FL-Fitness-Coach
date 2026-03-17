@@ -42,4 +42,17 @@ export async function runMigrations(): Promise<void> {
       UNIQUE (user_id, date, meal_id)
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS food_stock (
+      id          SERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      food_id     INTEGER NOT NULL,
+      food_source TEXT    NOT NULL DEFAULT 'database',
+      food_name   TEXT    NOT NULL,
+      quantity_g  NUMERIC(10,2) NOT NULL DEFAULT 0,
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, food_id, food_source)
+    )
+  `);
 }

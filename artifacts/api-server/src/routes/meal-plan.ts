@@ -255,12 +255,37 @@ router.post("/meal-plan/:entryId/complete", async (req, res): Promise<void> => {
 
   const { date, meal_id } = check.rows[0];
 
-  await pool.query(
+  const insertResult = await pool.query(
     `INSERT INTO meal_plan_completions (user_id, date, meal_id)
      VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, date, meal_id) DO NOTHING`,
+     ON CONFLICT (user_id, date, meal_id) DO NOTHING
+     RETURNING id`,
     [userId, date, meal_id]
   );
+
+  // Only deduct stock if this was a fresh completion (not a duplicate)
+  if (insertResult.rowCount && insertResult.rowCount > 0) {
+    const portionsRes = await pool.query(
+      `SELECT mp.food_id, mp.food_source, mp.quantity_g,
+              COALESCE(f.food_name, uf.food_name) AS food_name
+       FROM meal_portions mp
+       LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+       LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
+       WHERE mp.meal_id = $1`,
+      [meal_id]
+    );
+    for (const p of portionsRes.rows) {
+      await pool.query(
+        `INSERT INTO food_stock (user_id, food_id, food_source, food_name, quantity_g, updated_at)
+         VALUES ($1, $2, $3, $4, 0, NOW())
+         ON CONFLICT (user_id, food_id, food_source)
+         DO UPDATE SET
+           quantity_g = GREATEST(0, food_stock.quantity_g - $5),
+           updated_at = NOW()`,
+        [userId, p.food_id, p.food_source, p.food_name, Number(p.quantity_g)]
+      );
+    }
+  }
 
   res.json({ entry_id: entryId, completed: true });
 });
@@ -284,10 +309,28 @@ router.delete("/meal-plan/:entryId/complete", async (req, res): Promise<void> =>
 
   const { date, meal_id } = check.rows[0];
 
-  await pool.query(
-    "DELETE FROM meal_plan_completions WHERE user_id = $1 AND date = $2 AND meal_id = $3",
+  const deleteResult = await pool.query(
+    "DELETE FROM meal_plan_completions WHERE user_id = $1 AND date = $2 AND meal_id = $3 RETURNING id",
     [userId, date, meal_id]
   );
+
+  // Restore stock only if something was actually deleted
+  if (deleteResult.rowCount && deleteResult.rowCount > 0) {
+    const portionsRes = await pool.query(
+      `SELECT mp.food_id, mp.food_source, mp.quantity_g
+       FROM meal_portions mp
+       WHERE mp.meal_id = $1`,
+      [meal_id]
+    );
+    for (const p of portionsRes.rows) {
+      await pool.query(
+        `UPDATE food_stock
+         SET quantity_g = quantity_g + $1, updated_at = NOW()
+         WHERE user_id = $2 AND food_id = $3 AND food_source = $4`,
+        [Number(p.quantity_g), userId, p.food_id, p.food_source]
+      );
+    }
+  }
 
   res.json({ entry_id: entryId, completed: false });
 });
