@@ -35,7 +35,7 @@ router.get("/foods/search", async (req, res): Promise<void> => {
     sql += ` AND food_group = $${params.length}`;
   }
 
-  sql += " ORDER BY food_name, cooking_method LIMIT 20";
+  sql += " ORDER BY food_name, cooking_method LIMIT 500";
 
   const result = await pool.query(sql, params);
   const foods = result.rows.map(row => ({
