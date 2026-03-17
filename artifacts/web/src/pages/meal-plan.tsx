@@ -12,17 +12,25 @@ import { usePlan } from "@/hooks/use-plan";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
-// ── Date helpers ───────────────────────────────────────────────────────────────
+// ── Date helpers (Muscat timezone: UTC+4) ──────────────────────────────────
+
+function getTodayMuscat() {
+  const now = new Date();
+  const muscatDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Muscat" }));
+  return muscatDate.toISOString().slice(0, 10);
+}
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Convert to Muscat timezone
+  const muscatDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Muscat" }));
+  return muscatDate.toISOString().slice(0, 10);
 }
 
 function formatDisplay(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
-  const today = toDateStr(new Date());
-  const yesterday = toDateStr(new Date(Date.now() - 86400000));
-  const tomorrow = toDateStr(new Date(Date.now() + 86400000));
+  const today = getTodayMuscat();
+  const yesterday = offsetDate(today, -1);
+  const tomorrow = offsetDate(today, 1);
   if (dateStr === today) return "Today";
   if (dateStr === yesterday) return "Yesterday";
   if (dateStr === tomorrow) return "Tomorrow";
@@ -376,11 +384,11 @@ function AddMealSheet({
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function MealPlan() {
-  const [date, setDate] = useState(toDateStr(new Date()));
+  const [date, setDate] = useState(getTodayMuscat());
   const [showSheet, setShowSheet] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const queryClient = useQueryClient();
-  const today = toDateStr(new Date());
+  const today = getTodayMuscat();
 
   const { data: dayPlan, isLoading } = useQuery<DayPlan>({
     queryKey: ["meal-plan", date],
