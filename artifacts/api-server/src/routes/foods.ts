@@ -38,7 +38,21 @@ router.get("/foods/search", async (req, res): Promise<void> => {
   sql += " ORDER BY food_name, cooking_method LIMIT 20";
 
   const result = await pool.query(sql, params);
-  res.json(result.rows);
+  const foods = result.rows.map(row => ({
+    id: row.id,
+    food_name: row.food_name,
+    food_group: row.food_group,
+    cooking_method: row.cooking_method,
+    serving_unit: row.serving_unit,
+    serving_weight_g: Number(row.serving_weight_g),
+    calories: Number(row.calories),
+    protein_g: Number(row.protein_g),
+    carbs_g: Number(row.carbs_g),
+    fat_g: Number(row.fat_g),
+    leucine_g: Number(row.leucine_g),
+    dietary_tags: row.dietary_tags,
+  }));
+  res.json(foods);
 });
 
 export default router;

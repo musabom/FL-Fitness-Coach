@@ -152,7 +152,7 @@ function FoodSearchSheet({
           </button>
         </div>
 
-        <div className="px-5 pt-4 shrink-0">
+        <div className="px-5 py-3 shrink-0 border-b border-border/50">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -165,7 +165,7 @@ function FoodSearchSheet({
           </div>
         </div>
 
-        {/* Results list */}
+        {/* Results list - scrollable below search */}
         {!selected && (
           <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
             {isFetching && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>}
@@ -182,15 +182,31 @@ function FoodSearchSheet({
                   onClick={() => { setSelected(food); setQty(""); }}
                   className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] active:scale-[0.99] transition-all border border-border/50"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex-1">
                       <div className="font-medium text-sm">{food.food_name}</div>
                       <div className="text-xs text-muted-foreground capitalize mt-0.5">{food.cooking_method.replace(/_/g, " ")}</div>
                     </div>
                     <div className="text-right text-xs text-muted-foreground ml-4 shrink-0">
-                      <div className="text-foreground font-medium">{Math.round(food.calories)} kcal</div>
-                      <div>{food.protein_g}g protein</div>
-                      <div className="text-muted-foreground/60">{food.serving_unit === "per_piece" ? "per piece" : "per 100g"}</div>
+                      <div className="grid grid-cols-4 gap-2 text-foreground font-medium">
+                        <div className="flex flex-col items-center">
+                          <div className="text-xs">{Math.round(food.calories)}</div>
+                          <div className="text-[10px] text-muted-foreground">Cal</div>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <div className="text-xs">{food.protein_g.toFixed(1)}</div>
+                          <div className="text-[10px] text-muted-foreground">P</div>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <div className="text-xs">{food.carbs_g.toFixed(1)}</div>
+                          <div className="text-[10px] text-muted-foreground">C</div>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <div className="text-xs">{food.fat_g.toFixed(1)}</div>
+                          <div className="text-[10px] text-muted-foreground">F</div>
+                        </div>
+                      </div>
+                      <div className="text-muted-foreground/60 text-xs mt-1">{food.serving_unit === "per_piece" ? "per piece" : "per 100g"}</div>
                     </div>
                   </div>
                 </button>
@@ -595,21 +611,6 @@ export default function NutritionMeals() {
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        )}
-
-        {/* Daily progress bars */}
-        {targets && totals ? (
-          <Card className="p-4 border-border/50 bg-[#141414] space-y-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Today's Progress</div>
-            <MacroBar label="Calories" current={totals.calories} target={targets.calorie_target} unit="kcal" />
-            <MacroBar label="Protein" current={totals.protein_g} target={targets.protein_g} unit="g" />
-            <MacroBar label="Carbs" current={totals.carbs_g} target={targets.carbs_g} unit="g" />
-            <MacroBar label="Fat" current={totals.fat_g} target={targets.fat_g} unit="g" />
-          </Card>
-        ) : (
-          <Card className="p-4 border-border/50 bg-[#141414]">
-            <p className="text-xs text-muted-foreground text-center">Complete your profile to see progress bars</p>
-          </Card>
         )}
 
         {/* Meal cards */}
