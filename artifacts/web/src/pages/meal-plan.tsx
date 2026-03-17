@@ -197,8 +197,9 @@ function AddMealSheet({
 }) {
   const { data: meals = [], isLoading, error } = useQuery<LibraryMeal[]>({
     queryKey: ["meals"],
-    queryFn: () => customFetch(`${BASE}/meals`).then((r) => r.json()),
+    queryFn: () => customFetch<LibraryMeal[]>(`${BASE}/meals`),
     staleTime: 0,
+    retry: 1,
   });
 
   return (
@@ -282,25 +283,18 @@ export default function MealPlan() {
 
   const { data: dayPlan, isLoading } = useQuery<DayPlan>({
     queryKey: ["meal-plan", date],
-    queryFn: () => customFetch(`${BASE}/meal-plan?date=${date}`).then((r) => r.json()),
+    queryFn: () => customFetch<DayPlan>(`${BASE}/meal-plan?date=${date}`),
   });
 
   const addMutation = useMutation({
     mutationFn: (mealId: number) =>
       customFetch(`${BASE}/meal-plan`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date, meal_id: mealId }),
-      }).then((r) => {
-        if (!r.ok) throw new Error(`Failed to add meal: ${r.statusText}`);
-        return r.json();
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meal-plan", date] });
       setShowSheet(false);
-    },
-    onError: () => {
-      console.error("Failed to add meal");
     },
   });
 
