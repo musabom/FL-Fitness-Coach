@@ -349,6 +349,17 @@ export default function MealPlan() {
   const existingMealIds = useMemo(() => new Set(entries.map((e) => e.meal?.id ?? -1)), [entries]);
 
   const completedCount = entries.filter((e) => e.completed).length;
+  
+  // Calculate totals for completed meals only
+  const completedTotals = useMemo(() => {
+    const completed = entries.filter((e) => e.completed);
+    return {
+      calories: completed.reduce((sum, e) => sum + (e.meal?.calories ?? 0), 0),
+      protein_g: completed.reduce((sum, e) => sum + (e.meal?.protein_g ?? 0), 0),
+      carbs_g: completed.reduce((sum, e) => sum + (e.meal?.carbs_g ?? 0), 0),
+      fat_g: completed.reduce((sum, e) => sum + (e.meal?.fat_g ?? 0), 0),
+    };
+  }, [entries]);
 
   return (
     <div className="mobile-container flex flex-col bg-background min-h-screen">
@@ -411,7 +422,8 @@ export default function MealPlan() {
 
         {/* Target progress bars */}
         {plan && (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
+            {/* Calories */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Calories</span>
@@ -419,13 +431,21 @@ export default function MealPlan() {
                   {Math.round(dailyTotals.calories)} / {plan.calorieTarget} kcal
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full bg-primary transition-all"
                   style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }}
                 />
               </div>
+              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary/50 transition-all"
+                  style={{ width: `${Math.min((completedTotals.calories / plan.calorieTarget) * 100, 100)}%` }}
+                />
+              </div>
             </div>
+            
+            {/* Protein */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Protein</span>
@@ -433,13 +453,21 @@ export default function MealPlan() {
                   {Math.round(dailyTotals.protein_g)} / {plan.proteinG}g
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full bg-blue-500 transition-all"
                   style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }}
                 />
               </div>
+              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500/50 transition-all"
+                  style={{ width: `${Math.min((completedTotals.protein_g / plan.proteinG) * 100, 100)}%` }}
+                />
+              </div>
             </div>
+            
+            {/* Carbs */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Carbs</span>
@@ -447,13 +475,21 @@ export default function MealPlan() {
                   {Math.round(dailyTotals.carbs_g)} / {plan.carbsG}g
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full bg-amber-400 transition-all"
                   style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }}
                 />
               </div>
+              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-400/50 transition-all"
+                  style={{ width: `${Math.min((completedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }}
+                />
+              </div>
             </div>
+            
+            {/* Fat */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Fat</span>
@@ -461,10 +497,16 @@ export default function MealPlan() {
                   {Math.round(dailyTotals.fat_g)} / {plan.fatG}g
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full bg-yellow-400 transition-all"
                   style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-yellow-400/50 transition-all"
+                  style={{ width: `${Math.min((completedTotals.fat_g / plan.fatG) * 100, 100)}%` }}
                 />
               </div>
             </div>
