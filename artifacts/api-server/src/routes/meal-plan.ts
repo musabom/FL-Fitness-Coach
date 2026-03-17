@@ -95,8 +95,13 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     return;
   }
 
+  // Get day of week for scheduled_days lookup (lowercase, e.g., "monday")
+  const d = new Date(dateStr + "T00:00:00");
+  const dayOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
+
+  // Fetch explicitly added meals from meal_plan_entries
   const entriesRes = await pool.query(
-    `SELECT mpe.id AS entry_id, mpe.meal_id,
+    `SELECT mpe.id AS entry_id, mpe.meal_id, true AS is_scheduled,
        (SELECT completed_at FROM meal_plan_completions mpc
         WHERE mpc.user_id = $1 AND mpc.date = $2 AND mpc.meal_id = mpe.meal_id
         LIMIT 1) AS completed_at
@@ -106,11 +111,41 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     [userId, dateStr]
   );
 
+  // Fetch meals scheduled for this day of week (that aren't already in meal_plan_entries)
+  const scheduledRes = await pool.query(
+    `SELECT DISTINCT ms.meal_id
+     FROM meal_schedule ms
+     WHERE ms.user_id = $1 
+       AND ms.day_of_week = $2
+       AND NOT EXISTS (
+         SELECT 1 FROM meal_plan_entries mpe 
+         WHERE mpe.user_id = $1 AND mpe.date = $3 AND mpe.meal_id = ms.meal_id
+       )
+     ORDER BY ms.meal_id`,
+    [userId, dayOfWeek, dateStr]
+  );
+
+  // Combine both sets of meal IDs
+  const allMealIds = [
+    ...entriesRes.rows.map(row => ({ 
+      entry_id: row.entry_id, 
+      meal_id: row.meal_id, 
+      completed_at: row.completed_at,
+      is_scheduled: row.is_scheduled 
+    })),
+    ...scheduledRes.rows.map(row => ({ 
+      entry_id: null, 
+      meal_id: row.meal_id, 
+      completed_at: null,
+      is_scheduled: row.is_scheduled 
+    })),
+  ];
+
   const entries = await Promise.all(
-    entriesRes.rows.map(async (row) => {
+    allMealIds.map(async (row) => {
       const meal = await getMealSummary(row.meal_id);
       return {
-        entry_id: row.entry_id,
+        entry_id: row.entry_id ?? 0, // Scheduled meals don't have explicit entries yet
         meal,
         completed: row.completed_at !== null,
         completed_at: row.completed_at ?? null,
