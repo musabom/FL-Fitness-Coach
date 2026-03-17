@@ -18,6 +18,13 @@ interface AuthUser {
 
 const AUTH_KEY = ["auth", "me"];
 
+// DEVELOPMENT MODE: Auto-login disabled authentication
+// Set to false to require manual login
+const AUTO_LOGIN_ENABLED = true;
+const AUTO_LOGIN_EMAIL = "test@example.com";
+const AUTO_LOGIN_PASSWORD = "Password123";
+let autoLoginAttempted = false;
+
 export function useAuth() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -29,6 +36,24 @@ export function useAuth() {
         return await customFetch<AuthUser>("/api/auth/me");
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
+          // Auto-login if enabled and not already attempted
+          if (AUTO_LOGIN_ENABLED && !autoLoginAttempted) {
+            autoLoginAttempted = true;
+            try {
+              const loginResult = await customFetch<AuthUser>("/api/auth/login", {
+                method: "POST",
+                body: JSON.stringify({
+                  email: AUTO_LOGIN_EMAIL,
+                  password: AUTO_LOGIN_PASSWORD,
+                }),
+                headers: { "Content-Type": "application/json" },
+              });
+              return loginResult;
+            } catch (loginError) {
+              console.warn("Auto-login failed:", loginError);
+              return null;
+            }
+          }
           return null;
         }
         throw e;
@@ -50,6 +75,7 @@ export function useAuth() {
       });
     },
     onSuccess: (data) => {
+      autoLoginAttempted = true;
       queryClient.setQueryData(AUTH_KEY, data);
       queryClient.invalidateQueries({ queryKey: getGetActivePlanQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
