@@ -38,6 +38,7 @@ function StockEditor({
   const [val, setVal] = useState(String(Math.round(item.stock_g)));
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const ispiece = item.serving_unit === "per_piece";
 
   useEffect(() => {
     setVal(String(Math.round(item.stock_g)));
@@ -78,7 +79,7 @@ function StockEditor({
           ref={inputRef}
           type="number"
           min="0"
-          step="10"
+          step={ispiece ? "1" : "10"}
           className="h-7 w-24 text-sm px-2"
           value={val}
           onChange={e => setVal(e.target.value)}
@@ -87,7 +88,7 @@ function StockEditor({
             if (e.key === "Escape") { setEditing(false); setVal(String(Math.round(item.stock_g))); }
           }}
         />
-        <span className="text-xs text-muted-foreground">g</span>
+        <span className="text-xs text-muted-foreground">{ispiece ? "pc" : "g"}</span>
         <button
           onClick={save}
           disabled={saveMutation.isPending}
@@ -111,7 +112,7 @@ function StockEditor({
       className="flex items-center gap-1 text-sm tabular-nums text-muted-foreground hover:text-foreground transition-colors group"
     >
       <span className={item.stock_g > 0 ? "text-primary font-medium" : ""}>
-        {Math.round(item.stock_g)}g
+        {Math.round(item.stock_g)}{ispiece ? "pc" : "g"}
       </span>
       <Edit3 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
     </button>
@@ -123,7 +124,8 @@ function StockEditor({
 function ItemCard({ item }: { item: ShoppingItem }) {
   const [expanded, setExpanded] = useState(false);
   const queryClient = useQueryClient();
-  const stockPct = item.weekly_g > 0 ? Math.min((item.stock_g / item.weekly_g) * 100, 100) : 100;
+  const ispiece = item.serving_unit === "per_piece";
+  const stockPct = item.weekly_quantity > 0 ? Math.min((item.stock_g / item.weekly_quantity) * 100, 100) : 100;
   const sufficient = item.needed_g === 0;
 
   return (
@@ -153,7 +155,7 @@ function ItemCard({ item }: { item: ShoppingItem }) {
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>Stock</span>
               <span className={sufficient ? "text-primary" : "text-amber-500"}>
-                {sufficient ? "Sufficient" : `Need ${Math.round(item.needed_g)}g more`}
+                {sufficient ? "Sufficient" : `Need ${Math.round(item.needed_g)}${ispiece ? "pc" : "g"} more`}
               </span>
             </div>
             <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
