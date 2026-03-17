@@ -1,0 +1,97 @@
+This is part of an existing project. Do not change anything already working. Run these SQL updates on the foods table only.
+sql-- Banana: 1 medium = 118g
+UPDATE foods
+SET serving_unit = 'per_piece',
+    serving_weight_g = 118.0,
+    calories = 105.0,
+    protein_g = 1.29,
+    carbs_g = 26.95,
+    fat_g = 0.39,
+    fibre_g = 3.07,
+    sugar_g = 14.43,
+    sodium_mg = 1.0,
+    leucine_g = 0.080,
+    notes = '1 medium banana = 118g'
+WHERE food_name = 'Banana';
+
+-- Apple: 1 medium = 182g
+UPDATE foods
+SET serving_unit = 'per_piece',
+    serving_weight_g = 182.0,
+    calories = 95.0,
+    protein_g = 0.47,
+    carbs_g = 25.13,
+    fat_g = 0.31,
+    fibre_g = 4.37,
+    sugar_g = 18.91,
+    sodium_mg = 2.0,
+    leucine_g = 0.024,
+    notes = '1 medium apple with skin = 182g'
+WHERE food_name = 'Apple';
+
+-- Orange: 1 medium = 131g
+UPDATE foods
+SET serving_unit = 'per_piece',
+    serving_weight_g = 131.0,
+    calories = 62.0,
+    protein_g = 1.23,
+    carbs_g = 15.39,
+    fat_g = 0.16,
+    fibre_g = 3.14,
+    sugar_g = 12.25,
+    sodium_mg = 0.0,
+    leucine_g = 0.030,
+    notes = '1 medium orange = 131g'
+WHERE food_name = 'Orange';
+
+-- Bread White: 1 slice = 28g
+UPDATE foods
+SET serving_unit = 'per_piece',
+    serving_weight_g = 28.0,
+    calories = 74.0,
+    protein_g = 2.48,
+    carbs_g = 13.78,
+    fat_g = 1.01,
+    fibre_g = 0.64,
+    sugar_g = 1.49,
+    sodium_mg = 126.0,
+    leucine_g = 0.162,
+    notes = '1 regular slice white bread = 28g'
+WHERE food_name = 'Bread White';
+
+-- Bread Wholegrain: 1 slice = 36g
+UPDATE foods
+SET serving_unit = 'per_piece',
+    serving_weight_g = 36.0,
+    calories = 91.0,
+    protein_g = 4.43,
+    carbs_g = 15.51,
+    fat_g = 1.28,
+    fibre_g = 2.16,
+    sugar_g = 1.59,
+    sodium_mg = 155.0,
+    leucine_g = 0.288,
+    notes = '1 regular slice wholegrain bread = 36g'
+WHERE food_name = 'Bread Wholegrain';
+
+-- Garlic: 1 clove = 3g
+UPDATE foods
+SET serving_unit = 'per_piece',
+    serving_weight_g = 3.0,
+    calories = 4.5,
+    protein_g = 0.19,
+    carbs_g = 0.99,
+    fat_g = 0.02,
+    fibre_g = 0.06,
+    sugar_g = 0.03,
+    sodium_mg = 0.5,
+    leucine_g = 0.001,
+    notes = '1 clove garlic = 3g'
+WHERE food_name = 'Garlic';
+
+-- Verify all per_piece foods
+SELECT food_name, cooking_method, serving_unit,
+       serving_weight_g, calories, protein_g
+FROM foods
+WHERE serving_unit = 'per_piece'
+ORDER BY food_name, cooking_method;
