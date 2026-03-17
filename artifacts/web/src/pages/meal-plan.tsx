@@ -319,10 +319,21 @@ export default function MealPlan() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: ({ entryId, completed }: { entryId: number; completed: boolean }) =>
-      customFetch(`${BASE}/meal-plan/${entryId}/complete`, {
+    mutationFn: async ({ entryId, mealId, completed }: { entryId: number; mealId?: number; completed: boolean }) => {
+      // If this is a scheduled meal (entry_id = 0), first create the meal_plan_entry
+      let actualEntryId = entryId;
+      if (entryId === 0 && mealId) {
+        const addRes = await customFetch<{ entry_id: number }>(`${BASE}/meal-plan`, {
+          method: "POST",
+          body: JSON.stringify({ date, meal_id: mealId }),
+        });
+        actualEntryId = addRes.entry_id;
+      }
+      // Then mark it complete/incomplete
+      return customFetch(`${BASE}/meal-plan/${actualEntryId}/complete`, {
         method: completed ? "DELETE" : "POST",
-      }),
+      });
+    },
     onMutate: async ({ entryId, completed }) => {
       await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
       const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
@@ -330,7 +341,7 @@ export default function MealPlan() {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
           ...prev,
           entries: prev.entries.map((e) =>
-            e.entry_id === entryId
+            e.entry_id === entryId || (entryId === 0 && e.entry_id === 0)
               ? { ...e, completed: !completed, completed_at: completed ? null : new Date().toISOString() }
               : e
           ),
@@ -559,7 +570,7 @@ export default function MealPlan() {
             date={date}
             onRemove={() => removeMutation.mutate(entry.entry_id)}
             onToggleComplete={() =>
-              completeMutation.mutate({ entryId: entry.entry_id, completed: entry.completed })
+              completeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, completed: entry.completed })
             }
           />
         ))}
