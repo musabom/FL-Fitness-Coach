@@ -26,8 +26,7 @@ export const SignupBody = zod.object({
   email: zod.string().email(),
   password: zod.string().min(signupBodyPasswordMin),
   passwordConfirm: zod.string().min(signupBodyPasswordConfirmMin),
-  firstName: zod.string().optional(),
-  lastName: zod.string().optional(),
+  fullName: zod.string().optional(),
 });
 
 /**
@@ -41,8 +40,7 @@ export const LoginBody = zod.object({
 export const LoginResponse = zod.object({
   id: zod.number(),
   email: zod.string(),
-  firstName: zod.string().nullish(),
-  lastName: zod.string().nullish(),
+  fullName: zod.string().nullish(),
   role: zod.string(),
   hasProfile: zod.boolean(),
 });
@@ -60,8 +58,7 @@ export const LogoutResponse = zod.object({
 export const GetMeResponse = zod.object({
   id: zod.number(),
   email: zod.string(),
-  firstName: zod.string().nullish(),
-  lastName: zod.string().nullish(),
+  fullName: zod.string().nullish(),
   role: zod.string(),
   hasProfile: zod.boolean(),
 });
@@ -98,13 +95,33 @@ export const CompleteOnboardingBody = zod.object({
     .number()
     .min(completeOnboardingBodyAgeMin)
     .max(completeOnboardingBodyAgeMax),
-  gender: zod.enum(["male", "female"]),
-  goalMode: zod.enum(["cut", "recomposition", "lean_bulk", "maintenance"]),
-  activityLevel: zod.enum(["sedentary", "lightly_active", "moderately_active", "very_active"]),
-  trainingDays: zod.union([zod.literal(3), zod.literal(4), zod.literal(5), zod.literal(6)]).optional().default(3),
-  trainingLocation: zod.enum(["gym", "home", "both"]).optional().default("gym"),
-  dietaryPreferences: zod.array(zod.string()).optional().default(["none"]),
-  injuryFlags: zod.array(zod.string()).optional().default(["none"]),
+  gender: zod.enum(["male", "female", "prefer_not_to_say"]),
+  goalMode: zod.enum(["recomposition", "cut", "lean_bulk", "maintenance"]),
+  activityLevel: zod.enum([
+    "sedentary",
+    "lightly_active",
+    "moderately_active",
+    "very_active",
+  ]),
+  trainingDays: zod.union([
+    zod.literal(3),
+    zod.literal(4),
+    zod.literal(5),
+    zod.literal(6),
+  ]),
+  trainingLocation: zod.enum(["gym", "home", "both"]),
+  dietaryPreferences: zod.array(
+    zod.enum([
+      "halal",
+      "vegetarian",
+      "vegan",
+      "gluten_free",
+      "dairy_free",
+      "none",
+    ]),
+  ),
+  injuryFlags: zod.array(zod.enum(["knee", "shoulder", "lower_back", "none"])),
+  goalOverride: zod.boolean().optional(),
 });
 
 /**

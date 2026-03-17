@@ -12,5 +12,5 @@ export interface SignupBody {
   password: string;
   /** @minLength 8 */
   passwordConfirm: string;
-  firstName?: string;
+  fullName?: string;
 }

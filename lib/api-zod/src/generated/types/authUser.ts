@@ -10,7 +10,7 @@ export interface AuthUser {
   id: number;
   email: string;
   /** @nullable */
-  firstName?: string | null;
+  fullName?: string | null;
   role: string;
   hasProfile: boolean;
 }
