@@ -669,6 +669,7 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(meal.meal_name);
   const [showSearch, setShowSearch] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const renameMutation = useMutation({
     mutationFn: (name: string) =>
@@ -730,11 +731,17 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
             </div>
           ) : (
             <button
-              onClick={() => setEditingName(true)}
-              className="font-semibold text-left hover:text-primary transition-colors flex items-center gap-1.5"
+              onClick={() => setExpanded(!expanded)}
+              className="font-semibold text-left hover:text-primary transition-colors flex items-center gap-1.5 flex-1"
             >
               {meal.meal_name}
-              <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+              <Pencil 
+                className="w-3 h-3 text-muted-foreground cursor-pointer hover:text-primary" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setEditingName(true); 
+                }} 
+              />
             </button>
           )}
 
@@ -765,21 +772,33 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
           ))}
         </div>
 
-        {/* Portions list */}
-        <div className="px-4 py-1">
-          {meal.portions.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">No foods added yet</p>
-          )}
-          {meal.portions.map(portion => (
-            <PortionRow
-              key={portion.id}
-              portion={portion}
-              mealId={meal.id}
-              onDelete={onRefresh}
-              onUpdated={onRefresh}
-            />
-          ))}
-        </div>
+        {/* Portions list (collapsible) */}
+        {expanded && (
+          <div className="px-4 py-1 border-t border-border/30">
+            {meal.portions.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">No foods added yet</p>
+            )}
+            {meal.portions.map(portion => (
+              <PortionRow
+                key={portion.id}
+                portion={portion}
+                mealId={meal.id}
+                onDelete={onRefresh}
+                onUpdated={onRefresh}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Tap to expand hint if collapsed */}
+        {!expanded && meal.portions.length > 0 && (
+          <button
+            onClick={() => setExpanded(true)}
+            className="w-full text-center text-[10px] text-muted-foreground/50 py-2 hover:text-muted-foreground transition-colors border-t border-border/30"
+          >
+            {meal.portions.length} food{meal.portions.length !== 1 ? "s" : ""} · tap to view
+          </button>
+        )}
 
         {/* Add portion button */}
         <div className="px-4 pb-3">
