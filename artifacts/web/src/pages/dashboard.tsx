@@ -1,7 +1,7 @@
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
-import { Settings, LogOut, Loader2, ChevronRight, UtensilsCrossed } from "lucide-react";
+import { Settings, LogOut, Loader2, ChevronRight, UtensilsCrossed, CalendarDays } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -139,8 +139,8 @@ export default function Dashboard() {
           </Card>
         </section>
 
-        {/* Meal Builder link */}
-        <section>
+        {/* Nutrition links */}
+        <section className="space-y-3">
           <Link href="/nutrition/meals">
             <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -148,7 +148,19 @@ export default function Dashboard() {
               </div>
               <div className="flex-1">
                 <div className="font-semibold text-sm">Meal Builder</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Plan your daily nutrition</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Create and manage your meals</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </Card>
+          </Link>
+          <Link href="/nutrition/meal-plan">
+            <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-sm">Meal Plan</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Track meals day by day</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>

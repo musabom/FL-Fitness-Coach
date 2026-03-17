@@ -6,6 +6,7 @@ import planRouter from "./plan";
 import goalsRouter from "./goals";
 import foodsRouter from "./foods";
 import mealsRouter from "./meals";
+import mealPlanRouter from "./meal-plan";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(planRouter);
 router.use(goalsRouter);
 router.use(foodsRouter);
 router.use(mealsRouter);
+router.use(mealPlanRouter);
 
 export default router;
