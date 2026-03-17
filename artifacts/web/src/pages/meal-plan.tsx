@@ -94,6 +94,93 @@ function MacroPill({ label, value, unit, accent = false }: { label: string; valu
   );
 }
 
+// ── Calendar picker ───────────────────────────────────────────────────────────
+
+function CalendarPicker({ selectedDate, onSelectDate, onClose }: { selectedDate: string; onSelectDate: (date: string) => void; onClose: () => void }) {
+  const [calendarDate, setCalendarDate] = useState(selectedDate);
+  const [year, month, day] = calendarDate.split("-").map(Number);
+  const d = new Date(year, month - 1, 1);
+  
+  const monthName = d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const firstDay = d.getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  
+  const days: (number | null)[] = [];
+  for (let i = firstDay - 1; i >= 0; i--) {
+    days.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(i);
+  }
+  
+  const handleDateClick = (dayNum: number) => {
+    const newDate = `${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+    onSelectDate(newDate);
+    onClose();
+  };
+  
+  const handlePrevMonth = () => {
+    const prev = new Date(year, month - 2, 1);
+    setCalendarDate(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-01`);
+  };
+  
+  const handleNextMonth = () => {
+    const next = new Date(year, month, 1);
+    setCalendarDate(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`);
+  };
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ maxWidth: 430, margin: "0 auto" }}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      
+      {/* Calendar sheet */}
+      <div className="relative bg-[#111111] border-t border-border/40 rounded-t-2xl w-full">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+          <button onClick={handlePrevMonth} className="p-2 hover:bg-muted rounded-lg">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <h3 className="font-semibold text-sm">{monthName}</h3>
+          <button onClick={handleNextMonth} className="p-2 hover:bg-muted rounded-lg">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        
+        {/* Days of week */}
+        <div className="px-5 pt-3 pb-1 grid grid-cols-7 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+            <div key={day} className="text-center py-1">{day}</div>
+          ))}
+        </div>
+        
+        {/* Days grid */}
+        <div className="px-5 pb-4 grid grid-cols-7 gap-1">
+          {days.map((dayNum, idx) => {
+            const isSelected = dayNum && `${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` === selectedDate;
+            return (
+              <button
+                key={idx}
+                onClick={() => dayNum && handleDateClick(dayNum)}
+                disabled={!dayNum}
+                className={`aspect-square rounded-lg text-sm font-medium transition-colors ${
+                  !dayNum
+                    ? "text-muted-foreground/20 cursor-default"
+                    : isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                {dayNum}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Meal card ──────────────────────────────────────────────────────────────────
 
 function MealCard({
@@ -291,6 +378,7 @@ function AddMealSheet({
 export default function MealPlan() {
   const [date, setDate] = useState(toDateStr(new Date()));
   const [showSheet, setShowSheet] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const queryClient = useQueryClient();
   const today = toDateStr(new Date());
 
@@ -434,12 +522,15 @@ export default function MealPlan() {
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <div className="text-center">
+        <button
+          onClick={() => setShowCalendar(true)}
+          className="text-center hover:opacity-70 transition-opacity flex-1"
+        >
           <p className="font-semibold text-base">{formatDisplay(date)}</p>
           <p className="text-xs text-muted-foreground">
             {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </p>
-        </div>
+        </button>
 
         <button
           onClick={() => setDate(offsetDate(date, 1))}
@@ -623,6 +714,14 @@ export default function MealPlan() {
           onClose={() => setShowSheet(false)}
           onAdd={(mealId) => addMutation.mutate(mealId)}
           isAdding={addMutation.isPending}
+        />
+      )}
+
+      {showCalendar && (
+        <CalendarPicker
+          selectedDate={date}
+          onSelectDate={setDate}
+          onClose={() => setShowCalendar(false)}
         />
       )}
     </div>
