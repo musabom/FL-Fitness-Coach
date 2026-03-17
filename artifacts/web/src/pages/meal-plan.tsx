@@ -16,14 +16,25 @@ const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
 function getTodayMuscat() {
   const now = new Date();
-  const muscatDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Muscat" }));
-  return muscatDate.toISOString().slice(0, 10);
+  // Muscat is UTC+4
+  const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+  const muscatTime = new Date(utcTime + 4 * 3600000);
+  
+  const year = muscatTime.getUTCFullYear();
+  const month = String(muscatTime.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(muscatTime.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function toDateStr(d: Date) {
-  // Convert to Muscat timezone
-  const muscatDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Muscat" }));
-  return muscatDate.toISOString().slice(0, 10);
+  // Convert to Muscat timezone (UTC+4)
+  const utcTime = d.getTime() + d.getTimezoneOffset() * 60000;
+  const muscatTime = new Date(utcTime + 4 * 3600000);
+  
+  const year = muscatTime.getUTCFullYear();
+  const month = String(muscatTime.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(muscatTime.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDisplay(dateStr: string) {
