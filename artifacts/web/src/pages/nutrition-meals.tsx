@@ -292,7 +292,7 @@ function FoodSearchSheet({
     mutationFn: () =>
       customFetch(`${BASE}/meals/${mealId}/portions`, {
         method: "POST",
-        body: JSON.stringify({ food_id: selected!.id, quantity_g: Number(qty) }),
+        body: JSON.stringify({ food_id: selected!.id, quantity_g: Number(qty), food_source: selected!.source || "database" }),
         headers: { "Content-Type": "application/json" },
       }),
     onSuccess: () => { onAdded(); onClose(); },

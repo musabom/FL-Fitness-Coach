@@ -314,30 +314,34 @@ router.post("/meals/:id/portions", async (req, res): Promise<void> => {
   );
   if (!ownerCheck.rows.length) { res.status(404).json({ error: "Meal not found" }); return; }
 
-  const { food_id, quantity_g } = req.body as { food_id?: number; quantity_g?: number };
+  const { food_id, quantity_g, food_source } = req.body as { food_id?: number; quantity_g?: number; food_source?: "database" | "user" };
   if (!food_id || !quantity_g || quantity_g <= 0) {
     res.status(400).json({ error: "food_id and quantity_g (> 0) are required" });
     return;
   }
 
-  // Check if food exists in database or user foods
-  const dbFoodCheck = await pool.query("SELECT id FROM foods WHERE id = $1", [food_id]);
-  const userFoodCheck = await pool.query("SELECT id FROM user_foods WHERE id = $1 AND user_id = $2", [food_id, userId]);
+  // If food_source not provided, auto-detect (for backward compatibility)
+  let resolvedFoodSource: "database" | "user" = food_source || "database";
   
-  let foodSource: "database" | "user";
-  if (dbFoodCheck.rows.length) {
-    foodSource = "database";
-  } else if (userFoodCheck.rows.length) {
-    foodSource = "user";
+  // Verify the food exists in the correct table
+  if (resolvedFoodSource === "database") {
+    const dbFoodCheck = await pool.query("SELECT id FROM foods WHERE id = $1", [food_id]);
+    if (!dbFoodCheck.rows.length) {
+      res.status(404).json({ error: "Food not found in database" });
+      return;
+    }
   } else {
-    res.status(404).json({ error: "Food not found" });
-    return;
+    const userFoodCheck = await pool.query("SELECT id FROM user_foods WHERE id = $1 AND user_id = $2", [food_id, userId]);
+    if (!userFoodCheck.rows.length) {
+      res.status(404).json({ error: "Food not found in user foods" });
+      return;
+    }
   }
 
   // Check if food already exists in this meal
   const existingPortion = await pool.query(
     "SELECT id, quantity_g FROM meal_portions WHERE meal_id = $1 AND food_id = $2 AND food_source = $3",
-    [mealId, food_id, foodSource]
+    [mealId, food_id, resolvedFoodSource]
   );
 
   if (existingPortion.rows.length > 0) {
@@ -352,7 +356,7 @@ router.post("/meals/:id/portions", async (req, res): Promise<void> => {
     // Insert new portion
     await pool.query(
       "INSERT INTO meal_portions (meal_id, food_id, quantity_g, food_source) VALUES ($1, $2, $3, $4)",
-      [mealId, food_id, quantity_g, foodSource]
+      [mealId, food_id, quantity_g, resolvedFoodSource]
     );
   }
 
