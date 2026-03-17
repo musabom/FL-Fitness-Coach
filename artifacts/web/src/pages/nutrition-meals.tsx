@@ -272,6 +272,7 @@ function FoodSearchSheet({
   const [selected, setSelected] = useState<FoodResult | null>(null);
   const [qty, setQty] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [filterSource, setFilterSource] = useState<"all" | "custom" | "database">("all");
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { searchRef.current?.focus(); }, []);
@@ -324,7 +325,7 @@ function FoodSearchSheet({
           </button>
         </div>
 
-        <div className="px-5 py-3 shrink-0 border-b border-border/50">
+        <div className="px-5 py-3 shrink-0 border-b border-border/50 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -334,6 +335,23 @@ function FoodSearchSheet({
               onChange={e => { setQuery(e.target.value); setSelected(null); }}
               className="pl-9"
             />
+          </div>
+          
+          {/* Filter tabs */}
+          <div className="flex gap-2">
+            {(["all", "database", "custom"] as const).map(filter => (
+              <button
+                key={filter}
+                onClick={() => setFilterSource(filter)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  filterSource === filter
+                    ? "bg-primary text-black"
+                    : "bg-[#1A1A1A] border border-border/50 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {filter === "all" ? "All Foods" : filter === "database" ? "Database" : "My Custom"}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -353,7 +371,14 @@ function FoodSearchSheet({
               </div>
             )}
             <div className="space-y-2">
-              {foods?.map(food => (
+              {foods
+                ?.filter(food => {
+                  if (filterSource === "all") return true;
+                  if (filterSource === "custom") return food.source === "user";
+                  if (filterSource === "database") return food.source === "database";
+                  return true;
+                })
+                .map(food => (
                 <button
                   key={`${food.id}-${food.source}`}
                   onClick={() => { setSelected(food); setQty(""); }}
