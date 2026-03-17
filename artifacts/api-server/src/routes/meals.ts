@@ -64,7 +64,7 @@ function sumMacros(portions: ReturnType<typeof calcPortion>[]) {
 async function getMealWithPortions(mealId: number) {
   const portionsRes = await pool.query(
     `SELECT
-       mp.id, mp.quantity_g, mp.food_source,
+       mp.id, mp.quantity_g, mp.food_source, mp.notes,
        COALESCE(f.id, uf.id) AS food_id, 
        COALESCE(f.food_name, uf.food_name) AS food_name, 
        COALESCE(f.food_group, uf.food_group, 'Custom') AS food_group, 
@@ -98,6 +98,7 @@ async function getMealWithPortions(mealId: number) {
       serving_weight_g: Number(row.serving_weight_g),
       quantity_g: Number(row.quantity_g),
       dietary_tags: row.dietary_tags,
+      notes: row.notes ?? null,
       ...macros,
     };
   });
@@ -402,10 +403,14 @@ router.patch("/meals/:id/portions/:portionId", async (req, res): Promise<void> =
   );
   if (!ownerCheck.rows.length) { res.status(404).json({ error: "Portion not found" }); return; }
 
-  const { quantity_g } = req.body as { quantity_g?: number };
+  const { quantity_g, notes } = req.body as { quantity_g?: number; notes?: string | null };
   if (!quantity_g || quantity_g <= 0) { res.status(400).json({ error: "quantity_g (> 0) is required" }); return; }
 
-  await pool.query("UPDATE meal_portions SET quantity_g = $1 WHERE id = $2", [quantity_g, portionId]);
+  if (notes !== undefined) {
+    await pool.query("UPDATE meal_portions SET quantity_g = $1, notes = $2 WHERE id = $3", [quantity_g, notes ?? null, portionId]);
+  } else {
+    await pool.query("UPDATE meal_portions SET quantity_g = $1 WHERE id = $2", [quantity_g, portionId]);
+  }
 
   const meal = await getMealById(mealId);
   const plan = await getActivePlanTargets(userId);

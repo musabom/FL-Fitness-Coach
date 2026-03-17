@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ChevronLeft, Plus, Trash2, Pencil, Check, X, Search, Loader2, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Pencil, Check, X, Search, Loader2, AlertTriangle, MessageSquare } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ interface Portion {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  notes?: string | null;
 }
 
 interface MealTotals {
@@ -510,6 +511,12 @@ function PortionRow({ portion, mealId, onDelete, onUpdated }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [qtyVal, setQtyVal] = useState(String(portion.quantity_g));
+  const [showNote, setShowNote] = useState(false);
+  const [noteVal, setNoteVal] = useState(portion.notes ?? "");
+
+  useEffect(() => {
+    setNoteVal(portion.notes ?? "");
+  }, [portion.notes]);
 
   const deleteMutation = useMutation({
     mutationFn: () => customFetch(`${BASE}/meals/${mealId}/portions/${portion.id}`, { method: "DELETE" }),
@@ -517,68 +524,136 @@ function PortionRow({ portion, mealId, onDelete, onUpdated }: {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (qty: number) =>
+    mutationFn: (body: { quantity_g: number; notes?: string | null }) =>
       customFetch(`${BASE}/meals/${mealId}/portions/${portion.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ quantity_g: qty }),
+        body: JSON.stringify(body),
         headers: { "Content-Type": "application/json" },
       }),
     onSuccess: () => { setEditing(false); onUpdated(); },
   });
 
+  const saveNote = () => {
+    updateMutation.mutate({ quantity_g: portion.quantity_g, notes: noteVal.trim() || null });
+  };
+
+  const unitLabel = portion.serving_unit === "per_piece" ? "pcs" : "g";
+
   return (
-    <div className="flex items-center gap-3 py-2 border-b border-border/30 last:border-0">
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{portion.food_name}</div>
-        <div className="text-xs text-muted-foreground capitalize">{portion.cooking_method?.replace(/_/g, " ")}</div>
+    <div className="border-b border-border/30 last:border-0">
+      <div className="flex items-center gap-3 py-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate">{portion.food_name}</div>
+          <div className="text-xs text-muted-foreground capitalize">{portion.cooking_method?.replace(/_/g, " ")} · {portion.quantity_g}{unitLabel}</div>
+        </div>
+
+        {editing ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Input
+              type="number"
+              className="h-7 w-20 text-sm px-2"
+              value={qtyVal}
+              onChange={e => setQtyVal(e.target.value)}
+              min="0.1"
+              step="0.1"
+              autoFocus
+            />
+            <span className="text-xs text-muted-foreground">{unitLabel}</span>
+            <button
+              onClick={() => updateMutation.mutate({ quantity_g: Number(qtyVal), notes: noteVal.trim() || null })}
+              disabled={updateMutation.isPending}
+              className="w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-500/10 rounded"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { setEditing(false); setQtyVal(String(portion.quantity_g)); }}
+              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="grid grid-cols-4 gap-x-2 text-right text-xs shrink-0">
+              <div>
+                <div className="text-foreground font-medium">{Math.round(portion.calories)}</div>
+                <div className="text-muted-foreground">Cal</div>
+              </div>
+              <div>
+                <div className="text-foreground font-medium">{portion.protein_g.toFixed(1)}</div>
+                <div className="text-muted-foreground">P</div>
+              </div>
+              <div>
+                <div className="text-foreground font-medium">{portion.carbs_g.toFixed(1)}</div>
+                <div className="text-muted-foreground">C</div>
+              </div>
+              <div>
+                <div className="text-foreground font-medium">{portion.fat_g.toFixed(1)}</div>
+                <div className="text-muted-foreground">F</div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowNote(v => !v)}
+              className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors ${portion.notes ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              title="Add note"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setEditing(true)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {editing ? (
-        <div className="flex items-center gap-1.5 shrink-0">
+      {showNote && (
+        <div className="pb-2 px-0 flex items-center gap-2">
           <Input
-            type="number"
-            className="h-7 w-20 text-sm px-2"
-            value={qtyVal}
-            onChange={e => setQtyVal(e.target.value)}
-            min="0.1"
-            step="0.1"
+            className="h-7 text-xs"
+            placeholder="Add a note (e.g. post-workout)"
+            value={noteVal}
+            onChange={e => setNoteVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { saveNote(); setShowNote(false); } if (e.key === "Escape") { setNoteVal(portion.notes ?? ""); setShowNote(false); } }}
+            onBlur={e => {
+              if (e.relatedTarget && (e.relatedTarget as HTMLElement).closest("[data-note-actions]")) return;
+              saveNote();
+              setShowNote(false);
+            }}
             autoFocus
           />
-          <span className="text-xs text-muted-foreground">{portion.serving_unit === "per_piece" ? "pcs" : "g"}</span>
-          <button
-            onClick={() => updateMutation.mutate(Number(qtyVal))}
-            disabled={updateMutation.isPending}
-            className="w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-500/10 rounded"
-          >
-            <Check className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => { setEditing(false); setQtyVal(String(portion.quantity_g)); }}
-            className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted rounded"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="text-right text-xs">
-            <div className="text-foreground font-medium">{Math.round(portion.calories)} kcal</div>
-            <div className="text-muted-foreground">{portion.protein_g.toFixed(1)}g P · {portion.quantity_g}{portion.serving_unit === "per_piece" ? " pcs" : "g"}</div>
+          <div data-note-actions className="flex items-center gap-1 shrink-0">
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { saveNote(); setShowNote(false); }}
+              disabled={updateMutation.isPending}
+              className="w-6 h-6 flex items-center justify-center text-green-500 hover:bg-green-500/10 rounded"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { setNoteVal(portion.notes ?? ""); setShowNote(false); }}
+              className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:bg-muted rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setEditing(true)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => deleteMutation.mutate()}
-            disabled={deleteMutation.isPending}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
         </div>
+      )}
+
+      {!showNote && portion.notes && (
+        <div className="pb-2 text-xs text-muted-foreground italic">{portion.notes}</div>
       )}
     </div>
   );
