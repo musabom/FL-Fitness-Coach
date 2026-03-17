@@ -64,13 +64,23 @@ function sumMacros(portions: ReturnType<typeof calcPortion>[]) {
 async function getMealWithPortions(mealId: number) {
   const portionsRes = await pool.query(
     `SELECT
-       mp.id, mp.quantity_g,
-       f.id AS food_id, f.food_name, f.food_group, f.cooking_method,
-       f.serving_unit, f.serving_weight_g,
-       f.calories, f.protein_g, f.carbs_g, f.fat_g, f.fibre_g, f.leucine_g,
-       f.dietary_tags
+       mp.id, mp.quantity_g, mp.food_source,
+       COALESCE(f.id, uf.id) AS food_id, 
+       COALESCE(f.food_name, uf.food_name) AS food_name, 
+       COALESCE(f.food_group, uf.food_group, 'Custom') AS food_group, 
+       COALESCE(f.cooking_method, 'custom') AS cooking_method,
+       COALESCE(f.serving_unit, uf.serving_unit) AS serving_unit, 
+       COALESCE(f.serving_weight_g, uf.serving_weight_g) AS serving_weight_g,
+       COALESCE(f.calories, uf.calories) AS calories, 
+       COALESCE(f.protein_g, uf.protein_g) AS protein_g, 
+       COALESCE(f.carbs_g, uf.carbs_g) AS carbs_g, 
+       COALESCE(f.fat_g, uf.fat_g) AS fat_g, 
+       COALESCE(f.fibre_g, 0) AS fibre_g, 
+       COALESCE(f.leucine_g, 0) AS leucine_g,
+       COALESCE(f.dietary_tags, ARRAY[]::text[]) AS dietary_tags
      FROM meal_portions mp
-     JOIN foods f ON f.id = mp.food_id
+     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
      WHERE mp.meal_id = $1
      ORDER BY mp.id`,
     [mealId]
@@ -154,13 +164,20 @@ async function getTodaysTotals(userId: number): Promise<{
   const today = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   const res = await pool.query(
     `SELECT
-       mp.quantity_g,
-       f.serving_unit, f.serving_weight_g,
-       f.calories, f.protein_g, f.carbs_g, f.fat_g, f.fibre_g, f.leucine_g
+       mp.quantity_g, mp.food_source,
+       COALESCE(f.serving_unit, uf.serving_unit) AS serving_unit, 
+       COALESCE(f.serving_weight_g, uf.serving_weight_g) AS serving_weight_g,
+       COALESCE(f.calories, uf.calories) AS calories, 
+       COALESCE(f.protein_g, uf.protein_g) AS protein_g, 
+       COALESCE(f.carbs_g, uf.carbs_g) AS carbs_g, 
+       COALESCE(f.fat_g, uf.fat_g) AS fat_g, 
+       COALESCE(f.fibre_g, 0) AS fibre_g, 
+       COALESCE(f.leucine_g, 0) AS leucine_g
      FROM meal_schedule ms
      JOIN user_meals m ON m.id = ms.meal_id
      JOIN meal_portions mp ON mp.meal_id = ms.meal_id
-     JOIN foods f ON f.id = mp.food_id
+     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
      WHERE ms.user_id = $1 AND ms.day_of_week = $2`,
     [userId, today]
   );
@@ -303,13 +320,24 @@ router.post("/meals/:id/portions", async (req, res): Promise<void> => {
     return;
   }
 
-  const foodCheck = await pool.query("SELECT id FROM foods WHERE id = $1", [food_id]);
-  if (!foodCheck.rows.length) { res.status(404).json({ error: "Food not found" }); return; }
+  // Check if food exists in database or user foods
+  const dbFoodCheck = await pool.query("SELECT id FROM foods WHERE id = $1", [food_id]);
+  const userFoodCheck = await pool.query("SELECT id FROM user_foods WHERE id = $1 AND user_id = $2", [food_id, userId]);
+  
+  let foodSource: "database" | "user";
+  if (dbFoodCheck.rows.length) {
+    foodSource = "database";
+  } else if (userFoodCheck.rows.length) {
+    foodSource = "user";
+  } else {
+    res.status(404).json({ error: "Food not found" });
+    return;
+  }
 
   // Check if food already exists in this meal
   const existingPortion = await pool.query(
-    "SELECT id, quantity_g FROM meal_portions WHERE meal_id = $1 AND food_id = $2",
-    [mealId, food_id]
+    "SELECT id, quantity_g FROM meal_portions WHERE meal_id = $1 AND food_id = $2 AND food_source = $3",
+    [mealId, food_id, foodSource]
   );
 
   if (existingPortion.rows.length > 0) {
@@ -323,8 +351,8 @@ router.post("/meals/:id/portions", async (req, res): Promise<void> => {
   } else {
     // Insert new portion
     await pool.query(
-      "INSERT INTO meal_portions (meal_id, food_id, quantity_g) VALUES ($1, $2, $3)",
-      [mealId, food_id, quantity_g]
+      "INSERT INTO meal_portions (meal_id, food_id, quantity_g, food_source) VALUES ($1, $2, $3, $4)",
+      [mealId, food_id, quantity_g, foodSource]
     );
   }
 
