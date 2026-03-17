@@ -23,8 +23,27 @@ const queryClient = new QueryClient({
       retry: false,
       refetchOnWindowFocus: false,
     },
+    mutations: {
+      retry: false,
+    },
   },
 });
+
+// Suppress AbortError warnings (harmless cleanup when navigating away)
+queryClient.setDefaultOptions({
+  queries: {
+    ...queryClient.getDefaultOptions().queries,
+  },
+});
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason?.name === 'AbortError' || 
+        event.reason?.message?.includes('signal is aborted')) {
+      event.preventDefault();
+    }
+  });
+}
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
