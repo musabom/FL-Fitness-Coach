@@ -354,10 +354,10 @@ export default function MealPlan() {
   const completedTotals = useMemo(() => {
     const completed = entries.filter((e) => e.completed);
     return {
-      calories: completed.reduce((sum, e) => sum + (e.meal?.calories ?? 0), 0),
-      protein_g: completed.reduce((sum, e) => sum + (e.meal?.protein_g ?? 0), 0),
-      carbs_g: completed.reduce((sum, e) => sum + (e.meal?.carbs_g ?? 0), 0),
-      fat_g: completed.reduce((sum, e) => sum + (e.meal?.fat_g ?? 0), 0),
+      calories: completed.reduce((sum, e) => sum + (e.meal?.totals.calories ?? 0), 0),
+      protein_g: completed.reduce((sum, e) => sum + (e.meal?.totals.protein_g ?? 0), 0),
+      carbs_g: completed.reduce((sum, e) => sum + (e.meal?.totals.carbs_g ?? 0), 0),
+      fat_g: completed.reduce((sum, e) => sum + (e.meal?.totals.fat_g ?? 0), 0),
     };
   }, [entries]);
 
