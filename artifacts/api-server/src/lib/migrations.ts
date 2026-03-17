@@ -32,4 +32,14 @@ export async function runMigrations(): Promise<void> {
       UNIQUE (user_id, date, meal_id)
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_plan_exclusions (
+      id      SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date    DATE    NOT NULL,
+      meal_id INTEGER NOT NULL REFERENCES user_meals(id) ON DELETE CASCADE,
+      UNIQUE (user_id, date, meal_id)
+    )
+  `);
 }

@@ -111,7 +111,7 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     [userId, dateStr]
   );
 
-  // Fetch meals scheduled for this day of week (that aren't already in meal_plan_entries)
+  // Fetch meals scheduled for this day of week (that aren't already in meal_plan_entries and not excluded)
   const scheduledRes = await pool.query(
     `SELECT DISTINCT ms.meal_id
      FROM meal_schedule ms
@@ -119,6 +119,10 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
        AND ms.day_of_week = $2
        AND NOT EXISTS (
          SELECT 1 FROM meal_plan_entries mpe 
+         WHERE mpe.user_id = $1 AND mpe.date = $3 AND mpe.meal_id = ms.meal_id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM meal_plan_exclusions mpe 
          WHERE mpe.user_id = $1 AND mpe.date = $3 AND mpe.meal_id = ms.meal_id
        )
      ORDER BY ms.meal_id`,
@@ -131,13 +135,13 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
       entry_id: row.entry_id, 
       meal_id: row.meal_id, 
       completed_at: row.completed_at,
-      is_scheduled: row.is_scheduled 
+      is_scheduled: true 
     })),
     ...scheduledRes.rows.map(row => ({ 
       entry_id: null, 
       meal_id: row.meal_id, 
       completed_at: null,
-      is_scheduled: row.is_scheduled 
+      is_scheduled: false 
     })),
   ];
 
@@ -149,6 +153,7 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
         meal,
         completed: row.completed_at !== null,
         completed_at: row.completed_at ?? null,
+        is_scheduled: row.is_scheduled, // Track if this meal was added manually (true) or scheduled (false)
       };
     })
   );
@@ -285,6 +290,53 @@ router.delete("/meal-plan/:entryId/complete", async (req, res): Promise<void> =>
   );
 
   res.json({ entry_id: entryId, completed: false });
+});
+
+// ── POST /meal-plan/:date/exclude/:mealId ─────────────────────────────────
+
+router.post("/meal-plan/:date/exclude/:mealId", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const date = req.params["date"];
+  const mealId = Number(req.params["mealId"]);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD" });
+    return;
+  }
+
+  // Add exclusion for this date/meal combo
+  await pool.query(
+    `INSERT INTO meal_plan_exclusions (user_id, date, meal_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, date, meal_id) DO NOTHING`,
+    [userId, date, mealId]
+  );
+
+  res.json({ message: "Meal excluded from this date" });
+});
+
+// ── DELETE /meal-plan/:date/exclude/:mealId ───────────────────────────────
+
+router.delete("/meal-plan/:date/exclude/:mealId", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const date = req.params["date"];
+  const mealId = Number(req.params["mealId"]);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD" });
+    return;
+  }
+
+  await pool.query(
+    "DELETE FROM meal_plan_exclusions WHERE user_id = $1 AND date = $2 AND meal_id = $3",
+    [userId, date, mealId]
+  );
+
+  res.json({ message: "Meal exclusion removed" });
 });
 
 export default router;

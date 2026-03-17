@@ -65,6 +65,7 @@ interface PlanEntry {
   meal: MealSummary | null;
   completed: boolean;
   completed_at: string | null;
+  is_scheduled?: boolean;
 }
 
 interface DayPlan {
@@ -313,26 +314,28 @@ export default function MealPlan() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: async ({ entryId, mealId }: { entryId: number; mealId?: number }) => {
-      // If this is a scheduled meal (entry_id = 0), first create the meal_plan_entry
-      let actualEntryId = entryId;
-      if (entryId === 0 && mealId) {
-        const addRes = await customFetch<{ entry_id: number }>(`${BASE}/meal-plan`, {
-          method: "POST",
-          body: JSON.stringify({ date, meal_id: mealId }),
-        });
-        actualEntryId = addRes.entry_id;
+    mutationFn: async ({ entryId, mealId, isScheduled }: { entryId: number; mealId?: number; isScheduled?: boolean }) => {
+      // For scheduled meals (not manually added), exclude them instead of deleting
+      if (isScheduled === false && mealId) {
+        return customFetch(`${BASE}/meal-plan/${date}/exclude/${mealId}`, { method: "POST" });
       }
-      // Then delete it
-      return customFetch(`${BASE}/meal-plan/${actualEntryId}`, { method: "DELETE" });
+      // For manually added meals, delete the entry
+      return customFetch(`${BASE}/meal-plan/${entryId}`, { method: "DELETE" });
     },
-    onMutate: async ({ entryId }) => {
+    onMutate: async ({ entryId, mealId, isScheduled }) => {
       await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
       const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
       if (prev) {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
           ...prev,
-          entries: prev.entries.filter((e) => e.entry_id !== entryId && !(entryId === 0 && e.entry_id === 0)),
+          entries: prev.entries.filter((e) => {
+            if (isScheduled === false && mealId) {
+              // For scheduled meals, filter by meal_id
+              return e.meal?.id !== mealId || e.is_scheduled === true;
+            }
+            // For manually added meals, filter by entry_id
+            return e.entry_id !== entryId;
+          }),
         });
       }
       return { prev };
@@ -590,10 +593,10 @@ export default function MealPlan() {
 
         {entries.map((entry) => (
           <MealCard
-            key={entry.entry_id}
+            key={`${entry.is_scheduled === false ? 'scheduled' : 'entry'}-${entry.is_scheduled === false ? entry.meal?.id : entry.entry_id}`}
             entry={entry}
             date={date}
-            onRemove={() => removeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id })}
+            onRemove={() => removeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, isScheduled: entry.is_scheduled })}
             onToggleComplete={() =>
               completeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, completed: entry.completed })
             }
