@@ -313,9 +313,34 @@ export default function MealPlan() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (entryId: number) =>
-      customFetch(`${BASE}/meal-plan/${entryId}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
+    mutationFn: async ({ entryId, mealId }: { entryId: number; mealId?: number }) => {
+      // If this is a scheduled meal (entry_id = 0), first create the meal_plan_entry
+      let actualEntryId = entryId;
+      if (entryId === 0 && mealId) {
+        const addRes = await customFetch<{ entry_id: number }>(`${BASE}/meal-plan`, {
+          method: "POST",
+          body: JSON.stringify({ date, meal_id: mealId }),
+        });
+        actualEntryId = addRes.entry_id;
+      }
+      // Then delete it
+      return customFetch(`${BASE}/meal-plan/${actualEntryId}`, { method: "DELETE" });
+    },
+    onMutate: async ({ entryId }) => {
+      await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
+      const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
+      if (prev) {
+        queryClient.setQueryData<DayPlan>(["meal-plan", date], {
+          ...prev,
+          entries: prev.entries.filter((e) => e.entry_id !== entryId && !(entryId === 0 && e.entry_id === 0)),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["meal-plan", date], ctx.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
   });
 
   const completeMutation = useMutation({
@@ -568,7 +593,7 @@ export default function MealPlan() {
             key={entry.entry_id}
             entry={entry}
             date={date}
-            onRemove={() => removeMutation.mutate(entry.entry_id)}
+            onRemove={() => removeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id })}
             onToggleComplete={() =>
               completeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, completed: entry.completed })
             }
