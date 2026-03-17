@@ -12,28 +12,23 @@ import { usePlan } from "@/hooks/use-plan";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
-// ── Date helpers (Muscat timezone: UTC+4) ──────────────────────────────────
+// ── Date helpers (uses device's local timezone automatically) ──────────────
 
-function getTodayMuscat() {
+function getTodayLocal() {
   const now = new Date();
-  // Muscat is UTC+4
-  const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
-  const muscatTime = new Date(utcTime + 4 * 3600000);
-  
-  const year = muscatTime.getUTCFullYear();
-  const month = String(muscatTime.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(muscatTime.getUTCDate()).padStart(2, "0");
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
+// Keep alias so existing code doesn't break
+const getTodayMuscat = getTodayLocal;
+
 function toDateStr(d: Date) {
-  // Convert to Muscat timezone (UTC+4)
-  const utcTime = d.getTime() + d.getTimezoneOffset() * 60000;
-  const muscatTime = new Date(utcTime + 4 * 3600000);
-  
-  const year = muscatTime.getUTCFullYear();
-  const month = String(muscatTime.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(muscatTime.getUTCDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
