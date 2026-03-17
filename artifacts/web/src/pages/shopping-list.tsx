@@ -19,8 +19,7 @@ interface ShoppingItem {
   food_name: string;
   food_group: string;
   serving_unit: string;
-  daily_g: number;
-  weekly_g: number;
+  weekly_quantity: number;  // in native unit (pieces or grams)
   stock_g: number;
   needed_g: number;
   meals: { meal_id: number; meal_name: string; quantity_g: number; days_per_week: number }[];
@@ -143,7 +142,9 @@ function ItemCard({ item }: { item: ShoppingItem }) {
           <p className="font-medium text-sm text-foreground">{item.food_name}</p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs text-muted-foreground">
-              {item.daily_g > 0 ? `${Math.round(item.daily_g)}g/day` : "unscheduled"} · {Math.round(item.weekly_g)}g/week
+              {item.serving_unit === "per_piece" 
+                ? `${Math.round(item.weekly_quantity)} pc${Math.round(item.weekly_quantity) !== 1 ? "s" : ""}/week`
+                : `${Math.round(item.weekly_quantity)}g/week`}
             </span>
           </div>
 
@@ -208,19 +209,19 @@ export default function ShoppingList() {
     queryFn: () => customFetch(`${BASE}/shopping-list`),
   });
 
-  // Only show items that have actual weekly requirements (from scheduled meals)
-  const scheduledItems = items.filter(i => i.weekly_g > 0);
-
-  const filtered = scheduledItems.filter(item => {
+  // Filter items by weekly_quantity > 0 (only in meal plan)
+  const filtered = items.filter(item => {
+    if (item.weekly_quantity === 0) return false;
     if (filter === "needed") return item.needed_g > 0;
     if (filter === "sufficient") return item.needed_g === 0;
     return true;
   });
 
-  const neededCount = scheduledItems.filter(i => i.needed_g > 0).length;
-  const totalWeeklyG = scheduledItems.reduce((a, i) => a + i.weekly_g, 0);
-  const totalStockG = scheduledItems.reduce((a, i) => a + Math.min(i.stock_g, i.weekly_g), 0);
+  const neededCount = items.filter(i => i.weekly_quantity > 0 && i.needed_g > 0).length;
+  const totalWeeklyG = items.reduce((a, i) => a + (i.weekly_quantity > 0 ? i.weekly_quantity : 0), 0);
+  const totalStockG = items.reduce((a, i) => a + (i.weekly_quantity > 0 ? Math.min(i.stock_g, i.weekly_quantity) : 0), 0);
   const coveragePct = totalWeeklyG > 0 ? Math.min((totalStockG / totalWeeklyG) * 100, 100) : 0;
+  const scheduledItems = items.filter(i => i.weekly_quantity > 0);
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-foreground max-w-[430px] mx-auto flex flex-col">
@@ -242,8 +243,8 @@ export default function ShoppingList() {
         {scheduledItems.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             <Card className="bg-[#1A1A1A] border-border/40 p-3 text-center">
-              <p className="text-lg font-bold text-foreground">{scheduledItems.length}</p>
-              <p className="text-[10px] text-muted-foreground">Total items</p>
+              <p className="text-lg font-bold text-foreground">{filtered.length}</p>
+              <p className="text-[10px] text-muted-foreground">Items in plan</p>
             </Card>
             <Card className={`border-border/40 p-3 text-center ${neededCount > 0 ? "bg-amber-500/10" : "bg-primary/10"}`}>
               <p className={`text-lg font-bold ${neededCount > 0 ? "text-amber-500" : "text-primary"}`}>{neededCount}</p>

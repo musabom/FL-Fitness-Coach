@@ -19,9 +19,8 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;
 
-  // Fetch all portions for user's meals, including both:
-  // 1. Scheduled meals (meal_schedule)
-  // 2. Meals added to specific dates (meal_plan_entries) for the current week
+  // Fetch portions ONLY for meals in the meal plan
+  // Include: meals scheduled + meals added to specific dates this week
   
   // First get the start of the current week
   const today = new Date();
@@ -45,6 +44,13 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
        um.meal_name
      FROM meal_portions mp
      JOIN user_meals um ON um.id = mp.meal_id AND um.user_id = $1
+     -- INNER JOIN ensures only meals in meal_plan
+     INNER JOIN (
+       SELECT DISTINCT meal_id FROM meal_schedule WHERE user_id = $1
+       UNION
+       SELECT DISTINCT meal_id FROM meal_plan_entries 
+       WHERE user_id = $1 AND date >= $2::date AND date <= $3::date
+     ) planned_meals ON planned_meals.meal_id = um.id
      LEFT JOIN meal_schedule ms ON ms.meal_id = mp.meal_id AND ms.user_id = $1
      LEFT JOIN meal_plan_entries mpe ON mpe.meal_id = mp.meal_id AND mpe.user_id = $1
        AND mpe.date >= $2::date AND mpe.date <= $3::date
@@ -57,21 +63,24 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
   );
 
   // Aggregate across meals: same food can appear in multiple meals
+  // Track quantity in proper unit, not always grams
   const foodMap = new Map<string, {
     food_id: number;
     food_source: string;
     food_name: string;
     food_group: string;
     serving_unit: string;
-    daily_g: number;         // total per day
-    weekly_g: number;        // sum of (quantity × days_in_week) per meal contribution
+    weekly_quantity: number;  // quantity in its native unit (pieces or grams)
     meals: { meal_id: number; meal_name: string; quantity_g: number; days_per_week: number }[];
   }>();
 
   for (const row of portionsRes.rows) {
     const key = `${row.food_id}::${row.food_source}`;
     const qg = Number(row.quantity_g);
-    const dpw = Math.max(1, Number(row.days_per_week)); // At least 1 if the meal exists
+    const dpw = Number(row.days_per_week);
+    
+    // Only include if it's actually scheduled/in meal plan
+    if (dpw === 0) continue;
 
     if (!foodMap.has(key)) {
       foodMap.set(key, {
@@ -80,14 +89,13 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
         food_name: row.food_name,
         food_group: row.food_group,
         serving_unit: row.serving_unit,
-        daily_g: 0,
-        weekly_g: 0,
+        weekly_quantity: 0,
         meals: [],
       });
     }
 
     const entry = foodMap.get(key)!;
-    entry.weekly_g = +(entry.weekly_g + qg * dpw).toFixed(2);
+    entry.weekly_quantity = +(entry.weekly_quantity + qg * dpw).toFixed(2);
     entry.meals.push({
       meal_id: row.meal_id,
       meal_name: row.meal_name,
@@ -109,13 +117,11 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
   const items = Array.from(foodMap.values()).map(item => {
     const key = `${item.food_id}::${item.food_source}`;
     const stock = stockMap.get(key) ?? 0;
-    const daily_g = item.weekly_g > 0 ? +(item.weekly_g / 7).toFixed(2) : 0;
-    const needed_g = Math.max(0, +(item.weekly_g - stock).toFixed(2));
+    const needed = Math.max(0, +(item.weekly_quantity - stock).toFixed(2));
     return {
       ...item,
-      daily_g,
       stock_g: stock,
-      needed_g,
+      needed_g: needed,
     };
   });
 
