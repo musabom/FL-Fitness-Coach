@@ -112,7 +112,7 @@ function FoodSearchSheet({
   const { data: foods, isFetching } = useQuery<FoodResult[]>({
     queryKey: ["foods-search", debouncedQ],
     queryFn: () => customFetch(`${BASE}/foods/search?q=${encodeURIComponent(debouncedQ)}`),
-    enabled: debouncedQ.length > 0,
+    enabled: !selected,
     staleTime: 10_000,
   });
 
@@ -171,9 +171,6 @@ function FoodSearchSheet({
             {isFetching && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>}
             {!isFetching && debouncedQ && !foods?.length && (
               <p className="text-center text-muted-foreground text-sm py-8">No foods found</p>
-            )}
-            {!isFetching && !debouncedQ && (
-              <p className="text-center text-muted-foreground text-sm py-8">Start typing to search foods</p>
             )}
             <div className="space-y-2">
               {foods?.map(food => (
