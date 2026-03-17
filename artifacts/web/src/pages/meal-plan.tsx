@@ -187,15 +187,18 @@ function AddMealSheet({
   existingMealIds,
   onClose,
   onAdd,
+  isAdding,
 }: {
   date: string;
   existingMealIds: Set<number>;
   onClose: () => void;
   onAdd: (mealId: number) => void;
+  isAdding: boolean;
 }) {
-  const { data: meals = [], isLoading } = useQuery<LibraryMeal[]>({
+  const { data: meals = [], isLoading, error } = useQuery<LibraryMeal[]>({
     queryKey: ["meals"],
     queryFn: () => customFetch(`${BASE}/meals`).then((r) => r.json()),
+    staleTime: 0,
   });
 
   return (
@@ -214,13 +217,20 @@ function AddMealSheet({
         </div>
 
         <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
-          {isLoading && (
+          {(isLoading || isAdding) && (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          {!isLoading && meals.length === 0 && (
+          {error && !isLoading && (
+            <div className="text-center py-10 space-y-2">
+              <div className="text-sm text-destructive">Failed to load meals</div>
+              <p className="text-xs text-muted-foreground">Please try again</p>
+            </div>
+          )}
+
+          {!isLoading && !error && meals.length === 0 && (
             <div className="text-center py-10 space-y-2">
               <UtensilsCrossed className="w-10 h-10 text-muted-foreground/40 mx-auto" />
               <p className="text-sm text-muted-foreground">No meals yet</p>
@@ -230,15 +240,15 @@ function AddMealSheet({
             </div>
           )}
 
-          {meals.map((meal) => {
+          {!isLoading && !error && meals.map((meal) => {
             const alreadyAdded = existingMealIds.has(meal.id);
             return (
               <button
                 key={meal.id}
-                onClick={() => !alreadyAdded && onAdd(meal.id)}
-                disabled={alreadyAdded}
+                onClick={() => !alreadyAdded && !isAdding && onAdd(meal.id)}
+                disabled={alreadyAdded || isAdding}
                 className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${
-                  alreadyAdded
+                  alreadyAdded || isAdding
                     ? "bg-[#1A1A1A] border-border/20 opacity-40 cursor-not-allowed"
                     : "bg-[#1A1A1A] border-border/40 hover:border-primary/40 active:scale-[0.99]"
                 }`}
@@ -281,10 +291,16 @@ export default function MealPlan() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date, meal_id: mealId }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`Failed to add meal: ${r.statusText}`);
+        return r.json();
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meal-plan", date] });
       setShowSheet(false);
+    },
+    onError: () => {
+      console.error("Failed to add meal");
     },
   });
 
@@ -442,6 +458,7 @@ export default function MealPlan() {
           existingMealIds={existingMealIds}
           onClose={() => setShowSheet(false)}
           onAdd={(mealId) => addMutation.mutate(mealId)}
+          isAdding={addMutation.isPending}
         />
       )}
     </div>
