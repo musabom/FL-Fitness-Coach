@@ -132,7 +132,7 @@ function FoodSearchSheet({
   let previewMultiplier = 0;
   if (selected && qtyNum > 0) {
     previewMultiplier = selected.serving_unit === "per_piece"
-      ? qtyNum / selected.serving_weight_g
+      ? qtyNum
       : qtyNum / 100;
   }
   const preview = selected ? {

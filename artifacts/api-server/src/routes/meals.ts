@@ -33,7 +33,7 @@ interface FoodRow {
 function calcPortion(food: FoodRow, quantityG: number) {
   const multiplier =
     food.serving_unit === "per_piece"
-      ? quantityG / food.serving_weight_g
+      ? quantityG
       : quantityG / 100;
   return {
     calories: +(food.calories * multiplier).toFixed(1),
