@@ -22,6 +22,7 @@ interface FoodResult {
   fat_g: number;
   leucine_g: number;
   dietary_tags: string[];
+  source?: "database" | "user";
 }
 
 interface Portion {
@@ -85,6 +86,176 @@ function MacroBar({ label, current, target, unit }: { label: string; current: nu
   );
 }
 
+// ── Create Custom Food Form ───────────────────────────────────────────────────
+
+function CreateCustomFoodForm({
+  onBack,
+  onSuccess,
+}: {
+  onBack: () => void;
+  onSuccess: () => void;
+}) {
+  const [foodName, setFoodName] = useState("");
+  const [servingUnit, setServingUnit] = useState<"per_100g" | "per_piece">("per_100g");
+  const [servingWeightG, setServingWeightG] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      customFetch(`${BASE}/foods/custom`, {
+        method: "POST",
+        body: JSON.stringify({
+          food_name: foodName.trim(),
+          serving_unit: servingUnit,
+          serving_weight_g: servingUnit === "per_piece" ? Number(servingWeightG) || 1 : null,
+          calories: Number(calories),
+          protein_g: Number(protein),
+          carbs_g: Number(carbs),
+          fat_g: Number(fat),
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["foods-search"] });
+      onSuccess();
+    },
+  });
+
+  const canCreate = foodName.trim() && calories && protein && carbs && fat &&
+    (servingUnit === "per_100g" || (servingUnit === "per_piece" && servingWeightG));
+
+  return (
+    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back to search
+      </button>
+
+      {/* Form */}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-2">Food Name</label>
+          <Input
+            value={foodName}
+            onChange={(e) => setFoodName(e.target.value)}
+            placeholder="e.g., Grilled Chicken Breast"
+            className="bg-[#1A1A1A] border-border/50"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-medium text-muted-foreground">Serving Unit</label>
+          <div className="flex gap-2">
+            {(["per_100g", "per_piece"] as const).map(unit => (
+              <button
+                key={unit}
+                onClick={() => setServingUnit(unit)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                  servingUnit === unit
+                    ? "bg-primary text-black"
+                    : "bg-[#1A1A1A] border border-border/50 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {unit === "per_100g" ? "Per 100g" : "Per Piece"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {servingUnit === "per_piece" && (
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">Weight per Piece (g)</label>
+            <Input
+              type="number"
+              value={servingWeightG}
+              onChange={(e) => setServingWeightG(e.target.value)}
+              placeholder="e.g., 150"
+              className="bg-[#1A1A1A] border-border/50"
+            />
+          </div>
+        )}
+
+        {/* Nutrition fields */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">Calories</label>
+            <Input
+              type="number"
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+              placeholder="0"
+              className="bg-[#1A1A1A] border-border/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">Protein (g)</label>
+            <Input
+              type="number"
+              value={protein}
+              onChange={(e) => setProtein(e.target.value)}
+              placeholder="0"
+              step="0.1"
+              className="bg-[#1A1A1A] border-border/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">Carbs (g)</label>
+            <Input
+              type="number"
+              value={carbs}
+              onChange={(e) => setCarbs(e.target.value)}
+              placeholder="0"
+              step="0.1"
+              className="bg-[#1A1A1A] border-border/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">Fat (g)</label>
+            <Input
+              type="number"
+              value={fat}
+              onChange={(e) => setFat(e.target.value)}
+              placeholder="0"
+              step="0.1"
+              className="bg-[#1A1A1A] border-border/50"
+            />
+          </div>
+        </div>
+
+        {/* Create button */}
+        <Button
+          onClick={() => createMutation.mutate()}
+          disabled={!canCreate || createMutation.isPending}
+          className="w-full"
+        >
+          {createMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create Custom Food"
+          )}
+        </Button>
+
+        {createMutation.isError && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-400">
+            {(createMutation.error as any)?.message || "Failed to create food"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Food Search Sheet ─────────────────────────────────────────────────────────
 
 function FoodSearchSheet({
@@ -100,6 +271,7 @@ function FoodSearchSheet({
   const [debouncedQ, setDebouncedQ] = useState("");
   const [selected, setSelected] = useState<FoodResult | null>(null);
   const [qty, setQty] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { searchRef.current?.focus(); }, []);
@@ -166,22 +338,33 @@ function FoodSearchSheet({
         </div>
 
         {/* Results list - scrollable below search */}
-        {!selected && (
+        {!selected && !showCreateForm && (
           <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
             {isFetching && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>}
             {!isFetching && debouncedQ && !foods?.length && (
-              <p className="text-center text-muted-foreground text-sm py-8">No foods found</p>
+              <div className="space-y-3 py-6">
+                <p className="text-center text-muted-foreground text-sm">No foods found for "{debouncedQ}"</p>
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="w-full py-3 rounded-xl border-2 border-dashed border-primary/50 hover:border-primary hover:bg-primary/5 transition-all text-primary font-medium text-sm"
+                >
+                  + Add Custom Food
+                </button>
+              </div>
             )}
             <div className="space-y-2">
               {foods?.map(food => (
                 <button
-                  key={`${food.id}-${food.cooking_method}`}
+                  key={`${food.id}-${food.source}`}
                   onClick={() => { setSelected(food); setQty(""); }}
                   className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] active:scale-[0.99] transition-all border border-border/50"
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex-1">
-                      <div className="font-medium text-sm">{food.food_name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{food.food_name}</span>
+                        {food.source === "user" && <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded">Custom</span>}
+                      </div>
                       <div className="text-xs text-muted-foreground capitalize mt-0.5">{food.cooking_method.replace(/_/g, " ")}</div>
                     </div>
                     <div className="text-right text-xs text-muted-foreground ml-4 shrink-0">
@@ -212,8 +395,19 @@ function FoodSearchSheet({
           </div>
         )}
 
+        {/* Create custom food form */}
+        {showCreateForm && (
+          <CreateCustomFoodForm
+            onBack={() => setShowCreateForm(false)}
+            onSuccess={() => {
+              setShowCreateForm(false);
+              queryClient.invalidateQueries({ queryKey: ["foods-search", debouncedQ] });
+            }}
+          />
+        )}
+
         {/* Quantity input after selection */}
-        {selected && (
+        {selected && !showCreateForm && (
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
             <button
               onClick={() => setSelected(null)}
