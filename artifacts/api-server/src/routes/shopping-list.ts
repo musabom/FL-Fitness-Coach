@@ -19,7 +19,18 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;
 
-  // Fetch all portions for user's meals, joined with schedule days count
+  // Fetch all portions for user's meals, including both:
+  // 1. Scheduled meals (meal_schedule)
+  // 2. Meals added to specific dates (meal_plan_entries) for the current week
+  
+  // First get the start of the current week
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - dayOfWeek);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  
   const portionsRes = await pool.query(
     `SELECT
        mp.food_id,
@@ -28,18 +39,21 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
        COALESCE(f.food_name, uf.food_name)     AS food_name,
        COALESCE(f.food_group, 'Other')          AS food_group,
        COALESCE(f.serving_unit, uf.serving_unit) AS serving_unit,
-       COUNT(DISTINCT ms.day_of_week)::int      AS days_per_week,
+       COUNT(DISTINCT ms.day_of_week)::int +
+       COUNT(DISTINCT CASE WHEN mpe.id IS NOT NULL THEN mpe.date::text ELSE NULL END)::int AS days_per_week,
        um.id                                    AS meal_id,
        um.meal_name
      FROM meal_portions mp
      JOIN user_meals um ON um.id = mp.meal_id AND um.user_id = $1
      LEFT JOIN meal_schedule ms ON ms.meal_id = mp.meal_id AND ms.user_id = $1
+     LEFT JOIN meal_plan_entries mpe ON mpe.meal_id = mp.meal_id AND mpe.user_id = $1
+       AND mpe.date >= $2::date AND mpe.date <= $3::date
      LEFT JOIN foods f      ON f.id  = mp.food_id AND mp.food_source = 'database'
      LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
      GROUP BY mp.food_id, mp.food_source, mp.quantity_g, f.food_name, uf.food_name,
               f.food_group, f.serving_unit, uf.serving_unit, um.id, um.meal_name
      ORDER BY food_name`,
-    [userId]
+    [userId, startOfWeek.toISOString().split('T')[0], endOfWeek.toISOString().split('T')[0]]
   );
 
   // Aggregate across meals: same food can appear in multiple meals
@@ -49,15 +63,15 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
     food_name: string;
     food_group: string;
     serving_unit: string;
-    daily_g: number;         // total per day (sum across all scheduled meals for a given day)
-    weekly_g: number;        // sum of (quantity × days_scheduled) per meal contribution
+    daily_g: number;         // total per day
+    weekly_g: number;        // sum of (quantity × days_in_week) per meal contribution
     meals: { meal_id: number; meal_name: string; quantity_g: number; days_per_week: number }[];
   }>();
 
   for (const row of portionsRes.rows) {
     const key = `${row.food_id}::${row.food_source}`;
     const qg = Number(row.quantity_g);
-    const dpw = Number(row.days_per_week);
+    const dpw = Math.max(1, Number(row.days_per_week)); // At least 1 if the meal exists
 
     if (!foodMap.has(key)) {
       foodMap.set(key, {
@@ -73,9 +87,6 @@ router.get("/shopping-list", async (req, res): Promise<void> => {
     }
 
     const entry = foodMap.get(key)!;
-    // Only add the per-day amount if this meal is scheduled (days_per_week > 0)
-    // "daily_g" = amount used on the days this food appears (averaged to a single daily value)
-    // We'll record raw weekly amount instead and derive daily from weekly/7
     entry.weekly_g = +(entry.weekly_g + qg * dpw).toFixed(2);
     entry.meals.push({
       meal_id: row.meal_id,
