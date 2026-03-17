@@ -8,6 +8,7 @@ import {
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { usePlan } from "@/hooks/use-plan";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -29,9 +30,13 @@ function formatDisplay(dateStr: string) {
 }
 
 function offsetDate(dateStr: string, days: number) {
-  const d = new Date(dateStr + "T00:00:00");
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
   d.setDate(d.getDate() + days);
-  return toDateStr(d);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dy = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dy}`;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -125,7 +130,7 @@ function MealCard({
           onClick={() => setExpanded((v) => !v)}
           className="flex-1 text-left min-w-0"
         >
-          <p className={`font-medium text-sm truncate ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+          <p className={`font-medium text-sm break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
             {meal.meal_name}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -145,17 +150,24 @@ function MealCard({
 
       {/* Portions list (collapsible) */}
       {expanded && meal.portions.length > 0 && (
-        <div className="border-t border-border/30 px-4 py-3 space-y-2">
+        <div className="border-t border-border/30 px-4 py-3 space-y-3">
           {meal.portions.map((p) => (
-            <div key={p.id} className="flex justify-between items-start gap-2 text-xs text-muted-foreground">
-              <span className="flex-1 truncate text-foreground/80">{p.food_name}</span>
-              <span className="shrink-0 tabular-nums">
-                {p.serving_unit === "per_piece"
-                  ? `${p.quantity_g} can${p.quantity_g !== 1 ? "s" : ""}`
-                  : `${Math.round(p.quantity_g)}g`}
-                {" · "}
-                {Math.round(p.calories)} kcal
-              </span>
+            <div key={p.id} className="space-y-1">
+              <div className="flex justify-between items-start gap-2 text-xs">
+                <span className="flex-1 break-words text-foreground/80">{p.food_name}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {p.serving_unit === "per_piece"
+                    ? `${p.quantity_g} can${p.quantity_g !== 1 ? "s" : ""}`
+                    : `${Math.round(p.quantity_g)}g`}
+                  {" · "}
+                  {Math.round(p.calories)} kcal
+                </span>
+              </div>
+              {p.notes && (
+                <p className="text-[10px] text-muted-foreground/70 italic pl-0">
+                  Note: {p.notes}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -286,6 +298,8 @@ export default function MealPlan() {
     queryFn: () => customFetch<DayPlan>(`${BASE}/meal-plan?date=${date}`),
   });
 
+  const { plan } = usePlan();
+
   const addMutation = useMutation({
     mutationFn: (mealId: number) =>
       customFetch(`${BASE}/meal-plan`, {
@@ -385,8 +399,9 @@ export default function MealPlan() {
         </button>
       </div>
 
-      {/* Daily macro summary */}
-      <div className="px-5 py-4 border-b border-border/20">
+      {/* Daily macro summary with progress */}
+      <div className="px-5 py-4 border-b border-border/20 space-y-3">
+        {/* Current vs Target */}
         <div className="flex gap-2">
           <MacroPill label="Cal" value={dailyTotals.calories} unit="kcal" accent />
           <MacroPill label="Protein" value={dailyTotals.protein_g} unit="g" />
@@ -394,10 +409,75 @@ export default function MealPlan() {
           <MacroPill label="Fat" value={dailyTotals.fat_g} unit="g" />
         </div>
 
+        {/* Target progress bars */}
+        {plan && (
+          <div className="space-y-2.5">
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase">Calories</span>
+                <span className="text-xs font-semibold text-foreground">
+                  {Math.round(dailyTotals.calories)} / {plan.calorieTarget} kcal
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase">Protein</span>
+                <span className="text-xs font-semibold text-foreground">
+                  {Math.round(dailyTotals.protein_g)} / {plan.proteinG}g
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all"
+                  style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase">Carbs</span>
+                <span className="text-xs font-semibold text-foreground">
+                  {Math.round(dailyTotals.carbs_g)} / {plan.carbsG}g
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-400 transition-all"
+                  style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase">Fat</span>
+                <span className="text-xs font-semibold text-foreground">
+                  {Math.round(dailyTotals.fat_g)} / {plan.fatG}g
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-yellow-400 transition-all"
+                  style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Completion badge */}
         {entries.length > 0 && (
-          <p className="text-[11px] text-muted-foreground text-center mt-2">
-            {completedCount}/{entries.length} meals completed
-          </p>
+          <div className="text-center pt-1">
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {completedCount}/{entries.length} meals completed
+            </p>
+          </div>
         )}
       </div>
 
