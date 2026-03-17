@@ -306,10 +306,27 @@ router.post("/meals/:id/portions", async (req, res): Promise<void> => {
   const foodCheck = await pool.query("SELECT id FROM foods WHERE id = $1", [food_id]);
   if (!foodCheck.rows.length) { res.status(404).json({ error: "Food not found" }); return; }
 
-  await pool.query(
-    "INSERT INTO meal_portions (meal_id, food_id, quantity_g) VALUES ($1, $2, $3)",
-    [mealId, food_id, quantity_g]
+  // Check if food already exists in this meal
+  const existingPortion = await pool.query(
+    "SELECT id, quantity_g FROM meal_portions WHERE meal_id = $1 AND food_id = $2",
+    [mealId, food_id]
   );
+
+  if (existingPortion.rows.length > 0) {
+    // Update existing portion by adding to quantity
+    const existingQty = Number(existingPortion.rows[0].quantity_g);
+    const newQty = existingQty + quantity_g;
+    await pool.query(
+      "UPDATE meal_portions SET quantity_g = $1 WHERE id = $2",
+      [newQty, existingPortion.rows[0].id]
+    );
+  } else {
+    // Insert new portion
+    await pool.query(
+      "INSERT INTO meal_portions (meal_id, food_id, quantity_g) VALUES ($1, $2, $3)",
+      [mealId, food_id, quantity_g]
+    );
+  }
 
   const meal = await getMealById(mealId);
   const plan = await getActivePlanTargets(userId);
