@@ -471,12 +471,21 @@ export default function MealPlan() {
           </div>
         )}
 
-        {/* Completion badge */}
+        {/* Meals completion progress */}
         {entries.length > 0 && (
-          <div className="text-center pt-1">
-            <p className="text-[11px] font-medium text-muted-foreground">
-              {completedCount}/{entries.length} meals completed
-            </p>
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase">Meals</span>
+              <span className="text-xs font-semibold text-foreground">
+                {completedCount} / {entries.length}
+              </span>
+            </div>
+            <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 transition-all duration-300"
+                style={{ width: `${entries.length > 0 ? (completedCount / entries.length) * 100 : 0}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
