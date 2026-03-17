@@ -1,0 +1,159 @@
+What to build
+A meal builder feature where the user constructs their own daily nutrition plan by adding foods from the database. The system tracks running macro and calorie totals against the user's targets from their active plan and warns when limits are approached or exceeded.
+
+Database tables — create these
+sqlCREATE TABLE IF NOT EXISTS user_meals (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  meal_name VARCHAR(100) NOT NULL DEFAULT 'Meal 1',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS meal_portions (
+  id SERIAL PRIMARY KEY,
+  meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+  food_id INTEGER REFERENCES foods(id),
+  quantity_g DECIMAL(6,1) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS meal_schedule (
+  id SERIAL PRIMARY KEY,
+  meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  day_of_week VARCHAR(10) NOT NULL,
+  CONSTRAINT valid_day CHECK (day_of_week IN
+    ('monday','tuesday','wednesday','thursday',
+     'friday','saturday','sunday'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_meals_user ON user_meals(user_id);
+CREATE INDEX IF NOT EXISTS idx_meal_portions_meal ON meal_portions(meal_id);
+CREATE INDEX IF NOT EXISTS idx_meal_schedule_user ON meal_schedule(user_id);
+CREATE INDEX IF NOT EXISTS idx_meal_schedule_day ON meal_schedule(day_of_week);
+```
+
+---
+
+### API endpoints — create these
+
+**GET /api/meals** — returns all meals for the authenticated user including portions and computed macros per meal
+
+**POST /api/meals** — creates a new empty meal. Auto-names it "Meal 1", "Meal 2" etc based on how many the user already has. Returns the new meal.
+
+**PATCH /api/meals/:id** — updates meal name only
+
+**DELETE /api/meals/:id** — deletes meal and all its portions
+
+**POST /api/meals/:id/portions** — adds a food portion to a meal. Body: `{ food_id, quantity_g }`. Returns updated meal macros.
+
+**DELETE /api/meals/:id/portions/:portionId** — removes a portion from a meal
+
+**PATCH /api/meals/:id/portions/:portionId** — updates quantity_g of a portion. Returns updated meal macros.
+
+**POST /api/meals/:id/schedule** — assigns meal to days. Body: `{ days: ['monday','wednesday','friday'] }`. Replaces existing schedule for this meal.
+
+**GET /api/meals/day/:day** — returns all meals scheduled for a given day with full portion and macro data
+
+**GET /api/meals/daily-totals** — returns today's macro totals across all meals scheduled for today, compared against the user's active plan targets
+
+---
+
+### Macro calculation — server side only
+
+Every endpoint that returns meal or daily data must compute and return these values. All calculation is server-side. The frontend only displays.
+
+For each portion:
+```
+if food.serving_unit == 'per_piece':
+  multiplier = quantity_g / food.serving_weight_g
+else:
+  multiplier = quantity_g / 100
+
+portion_calories = food.calories * multiplier
+portion_protein  = food.protein_g * multiplier
+portion_carbs    = food.carbs_g * multiplier
+portion_fat      = food.fat_g * multiplier
+portion_fibre    = food.fibre_g * multiplier
+portion_leucine  = food.leucine_g * multiplier
+```
+
+For each meal: sum all portions.
+
+For daily totals: sum all meals scheduled for today.
+
+---
+
+### Validation rules — enforce server side
+```
+CALORIE_CEILING    = plan.calorie_target * 1.03   // 3% tolerance
+PROTEIN_CEILING    = plan.protein_g * 1.05
+CARBS_CEILING      = plan.carbs_g * 1.05
+FAT_CEILING        = plan.fat_g * 1.05
+
+// Single food source limit — prevents filling day with one food
+MAX_SINGLE_FOOD_CALORIES_PCT = 0.40  // one food cannot exceed 40% of daily calories
+
+// Return warnings (not hard blocks) when:
+if daily_calories > CALORIE_CEILING:
+  warn: "You have exceeded your daily calorie target"
+if daily_protein > PROTEIN_CEILING:
+  warn: "You have exceeded your daily protein target"
+if daily_carbs > CARBS_CEILING:
+  warn: "You have exceeded your daily carb target"
+if daily_fat > FAT_CEILING:
+  warn: "You have exceeded your daily fat target"
+if single_food_pct > MAX_SINGLE_FOOD_CALORIES_PCT:
+  warn: "One food is providing more than 40% of your daily calories.
+         Consider adding more variety."
+Return warnings in the API response as a warnings array. Never block the save — only warn.
+
+Food search endpoint
+GET /api/foods/search?q=chicken&group=protein — searches foods table by name (case insensitive, partial match). Optional filter by food_group. Returns: id, food_name, food_group, cooking_method, serving_unit, serving_weight_g, calories, protein_g, carbs_g, fat_g, leucine_g, dietary_tags. Limit 20 results.
+
+Screen — /nutrition/meals
+Build this screen accessible from the dashboard. Mobile-first layout.
+Top section — daily progress bar
+Shows four horizontal progress bars — calories, protein, carbs, fat. Each bar fills as the user adds food to meals scheduled for today. Shows current vs target (e.g. "1,240 / 1,700 kcal"). Color: green when under target, amber when within 10% of ceiling, red when over ceiling. Updates live as portions are added.
+Middle section — meal cards
+One card per meal. Default label "Meal 1", "Meal 2" etc — user can tap to rename inline.
+Each meal card shows:
+
+Meal name (editable inline)
+Total calories, protein, carbs, fat for that meal
+List of portions added — food name, quantity in g, calories, protein
+Trash icon per portion to remove it
+Edit icon per portion to change quantity
+Add portion button — opens food search sheet
+Day selector — 7 boxes labeled Mon Tue Wed Thu Fri Sat Sun. Tapping a day toggles this meal on/off for that day. Active days highlighted in teal. Inactive days are grey outlines.
+
+Add portion sheet (slides up from bottom)
+
+Search input with live search against /api/foods/search
+Results list showing food name, cooking method, calories per 100g, protein per 100g
+Tap a result to select it
+Quantity input appears — number field in grams. For per_piece foods (eggs) show "pieces" label and convert to grams automatically using serving_weight_g.
+Live preview updates as user types quantity: shows calories, protein, carbs, fat this portion adds
+Confirm button adds the portion to the meal and closes the sheet
+
+Add meal button — at the bottom of the screen. Creates a new empty meal card.
+Warnings banner — if any validation warnings exist for today, show a yellow banner at the top of the screen with the warning text. Dismissible.
+
+Design requirements
+Match the existing app design — dark background, teal accent, same typography. Progress bars use the same green/amber/red signal colours established in Phase 1. No new design patterns — extend what is already there.
+
+What not to build
+No preset or suggested meals. No admin meal management. No meal templates. No AI suggestions. No photo logging. These are later phases. Build only what is described above.
+
+Acceptance test — all must pass before completing
+
+User can create a new meal and it appears as "Meal 1"
+User can search for "chicken" and see matching foods from the database
+User can add 150g chicken breast to a meal — macros update correctly (150g grilled chicken = approx 24.8g protein, 247 kcal)
+User can assign the meal to Monday and Wednesday — those day boxes highlight
+Daily progress bars reflect meals scheduled for today
+Adding a food that would push daily calories over 1,750 (for a 1,700 target) shows a warning but still saves
+User can delete a portion — macros update
+User can rename a meal inline
+GET /api/meals/daily-totals returns correct summed macros for today

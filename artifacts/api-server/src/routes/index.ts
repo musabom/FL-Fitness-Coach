@@ -4,6 +4,8 @@ import authRouter from "./auth";
 import profileRouter from "./profile";
 import planRouter from "./plan";
 import goalsRouter from "./goals";
+import foodsRouter from "./foods";
+import mealsRouter from "./meals";
 
 const router: IRouter = Router();
 
@@ -12,5 +14,7 @@ router.use(authRouter);
 router.use(profileRouter);
 router.use(planRouter);
 router.use(goalsRouter);
+router.use(foodsRouter);
+router.use(mealsRouter);
 
 export default router;

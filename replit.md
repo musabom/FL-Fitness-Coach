@@ -2,7 +2,7 @@
 
 ## Overview
 
-Body Composition Management System - Phase 1. A dark, mobile-first PWA (max 430px content width) for nutrition plan calculation. Users sign up, complete an 11-step onboarding questionnaire, and receive a server-side calculated daily nutrition plan (calories + macros).
+Body Composition Management System - Phase 1. A dark, mobile-first PWA (max 430px content width) for nutrition planning. Users sign up, complete a 3-page onboarding questionnaire, receive a server-side calculated daily nutrition plan (calories + macros), and use the Meal Builder to plan and track daily nutrition intake.
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
@@ -51,10 +51,21 @@ artifacts-monorepo/
 └── package.json
 ```
 
-## Database Tables (7 total)
+## Database Tables (10 total)
 
-Phase 1 (active): users, user_profiles, plans
+Phase 1 (Drizzle ORM): users, user_profiles, plans
+Phase 1 (raw SQL — Meal Builder): foods (118 USDA rows), user_meals, meal_portions, meal_schedule
 Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment_logs
+
+### Meal Builder tables (raw SQL, not in Drizzle schema)
+- `foods` — USDA food items; serving_unit is "per_100g" or "per_piece"
+- `user_meals` — user-named meal containers (belongs to user)
+- `meal_portions` — food + quantity_g entries inside a meal
+- `meal_schedule` — maps meals to days-of-week (monday..sunday)
+
+Macro calculation for portions:
+- per_piece: multiplier = quantity_g / serving_weight_g
+- per_100g: multiplier = quantity_g / 100
 
 ## API Routes
 
@@ -67,6 +78,17 @@ Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment
 - `PATCH /api/profile` - Update profile (triggers plan recalculation)
 - `GET /api/plan/active` - Get active nutrition plan
 - `POST /api/goals/available` - Filter available goal modes by weight gap (GUARD-03)
+- `GET /api/foods/search?q=&group=` - Search food database (debounced, max 20 results)
+- `GET /api/meals` - Get all user meals with portions + macro totals
+- `POST /api/meals` - Create new meal (auto-names "Meal N")
+- `PATCH /api/meals/:id` - Rename meal
+- `DELETE /api/meals/:id` - Delete meal (cascades to portions + schedule)
+- `POST /api/meals/:id/portions` - Add food portion to meal
+- `PATCH /api/meals/:id/portions/:portionId` - Update portion quantity
+- `DELETE /api/meals/:id/portions/:portionId` - Remove portion
+- `POST /api/meals/:id/schedule` - Set scheduled days (replaces previous schedule)
+- `GET /api/meals/day/:day` - Get meals scheduled for a specific day
+- `GET /api/meals/daily-totals` - Today's totals, targets, progress %, warnings
 
 ## Auth Pattern
 
@@ -91,6 +113,7 @@ Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment
 - `/onboarding` - 11-step questionnaire (height, weight, target weight, age, gender, goal, activity, training days, location, dietary prefs, injuries)
 - `/dashboard` - Calorie target, macros grid, weight info, timeline estimate, plan summary
 - `/profile/edit` - Edit profile metrics (triggers plan recalculation)
+- `/nutrition/meals` - Meal Builder: create meals, add food portions, schedule by day, track daily progress
 
 ## Development
 

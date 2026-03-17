@@ -12,6 +12,7 @@ import Signup from "./pages/signup";
 import Onboarding from "./pages/onboarding";
 import Dashboard from "./pages/dashboard";
 import ProfileEdit from "./pages/profile-edit";
+import NutritionMeals from "./pages/nutrition-meals";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -73,6 +74,7 @@ function Router() {
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/profile/edit" component={ProfileEdit} />
+        <Route path="/nutrition/meals" component={NutritionMeals} />
         {/* Explicit root catch to fall back to AuthGuard logic */}
         <Route path="/">
           <div /> 
