@@ -215,6 +215,8 @@ async function runMigrationsInternal(): Promise<void> {
       id SERIAL PRIMARY KEY,
       food_name VARCHAR(100) NOT NULL,
       food_group VARCHAR(50),
+      cooking_method VARCHAR(50) DEFAULT 'custom',
+      dietary_tags TEXT[] DEFAULT ARRAY[]::text[],
       serving_unit VARCHAR(20) DEFAULT 'per_100g',
       serving_weight_g REAL,
       calories REAL NOT NULL,
@@ -226,6 +228,9 @@ async function runMigrationsInternal(): Promise<void> {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await pool.query(`ALTER TABLE foods ADD COLUMN IF NOT EXISTS cooking_method VARCHAR(50) DEFAULT 'custom'`);
+  await pool.query(`ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_tags TEXT[] DEFAULT ARRAY[]::text[]`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_foods (
@@ -262,14 +267,90 @@ async function runMigrationsInternal(): Promise<void> {
       food_id INTEGER,
       food_source VARCHAR(20) DEFAULT 'database',
       quantity_g REAL NOT NULL,
+      notes VARCHAR(200),
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await pool.query(`ALTER TABLE meal_portions ADD COLUMN IF NOT EXISTS notes VARCHAR(200)`);
 
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_foods_name ON foods(food_name)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_foods_user ON user_foods(user_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_meals_user ON user_meals(user_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_portions_meal ON meal_portions(meal_id)`);
 
-  // Note: Workout plan completion & meal logging tables are deferred for Phase 2 (full tracking)
+  // ── Meal Scheduling & Tracking Tables ───────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_schedule (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+      day_of_week VARCHAR(10) NOT NULL,
+      CONSTRAINT valid_meal_day CHECK (day_of_week IN ('monday','tuesday','wednesday','thursday','friday','saturday','sunday')),
+      UNIQUE(user_id, meal_id, day_of_week)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_plan_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, date, meal_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_plan_completions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+      completed_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, date, meal_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_plan_exclusions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+      UNIQUE(user_id, date, meal_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_portion_completions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+      portion_id INTEGER REFERENCES meal_portions(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      completed_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, meal_id, portion_id, date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS food_stock (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      food_id INTEGER NOT NULL,
+      food_source VARCHAR(20) NOT NULL DEFAULT 'database',
+      food_name VARCHAR(100),
+      quantity_g REAL NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, food_id, food_source)
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_schedule_user ON meal_schedule(user_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_plan_entries_user_date ON meal_plan_entries(user_id, date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_plan_completions_user_date ON meal_plan_completions(user_id, date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_portion_completions_user_date ON meal_portion_completions(user_id, date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_food_stock_user ON food_stock(user_id)`);
 }
