@@ -401,14 +401,15 @@ export default function MealPlan() {
         method: completed ? "DELETE" : "POST",
       });
     },
-    onMutate: async ({ entryId, completed }) => {
+    onMutate: async ({ entryId, mealId, completed }) => {
       await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
       const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
       if (prev) {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
           ...prev,
           entries: prev.entries.map((e) => {
-            if (e.entry_id !== entryId && !(entryId === 0 && e.entry_id === 0)) return e;
+            const isMatch = entryId === 0 ? (e.entry_id === 0 && e.meal?.id === mealId) : e.entry_id === entryId;
+            if (!isMatch) return e;
             const marking = !completed;
             const updatedPortions = e.meal?.portions.map(p => ({ ...p, completed: marking })) ?? [];
             const consumed_totals = marking
