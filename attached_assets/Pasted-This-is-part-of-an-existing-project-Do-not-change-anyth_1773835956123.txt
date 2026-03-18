@@ -1,0 +1,65 @@
+This is part of an existing project. Do not change anything already working. Update the exercise input fields only — no other changes.
+
+Strength exercises (exercise_type = 'strength')
+Show these fields:
+
+Sets (required)
+Reps Min (required)
+Reps Max (required)
+Rest in seconds (required)
+Weight kg (optional — label it "Weight kg (optional, for tracking only)")
+
+Weight is stored but not used in calorie calculation. It is collected now so we can track progressive overload later in Phase 3.
+Calorie estimate uses: effort_MET × user_weight_kg × (estimated_duration_mins / 60)
+Where effort_MET defaults to 5.0 (moderate) at the planning stage. User rates actual effort after completing the session.
+
+Cardio — Treadmill Walk and Treadmill Run
+Show these fields:
+
+Duration in minutes (required)
+Speed km/h (required)
+
+Calorie estimate uses: MET × user_weight_kg × (duration_mins / 60)
+MET is pulled from exercises.met_value for that exercise.
+
+Cardio — Elliptical and Stationary Bike
+Show these fields:
+
+Duration in minutes (required)
+Speed km/h (optional)
+Intensity — Light / Moderate / Vigorous (required if speed is blank)
+
+If speed is entered: derive MET from speed using these thresholds:
+
+Below 10 km/h = MET 4.0
+10–15 km/h = MET 5.5
+Above 15 km/h = MET 7.0
+
+If speed is blank: use intensity MET:
+
+Light = 4.0
+Moderate = 5.5
+Vigorous = 7.0
+
+Calorie estimate: MET × user_weight_kg × (duration_mins / 60)
+
+Cardio — Rowing Machine, Jump Rope, Stair Climber
+Show these fields:
+
+Duration in minutes (required)
+Intensity — Light / Moderate / Vigorous (required)
+
+MET values:
+
+Rowing: Light 4.0 / Moderate 7.0 / Vigorous 8.5
+Jump Rope: Light 8.0 / Moderate 10.0 / Vigorous 12.0
+Stair Climber: Light 6.0 / Moderate 9.0 / Vigorous 12.0
+
+Calorie estimate: MET × user_weight_kg × (duration_mins / 60)
+
+All calorie estimates:
+
+Use the authenticated user's weight_kg from user_profiles — never hardcoded
+Update live as the user changes any input field
+Display as: Est. ~X kcal (for Ykg body weight)
+If user weight is null: show Complete your profile to see calorie estimates

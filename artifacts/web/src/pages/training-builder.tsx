@@ -100,7 +100,7 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
   // Cardio fields
   const [durationMins, setDurationMins] = useState("30");
   const [speedKmh, setSpeedKmh] = useState("");
-  const [effortLevel, setEffortLevel] = useState("moderate");
+  const [intensity, setIntensity] = useState("moderate");
 
   const { data: userProfile } = useQuery<any>({
     queryKey: ["user-profile"],
@@ -135,26 +135,86 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
     setSelectedExercise(null);
     setSearch("");
     setSets("4"); setRepsMin("12"); setRepsMax("15"); setWeightKg(""); setRestSecs("60");
-    setDurationMins("30"); setSpeedKmh(""); setEffortLevel("moderate");
+    setDurationMins("30"); setSpeedKmh(""); setIntensity("moderate");
   }
 
-  const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
   const userWeight = userProfile?.weightKg ? Number(userProfile.weightKg) : null;
+
+  // Cardio-specific MET lookups
+  const getCardioMET = (exerciseName: string, speed: number | null, intensityLevel: string): number => {
+    if (!selectedExercise) return 5;
+    const name = selectedExercise.exercise_name;
+    const hasSpeed = speed !== null && speed > 0;
+
+    // Treadmill Walk/Run: use met_value from database
+    if (name === "Treadmill Walk" || name === "Treadmill Run") {
+      return Number(selectedExercise.met_value) || 4.3;
+    }
+
+    // Elliptical or Stationary Bike: speed-based or intensity-based
+    if (name === "Elliptical" || name === "Stationary Bike") {
+      if (hasSpeed) {
+        if (speed < 10) return 4.0;
+        if (speed <= 15) return 5.5;
+        return 7.0;
+      }
+      // Use intensity-based MET
+      if (intensityLevel === "light") return 4.0;
+      if (intensityLevel === "vigorous") return 7.0;
+      return 5.5; // moderate
+    }
+
+    // Rowing Machine: intensity-based
+    if (name === "Rowing Machine") {
+      if (intensityLevel === "light") return 4.0;
+      if (intensityLevel === "vigorous") return 8.5;
+      return 7.0; // moderate
+    }
+
+    // Jump Rope: intensity-based
+    if (name === "Jump Rope") {
+      if (intensityLevel === "light") return 8.0;
+      if (intensityLevel === "vigorous") return 12.0;
+      return 10.0; // moderate
+    }
+
+    // Stair Climber: intensity-based
+    if (name === "Stair Climber") {
+      if (intensityLevel === "light") return 6.0;
+      if (intensityLevel === "vigorous") return 12.0;
+      return 9.0; // moderate
+    }
+
+    return 5.0; // fallback
+  };
+
   const liveCalories = selectedExercise && userWeight
-    ? selectedExercise.exercise_type === "cardio"
-      ? +((Number(selectedExercise.met_value) || 5) * userWeight * (Number(durationMins) / 60)).toFixed(0)
-      : +(EFFORT_MET[effortLevel] * userWeight * ((Number(sets) * ((Number(repsMin) + Number(repsMax)) / 2 * 3 + Number(restSecs))) / 3600)).toFixed(0)
+    ? (() => {
+        if (selectedExercise.exercise_type === "strength") {
+          // Strength: effort_MET (5.0 default) × weight × (duration / 60)
+          const durationMins = (Number(sets) * ((Number(repsMin) + Number(repsMax)) / 2 * 3 + Number(restSecs))) / 60;
+          return +(5.0 * userWeight * (durationMins / 60)).toFixed(0);
+        } else {
+          // Cardio: MET × weight × (duration / 60)
+          const met = getCardioMET(selectedExercise.exercise_name, speedKmh ? Number(speedKmh) : null, intensity);
+          return +(met * userWeight * (Number(durationMins) / 60)).toFixed(0);
+        }
+      })()
     : 0;
 
   function handleAdd() {
     if (!selectedExercise) return;
     const base = { exercise_id: selectedExercise.id, order_index: 99 };
     if (selectedExercise.exercise_type === "cardio") {
-      addMutation.mutate({ ...base, duration_mins: Number(durationMins), speed_kmh: speedKmh ? Number(speedKmh) : undefined, effort_level: effortLevel });
+      addMutation.mutate({ ...base, duration_mins: Number(durationMins), speed_kmh: speedKmh ? Number(speedKmh) : null, effort_level: intensity });
     } else {
-      addMutation.mutate({ ...base, sets: Number(sets), reps_min: Number(repsMin), reps_max: Number(repsMax), weight_kg: weightKg ? Number(weightKg) : undefined, rest_seconds: Number(restSecs) });
+      addMutation.mutate({ ...base, sets: Number(sets), reps_min: Number(repsMin), reps_max: Number(repsMax), weight_kg: weightKg ? Number(weightKg) : null, rest_seconds: Number(restSecs) });
     }
   }
+
+  const needsSpeed = selectedExercise?.exercise_name === "Treadmill Walk" || selectedExercise?.exercise_name === "Treadmill Run";
+  const needsIntensity = selectedExercise && (selectedExercise.exercise_name === "Rowing Machine" || selectedExercise.exercise_name === "Jump Rope" || selectedExercise.exercise_name === "Stair Climber");
+  const needsSpeedOrIntensity = selectedExercise && (selectedExercise.exercise_name === "Elliptical" || selectedExercise.exercise_name === "Stationary Bike");
 
   if (!open) return null;
 
@@ -265,23 +325,23 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
                     <Input type="number" min="1" value={sets} onChange={e => setSets(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Weight (kg)</label>
-                    <Input type="number" min="0" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <label className="text-xs text-muted-foreground mb-1 block">Reps Min</label>
+                    <Input type="number" min="1" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Reps Min</label>
-                    <Input type="number" min="1" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
-                  </div>
-                  <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Reps Max</label>
                     <Input type="number" min="1" value={repsMax} onChange={e => setRepsMax(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
                   </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Rest (seconds)</label>
+                    <Input type="number" min="0" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Rest (seconds)</label>
-                  <Input type="number" min="0" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  <label className="text-xs text-muted-foreground mb-1 block">Weight kg (optional, for tracking only)</label>
+                  <Input type="number" min="0" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
                 </div>
               </div>
             ) : (
@@ -290,28 +350,60 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
                   <label className="text-xs text-muted-foreground mb-1 block">Duration (minutes)</label>
                   <Input type="number" min="1" value={durationMins} onChange={e => setDurationMins(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label>
-                  <Input type="number" min="0" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
-                  <div className="flex gap-2">
-                    {["light","moderate","vigorous"].map(level => (
-                      <button
-                        key={level}
-                        onClick={() => setEffortLevel(level === "vigorous" ? "heavy" : level)}
-                        className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${
-                          (level === "vigorous" ? "heavy" : level) === effortLevel
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-transparent text-muted-foreground border-border/40"
-                        }`}
-                      >
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
-                      </button>
-                    ))}
+                {needsSpeed && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Speed km/h</label>
+                    <Input type="number" min="0" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
                   </div>
-                </div>
+                )}
+                {needsSpeedOrIntensity && (
+                  <>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label>
+                      <Input type="number" min="0" step="0.5" placeholder="e.g. 12.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    </div>
+                    {!speedKmh && (
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
+                        <div className="flex gap-2">
+                          {["light","moderate","vigorous"].map(level => (
+                            <button
+                              key={level}
+                              onClick={() => setIntensity(level)}
+                              className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${
+                                intensity === level
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-transparent text-muted-foreground border-border/40"
+                              }`}
+                            >
+                              {level.charAt(0).toUpperCase() + level.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                {needsIntensity && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
+                    <div className="flex gap-2">
+                      {["light","moderate","vigorous"].map(level => (
+                        <button
+                          key={level}
+                          onClick={() => setIntensity(level)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${
+                            intensity === level
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-transparent text-muted-foreground border-border/40"
+                          }`}
+                        >
+                          {level.charAt(0).toUpperCase() + level.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -344,7 +436,7 @@ function EditExerciseSheet({ we, workoutId, open, onClose }: EditExerciseSheetPr
   const [restSecs, setRestSecs] = useState(String(we.rest_seconds));
   const [durationMins, setDurationMins] = useState(String(we.duration_mins ?? 30));
   const [speedKmh, setSpeedKmh] = useState(we.speed_kmh ? String(we.speed_kmh) : "");
-  const [effortLevel, setEffortLevel] = useState(we.effort_level || "moderate");
+  const [intensity, setIntensity] = useState(we.effort_level || "moderate");
 
   const saveMutation = useMutation({
     mutationFn: (body: any) => customFetch(`${BASE}/workouts/${workoutId}/exercises/${we.id}`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
@@ -359,11 +451,15 @@ function EditExerciseSheet({ we, workoutId, open, onClose }: EditExerciseSheetPr
 
   function handleSave() {
     if (we.exercise_type === "cardio") {
-      saveMutation.mutate({ duration_mins: Number(durationMins), speed_kmh: speedKmh ? Number(speedKmh) : null, effort_level: effortLevel });
+      saveMutation.mutate({ duration_mins: Number(durationMins), speed_kmh: speedKmh ? Number(speedKmh) : null, effort_level: intensity });
     } else {
       saveMutation.mutate({ sets: Number(sets), reps_min: Number(repsMin), reps_max: Number(repsMax), weight_kg: weightKg ? Number(weightKg) : null, rest_seconds: Number(restSecs) });
     }
   }
+
+  const needsSpeed = we.exercise_name === "Treadmill Walk" || we.exercise_name === "Treadmill Run";
+  const needsIntensity = we.exercise_name === "Rowing Machine" || we.exercise_name === "Jump Rope" || we.exercise_name === "Stair Climber";
+  const needsSpeedOrIntensity = we.exercise_name === "Elliptical" || we.exercise_name === "Stationary Bike";
 
   if (!open) return null;
   return (
@@ -380,29 +476,49 @@ function EditExerciseSheet({ we, workoutId, open, onClose }: EditExerciseSheetPr
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-xs text-muted-foreground mb-1 block">Sets</label><Input type="number" value={sets} onChange={e => setSets(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
-                <div><label className="text-xs text-muted-foreground mb-1 block">Weight (kg)</label><Input type="number" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Reps Min</label><Input type="number" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-muted-foreground mb-1 block">Reps Min</label><Input type="number" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
                 <div><label className="text-xs text-muted-foreground mb-1 block">Reps Max</label><Input type="number" value={repsMax} onChange={e => setRepsMax(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Rest (sec)</label><Input type="number" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
               </div>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Rest (sec)</label><Input type="number" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+              <div><label className="text-xs text-muted-foreground mb-1 block">Weight kg (optional, for tracking only)</label><Input type="number" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
             </>
           ) : (
             <>
               <div><label className="text-xs text-muted-foreground mb-1 block">Duration (min)</label><Input type="number" value={durationMins} onChange={e => setDurationMins(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label><Input type="number" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
-                <div className="flex gap-2">
-                  {["light","moderate","vigorous"].map(level => (
-                    <button key={level} onClick={() => setEffortLevel(level === "vigorous" ? "heavy" : level)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${(level === "vigorous" ? "heavy" : level) === effortLevel ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground border-border/40"}`}>
-                      {level.charAt(0).toUpperCase() + level.slice(1)}
-                    </button>
-                  ))}
+              {needsSpeed && (
+                <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h</label><Input type="number" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+              )}
+              {needsSpeedOrIntensity && (
+                <>
+                  <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label><Input type="number" step="0.5" placeholder="e.g. 12.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                  {!speedKmh && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
+                      <div className="flex gap-2">
+                        {["light","moderate","vigorous"].map(level => (
+                          <button key={level} onClick={() => setIntensity(level)} className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${intensity === level ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground border-border/40"}`}>
+                            {level.charAt(0).toUpperCase() + level.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {needsIntensity && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
+                  <div className="flex gap-2">
+                    {["light","moderate","vigorous"].map(level => (
+                      <button key={level} onClick={() => setIntensity(level)} className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${intensity === level ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground border-border/40"}`}>
+                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
           <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full bg-primary text-primary-foreground">
