@@ -1,15 +1,130 @@
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
-import { Settings, LogOut, Loader2, ChevronRight, UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList } from "lucide-react";
+import {
+  Settings, LogOut, Loader2, ChevronRight,
+  UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { customFetch } from "@workspace/api-client-react";
+
+const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
+
+function todayStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
+function getMondayStr() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+  return `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
+}
+
+interface TodayData {
+  nutrition: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  training: { planned_calories: number; burned_calories: number };
+}
+
+interface WeeklyDay {
+  date: string; day: string;
+  calories: number; protein_g: number; carbs_g: number; fat_g: number;
+  burned_calories: number;
+}
+
+interface WeeklyData {
+  week_start: string; week_end: string;
+  totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number; burned_calories: number };
+  days: WeeklyDay[];
+}
+
+function MacroBar({ label, consumed, target, color }: { label: string; consumed: number; target: number; color: string }) {
+  const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-foreground/70">
+          <span className="font-semibold text-foreground">{Math.round(consumed)}</span>
+          <span className="text-muted-foreground"> / {target}g</span>
+        </span>
+      </div>
+      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CalBar({ label, value, target, color, unit = "kcal" }: { label: string; value: number; target: number; color: string; unit?: string }) {
+  const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-foreground/70">
+          <span className="font-semibold text-foreground">{Math.round(value)}</span>
+          <span className="text-muted-foreground"> / {Math.round(target)} {unit}</span>
+        </span>
+      </div>
+      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MiniStatPill({ label, value, unit, color }: { label: string; value: number; unit: string; color: string }) {
+  return (
+    <div className="flex-1 bg-[#1A1A1A] rounded-2xl p-3 flex flex-col items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-lg font-bold" style={{ color }}>{Math.round(value)}</span>
+      <span className="text-[10px] text-muted-foreground">{unit}</span>
+    </div>
+  );
+}
 
 export default function Dashboard() {
-  const { plan, isLoading } = usePlan();
+  const [view, setView] = useState<"daily" | "weekly">("daily");
+  const { plan, isLoading: planLoading } = usePlan();
   const { logout } = useAuth();
+  const today = todayStr();
 
-  if (isLoading) {
+  const { data: todayData } = useQuery<TodayData>({
+    queryKey: ["dashboard-today", today],
+    queryFn: () => customFetch<TodayData>(`${BASE}/dashboard/today?date=${today}`),
+    enabled: !!plan,
+    refetchOnWindowFocus: true,
+  });
+
+  const mondayStr = getMondayStr();
+  const { data: weeklyData } = useQuery<WeeklyData>({
+    queryKey: ["dashboard-weekly", mondayStr],
+    queryFn: () => customFetch<WeeklyData>(`${BASE}/dashboard/weekly?week_start=${mondayStr}`),
+    enabled: view === "weekly" && !!plan,
+    refetchOnWindowFocus: true,
+  });
+
+  const consumed = todayData?.nutrition ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+  const training = todayData?.training ?? { planned_calories: 0, burned_calories: 0 };
+
+  const weeklyMaxCal = useMemo(
+    () => Math.max(...(weeklyData?.days.map(d => Math.max(d.calories, d.burned_calories)) ?? [1])),
+    [weeklyData]
+  );
+
+  if (planLoading) {
     return (
       <div className="mobile-container flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -29,12 +144,6 @@ export default function Dashboard() {
     );
   }
 
-  const weightGapStr = plan.weightKg > plan.targetWeightKg 
-    ? `You want to lose ${(plan.weightKg - plan.targetWeightKg).toFixed(1)} kg`
-    : plan.weightKg < plan.targetWeightKg 
-      ? `You want to gain ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} kg`
-      : "You are at your target weight";
-
   const goalLabels: Record<string, string> = {
     recomposition: "Lose fat & preserve muscle",
     cut: "Lose body fat",
@@ -42,16 +151,23 @@ export default function Dashboard() {
     maintenance: "Maintain weight",
   };
 
+  const weightGapStr = plan.weightKg > plan.targetWeightKg
+    ? `You want to lose ${(plan.weightKg - plan.targetWeightKg).toFixed(1)} kg`
+    : plan.weightKg < plan.targetWeightKg
+      ? `You want to gain ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} kg`
+      : "You are at your target weight";
+
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-12">
+      {/* Header */}
       <header className="px-6 py-6 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50">
-        <h1 className="text-xl font-semibold tracking-tight">Your Plan</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-3">
           <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
             <Settings className="w-5 h-5 text-foreground" />
           </Link>
-          <button 
-            onClick={() => logout.mutate()} 
+          <button
+            onClick={() => logout.mutate()}
             className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
           >
             <LogOut className="w-5 h-5" />
@@ -59,87 +175,303 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="px-6 pt-8 space-y-10">
-        
-        {/* Calorie Target */}
-        <section className="flex flex-col items-center">
-          <div className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-3">Daily Target</div>
-          <div className="text-7xl font-light tracking-tighter text-primary">{plan.calorieTarget}</div>
-          <div className="text-sm text-muted-foreground mt-1">kcal</div>
-          
-          <div className="mt-6 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
-            {goalLabels[plan.goalMode] || plan.goalMode}
-          </div>
-        </section>
+      <main className="px-6 pt-6 space-y-6">
 
-        {/* Macros Grid */}
-        <section className="grid grid-cols-3 gap-3">
-          <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
-            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Protein</div>
-            <div className="text-2xl font-semibold">{plan.proteinG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
-            <div className="w-full h-1 bg-[#3B82F6]/20 mt-3 rounded-full overflow-hidden">
-              <div className="h-full bg-[#3B82F6] w-[100%]" />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Builds & repairs muscle tissue</p>
-          </Card>
-          <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
-            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Carbs</div>
-            <div className="text-2xl font-semibold">{plan.carbsG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
-            <div className="w-full h-1 bg-[#F59E0B]/20 mt-3 rounded-full overflow-hidden">
-              <div className="h-full bg-[#F59E0B] w-[100%]" />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Fuels training & recovery</p>
-          </Card>
-          <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
-            <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Fat</div>
-            <div className="text-2xl font-semibold">{plan.fatG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
-            <div className="w-full h-1 bg-[#EAB308]/20 mt-3 rounded-full overflow-hidden">
-              <div className="h-full bg-[#EAB308] w-[100%]" />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Supports hormones & health</p>
-          </Card>
-        </section>
+        {/* Toggle */}
+        <div className="flex gap-1 p-1 bg-[#1A1A1A] rounded-2xl">
+          <button
+            onClick={() => setView("daily")}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "daily" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Daily
+          </button>
+          <button
+            onClick={() => setView("weekly")}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "weekly" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Weekly
+          </button>
+        </div>
 
-        {/* Weight & Timeline */}
-        <section className="space-y-3">
-          <div className="flex gap-3">
-            <Card className="flex-1 p-5 border-border">
-              <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Current</div>
-              <div className="text-2xl font-semibold">{plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
-            </Card>
-            <Card className="flex-1 p-5 border-border">
-              <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Target</div>
-              <div className="text-2xl font-semibold">{plan.targetWeightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
-            </Card>
-          </div>
-          
-          <Card className="p-6 border-border">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="font-semibold text-base mb-1">Projected Timeline</h3>
-                <p className="text-sm text-muted-foreground">{weightGapStr}</p>
+        {/* ─── DAILY VIEW ─── */}
+        {view === "daily" && (
+          <>
+            {/* Calorie Target hero */}
+            <section className="flex flex-col items-center py-4">
+              <div className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-3">Daily Target</div>
+              <div className="text-7xl font-light tracking-tighter text-primary">{plan.calorieTarget}</div>
+              <div className="text-sm text-muted-foreground mt-1">kcal</div>
+              <div className="mt-4 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+                {goalLabels[plan.goalMode] || plan.goalMode}
               </div>
-            </div>
-            
-            {plan.weeksEstimateLow !== null && plan.weeksEstimateHigh !== null ? (
-              <div className="text-3xl font-light">
-                {plan.weeksEstimateLow} - {plan.weeksEstimateHigh} <span className="text-lg text-muted-foreground">weeks</span>
+            </section>
+
+            {/* Daily Nutrition Progress */}
+            <section className="space-y-3">
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Nutrition</p>
+              <Card className="p-5 bg-[#1A1A1A] border-none space-y-5">
+                {/* Calories big row */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Consumed</div>
+                    <div className="text-3xl font-bold text-primary">{Math.round(consumed.calories)}</div>
+                    <div className="text-xs text-muted-foreground">/ {plan.calorieTarget} kcal target</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</div>
+                    <div className={`text-2xl font-bold ${plan.calorieTarget - consumed.calories < 0 ? "text-red-400" : "text-foreground"}`}>
+                      {Math.round(Math.max(0, plan.calorieTarget - consumed.calories))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">kcal</div>
+                  </div>
+                </div>
+
+                {/* Calorie bar */}
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (consumed.calories / plan.calorieTarget) * 100)}%` }}
+                  />
+                </div>
+
+                {/* Macro bars */}
+                <div className="space-y-3 pt-1">
+                  <MacroBar label="Protein" consumed={consumed.protein_g} target={plan.proteinG} color="#3B82F6" />
+                  <MacroBar label="Carbs" consumed={consumed.carbs_g} target={plan.carbsG} color="#F59E0B" />
+                  <MacroBar label="Fat" consumed={consumed.fat_g} target={plan.fatG} color="#EAB308" />
+                </div>
+
+                {/* Macro pills */}
+                <div className="flex gap-2 pt-1">
+                  <MiniStatPill label="Protein" value={consumed.protein_g} unit={`/ ${plan.proteinG}g`} color="#3B82F6" />
+                  <MiniStatPill label="Carbs" value={consumed.carbs_g} unit={`/ ${plan.carbsG}g`} color="#F59E0B" />
+                  <MiniStatPill label="Fat" value={consumed.fat_g} unit={`/ ${plan.fatG}g`} color="#EAB308" />
+                </div>
+              </Card>
+            </section>
+
+            {/* Daily Workout Burn */}
+            <section className="space-y-3">
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Training</p>
+              <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <Zap className="w-4 h-4 text-muted-foreground mb-0.5" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Planned</span>
+                    <span className="text-2xl font-bold text-foreground">{Math.round(training.planned_calories)}</span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                    <span className="text-2xl font-bold text-orange-400">{Math.round(training.burned_calories)}</span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Net</span>
+                    <span className={`text-2xl font-bold ${training.burned_calories > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                      {Math.round(training.burned_calories > 0 ? plan.calorieTarget + training.burned_calories : plan.calorieTarget)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                </div>
+
+                {training.planned_calories > 0 && (
+                  <CalBar
+                    label="Burn Progress"
+                    value={training.burned_calories}
+                    target={training.planned_calories}
+                    color="#F97316"
+                  />
+                )}
+              </Card>
+            </section>
+
+            {/* Macro Target Cards */}
+            <section className="space-y-3">
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Macro Targets</p>
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Protein</div>
+                  <div className="text-2xl font-semibold">{plan.proteinG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
+                  <div className="w-full h-1 bg-[#3B82F6]/20 mt-3 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#3B82F6] w-[100%]" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Builds & repairs muscle</p>
+                </Card>
+                <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Carbs</div>
+                  <div className="text-2xl font-semibold">{plan.carbsG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
+                  <div className="w-full h-1 bg-[#F59E0B]/20 mt-3 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#F59E0B] w-[100%]" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Fuels training & recovery</p>
+                </Card>
+                <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Fat</div>
+                  <div className="text-2xl font-semibold">{plan.fatG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
+                  <div className="w-full h-1 bg-[#EAB308]/20 mt-3 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#EAB308] w-[100%]" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Supports hormones & health</p>
+                </Card>
+              </div>
+            </section>
+
+            {/* Weight & Timeline */}
+            <section className="space-y-3">
+              <div className="flex gap-3">
+                <Card className="flex-1 p-5 border-border">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Current</div>
+                  <div className="text-2xl font-semibold">{plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
+                </Card>
+                <Card className="flex-1 p-5 border-border">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Target</div>
+                  <div className="text-2xl font-semibold">{plan.targetWeightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
+                </Card>
+              </div>
+
+              <Card className="p-6 border-border">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-semibold text-base mb-1">Projected Timeline</h3>
+                    <p className="text-sm text-muted-foreground">{weightGapStr}</p>
+                  </div>
+                </div>
+                {plan.weeksEstimateLow !== null && plan.weeksEstimateHigh !== null ? (
+                  <div className="text-3xl font-light">
+                    {plan.weeksEstimateLow} - {plan.weeksEstimateHigh} <span className="text-lg text-muted-foreground">weeks</span>
+                  </div>
+                ) : (
+                  <div className="text-xl font-light text-muted-foreground">Timeline N/A</div>
+                )}
+                {plan.goalMode === "recomposition" && (
+                  <p className="text-xs text-muted-foreground mt-4 p-3 bg-muted rounded-lg border border-border/50">
+                    Your weight may not change much — recomposition replaces fat with muscle.
+                  </p>
+                )}
+              </Card>
+            </section>
+          </>
+        )}
+
+        {/* ─── WEEKLY VIEW ─── */}
+        {view === "weekly" && (
+          <>
+            {!weeklyData ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
               </div>
             ) : (
-              <div className="text-xl font-light text-muted-foreground">
-                Timeline N/A
-              </div>
-            )}
-            
-            {plan.goalMode === "recomposition" && (
-              <p className="text-xs text-muted-foreground mt-4 p-3 bg-muted rounded-lg border border-border/50">
-                Your weight may not change much — recomposition replaces fat with muscle. Track how your clothes fit and waist measurements, not just the scale.
-              </p>
-            )}
-          </Card>
-        </section>
+              <>
+                {/* Weekly totals */}
+                <section className="space-y-3">
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">This Week — Nutrition</p>
+                  <Card className="p-5 bg-[#1A1A1A] border-none space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Consumed</div>
+                        <div className="text-3xl font-bold text-primary">{Math.round(weeklyData.totals.calories)}</div>
+                        <div className="text-xs text-muted-foreground">/ {plan.calorieTarget * 7} kcal weekly</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</div>
+                        <div className={`text-2xl font-bold ${plan.calorieTarget * 7 - weeklyData.totals.calories < 0 ? "text-red-400" : "text-foreground"}`}>
+                          {Math.round(Math.max(0, plan.calorieTarget * 7 - weeklyData.totals.calories))}
+                        </div>
+                        <div className="text-xs text-muted-foreground">kcal</div>
+                      </div>
+                    </div>
 
-        {/* Nutrition links */}
+                    <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (weeklyData.totals.calories / (plan.calorieTarget * 7)) * 100)}%` }}
+                      />
+                    </div>
+
+                    <div className="space-y-3 pt-1">
+                      <MacroBar label="Protein" consumed={weeklyData.totals.protein_g} target={plan.proteinG * 7} color="#3B82F6" />
+                      <MacroBar label="Carbs" consumed={weeklyData.totals.carbs_g} target={plan.carbsG * 7} color="#F59E0B" />
+                      <MacroBar label="Fat" consumed={weeklyData.totals.fat_g} target={plan.fatG * 7} color="#EAB308" />
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <MiniStatPill label="Protein" value={weeklyData.totals.protein_g} unit={`/ ${plan.proteinG * 7}g`} color="#3B82F6" />
+                      <MiniStatPill label="Carbs" value={weeklyData.totals.carbs_g} unit={`/ ${plan.carbsG * 7}g`} color="#F59E0B" />
+                      <MiniStatPill label="Fat" value={weeklyData.totals.fat_g} unit={`/ ${plan.fatG * 7}g`} color="#EAB308" />
+                    </div>
+                  </Card>
+                </section>
+
+                {/* Weekly training */}
+                <section className="space-y-3">
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">This Week — Training</p>
+                  <Card className="p-5 bg-[#1A1A1A] border-none">
+                    <div className="flex gap-3">
+                      <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                        <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Burned</span>
+                        <span className="text-2xl font-bold text-orange-400">{Math.round(weeklyData.totals.burned_calories)}</span>
+                        <span className="text-xs text-muted-foreground">kcal</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Daily Avg</span>
+                        <span className="text-2xl font-bold text-foreground">{Math.round(weeklyData.totals.burned_calories / 7)}</span>
+                        <span className="text-xs text-muted-foreground">kcal/day</span>
+                      </div>
+                    </div>
+                  </Card>
+                </section>
+
+                {/* Day-by-day chart */}
+                <section className="space-y-3">
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Day by Day</p>
+                  <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                    {/* Legend */}
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary inline-block" /> Calories</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-orange-400 inline-block" /> Burned</span>
+                    </div>
+                    {weeklyData.days.map((day) => {
+                      const calPct = weeklyMaxCal > 0 ? (day.calories / weeklyMaxCal) * 100 : 0;
+                      const burnPct = weeklyMaxCal > 0 ? (day.burned_calories / weeklyMaxCal) * 100 : 0;
+                      const isToday = day.date === today;
+                      return (
+                        <div key={day.date} className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs font-medium ${isToday ? "text-primary" : "text-muted-foreground"}`}>
+                              {day.day}{isToday ? " (today)" : ""}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(day.calories)} kcal · {Math.round(day.burned_calories)} burned
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary rounded-full transition-all duration-500"
+                                style={{ width: `${calPct}%` }}
+                              />
+                            </div>
+                            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-orange-400 rounded-full transition-all duration-500"
+                                style={{ width: `${burnPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </Card>
+                </section>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Quick Links — always visible */}
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Nutrition</p>
           <Link href="/nutrition/meals">
@@ -180,7 +512,6 @@ export default function Dashboard() {
           </Link>
         </section>
 
-        {/* Training links */}
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Training</p>
           <Link href="/training/builder">
@@ -207,14 +538,6 @@ export default function Dashboard() {
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
           </Link>
-        </section>
-
-        {/* Summary */}
-        <section>
-          <h3 className="text-sm font-semibold tracking-wider uppercase text-muted-foreground mb-3">Plan Summary</h3>
-          <p className="text-foreground/90 leading-relaxed text-[15px]">
-            {plan.summaryText}
-          </p>
         </section>
 
       </main>

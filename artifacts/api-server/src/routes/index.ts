@@ -10,6 +10,7 @@ import mealPlanRouter from "./meal-plan";
 import shoppingListRouter from "./shopping-list";
 import workoutsRouter from "./workouts";
 import workoutPlanRouter from "./workout-plan";
+import dashboardRouter from "./dashboard";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(mealPlanRouter);
 router.use(shoppingListRouter);
 router.use(workoutsRouter);
 router.use(workoutPlanRouter);
+router.use(dashboardRouter);
 
 export default router;
