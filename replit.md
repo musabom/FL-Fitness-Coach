@@ -147,6 +147,10 @@ Macro calculation for portions:
   - consumed (from `meal_portion_completions` — actual food eaten)
   - planned (from `plans` table — user's active daily nutrition targets)
 - Training data returns: planned (from workout schedule or plan entries) and burned (from completion records)
+- Balance calculation returns:
+  - tdee: daily calorie target from active plan
+  - totalBurned: tdee + exercise burn (daily) or tdee × 7 + exercise burn (weekly)
+  - balance: consumed - totalBurned (negative = deficit, positive = surplus)
 
 ## Development
 

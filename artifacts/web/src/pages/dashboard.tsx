@@ -32,6 +32,9 @@ interface TodayData {
     planned: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
   };
   training: { planned_calories: number; burned_calories: number };
+  tdee: number;
+  totalBurned: number;
+  balance: number;
 }
 
 interface WeeklyDay {
@@ -44,6 +47,9 @@ interface WeeklyData {
   week_start: string; week_end: string;
   totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number; burned_calories: number };
   days: WeeklyDay[];
+  tdee: number;
+  totalBurned: number;
+  balance: number;
 }
 
 function CompactMacroBar({ label, consumed, planned, color, unit }: { label: string; consumed: number; planned: number; color: string; unit: string }) {
@@ -291,6 +297,31 @@ export default function Dashboard() {
               </Card>
             </section>
 
+            {/* Calorie Balance */}
+            <section className="space-y-3">
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
+              <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
+                    <span className="text-2xl font-bold text-foreground">{Math.round(todayData?.nutrition.consumed.calories ?? 0)}</span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                    <span className="text-2xl font-bold text-orange-400">{Math.round(todayData?.totalBurned ?? 0)}</span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
+                    <span className={`text-2xl font-bold ${(todayData?.balance ?? 0) < 0 ? "text-primary" : "text-red-400"}`}>
+                      {(todayData?.balance ?? 0) < 0 ? "−" : "+"}{Math.abs(Math.round(todayData?.balance ?? 0))}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{(todayData?.balance ?? 0) < 0 ? "deficit" : "surplus"}</span>
+                  </div>
+                </div>
+              </Card>
+            </section>
 
             {/* Weight & Timeline */}
             <section className="space-y-3">
@@ -398,6 +429,32 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Daily Avg</span>
                         <span className="text-2xl font-bold text-foreground">{Math.round(weeklyData.totals.burned_calories / 7)}</span>
                         <span className="text-xs text-muted-foreground">kcal/day</span>
+                      </div>
+                    </div>
+                  </Card>
+                </section>
+
+                {/* Weekly Calorie Balance */}
+                <section className="space-y-3">
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
+                  <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                    <div className="flex gap-3">
+                      <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
+                        <span className="text-2xl font-bold text-foreground">{Math.round(weeklyData.totals.calories)}</span>
+                        <span className="text-xs text-muted-foreground">kcal</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                        <span className="text-2xl font-bold text-orange-400">{Math.round(weeklyData.totalBurned)}</span>
+                        <span className="text-xs text-muted-foreground">kcal</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
+                        <span className={`text-2xl font-bold ${weeklyData.balance < 0 ? "text-primary" : "text-red-400"}`}>
+                          {weeklyData.balance < 0 ? "−" : "+"}{Math.abs(Math.round(weeklyData.balance))}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{weeklyData.balance < 0 ? "deficit" : "surplus"}</span>
                       </div>
                     </div>
                   </Card>
