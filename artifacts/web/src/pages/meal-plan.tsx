@@ -486,10 +486,10 @@ export default function MealPlan() {
   const consumedTotals = useMemo(() => {
     return entries.reduce(
       (acc, e) => ({
-        calories: acc.calories + (e.meal?.consumed_totals.calories ?? 0),
-        protein_g: acc.protein_g + (e.meal?.consumed_totals.protein_g ?? 0),
-        carbs_g: acc.carbs_g + (e.meal?.consumed_totals.carbs_g ?? 0),
-        fat_g: acc.fat_g + (e.meal?.consumed_totals.fat_g ?? 0),
+        calories: acc.calories + (e.meal?.consumed_totals?.calories ?? 0),
+        protein_g: acc.protein_g + (e.meal?.consumed_totals?.protein_g ?? 0),
+        carbs_g: acc.carbs_g + (e.meal?.consumed_totals?.carbs_g ?? 0),
+        fat_g: acc.fat_g + (e.meal?.consumed_totals?.fat_g ?? 0),
       }),
       { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
     );
