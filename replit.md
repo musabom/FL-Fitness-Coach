@@ -51,10 +51,11 @@ artifacts-monorepo/
 └── package.json
 ```
 
-## Database Tables (10 total)
+## Database Tables
 
 Phase 1 (Drizzle ORM): users, user_profiles, plans
 Phase 1 (raw SQL — Meal Builder): foods (118 USDA rows), user_meals, meal_portions, meal_schedule
+Phase 1 (raw SQL — Exercise Builder): exercises (45 library + custom), user_workouts, workout_exercises, workout_schedule, food_stock
 Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment_logs
 
 ### Meal Builder tables (raw SQL, not in Drizzle schema)
@@ -62,6 +63,13 @@ Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment
 - `user_meals` — user-named meal containers (belongs to user)
 - `meal_portions` — food + quantity_g entries inside a meal
 - `meal_schedule` — maps meals to days-of-week (monday..sunday)
+
+### Exercise Builder tables (raw SQL)
+- `exercises` — 45 library exercises + custom exercises; fields: id, exercise_name, muscle_primary, exercise_type (strength/cardio), equipment, injury_contraindications (ARRAY), met_value (numeric), met_values (JSONB for cardio {light/moderate/vigorous}), form_cue (TEXT), is_custom (boolean), user_id (for custom exercises), active (boolean)
+- `user_workouts` — user-created workout templates (name, notes)
+- `workout_exercises` — exercise entries in a workout (sets, reps_min, reps_max, weight_kg, rest_seconds, duration_mins, speed_kmh, effort_level, estimated_calories)
+- `workout_schedule` — maps workouts to days-of-week (monday..sunday)
+- `food_stock` — shopping list tracking (food_id, user_id, weekly_quantity, notes)
 
 Macro calculation for portions:
 - per_piece: multiplier = quantity_g / serving_weight_g
@@ -89,6 +97,21 @@ Macro calculation for portions:
 - `POST /api/meals/:id/schedule` - Set scheduled days (replaces previous schedule)
 - `GET /api/meals/day/:day` - Get meals scheduled for a specific day
 - `GET /api/meals/daily-totals` - Today's totals, targets, progress %, warnings
+- `GET /api/exercises?q=&muscle=&type=` - Search exercises (library + user custom); filters by name, muscle, type; returns only active and user-accessible exercises
+- `POST /api/exercises` - Create custom exercise (requires auth; sets is_custom=TRUE, user_id=authenticated user; stores met_values JSONB for cardio)
+- `POST /api/workouts` - Create new workout template
+- `GET /api/workouts` - Get all user workouts with exercises + calorie totals
+- `GET /api/workouts/day/:day` - Get workouts scheduled for a specific day
+- `POST /api/workouts/:workoutId/exercises` - Add exercise to workout
+- `PATCH /api/workouts/:workoutId/exercises/:exerciseId` - Update exercise in workout
+- `DELETE /api/workouts/:workoutId/exercises/:exerciseId` - Remove exercise from workout
+- `PATCH /api/workouts/:workoutId/exercises/:exerciseId/reorder` - Reorder exercise (move up/down)
+- `POST /api/workouts/:workoutId/schedule` - Set scheduled days for workout
+- `DELETE /api/workouts/:workoutId` - Delete workout
+- `POST /api/shopping-list` - Create food stock entry
+- `GET /api/shopping-list` - Get all food stock entries (shopping list)
+- `PATCH /api/shopping-list/:foodId` - Update stock entry (quantity, notes)
+- `DELETE /api/shopping-list/:foodId` - Remove stock entry
 
 ## Auth Pattern
 
@@ -111,9 +134,10 @@ Macro calculation for portions:
 - `/login` - Login form
 - `/signup` - Registration form
 - `/onboarding` - 11-step questionnaire (height, weight, target weight, age, gender, goal, activity, training days, location, dietary prefs, injuries)
-- `/dashboard` - Calorie target, macros grid, weight info, timeline estimate, plan summary
+- `/dashboard` - Calorie target, macros grid, weight info, timeline estimate, plan summary; links to Nutrition (Meal Builder) and Training (Exercise Builder)
 - `/profile/edit` - Edit profile metrics (triggers plan recalculation)
-- `/nutrition/meals` - Meal Builder: create meals, add food portions, schedule by day, track daily progress
+- `/nutrition/meals` - Meal Builder: create meals, add food portions, schedule by day, track daily progress; Shopping List with stock tracking
+- `/training/builder` - Exercise Builder: create workout templates, add exercises (library or custom), schedule by day, track daily calorie burn; Custom Exercise creation form with strength/cardio-specific fields
 
 ## Development
 
