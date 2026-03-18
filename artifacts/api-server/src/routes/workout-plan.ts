@@ -121,7 +121,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     [userId, dateStr]
   );
 
-  // Fetch workouts scheduled for this day-of-week NOT already in entries
+  // Fetch workouts scheduled for this day-of-week NOT already in entries or exclusions
   const scheduledRes = await pool.query(
     `SELECT DISTINCT uw.id AS workout_id
      FROM user_workouts uw
@@ -130,6 +130,10 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
        AND NOT EXISTS (
          SELECT 1 FROM workout_plan_entries wpe
          WHERE wpe.user_id = $1 AND wpe.date = $3 AND wpe.workout_id = uw.id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM workout_plan_exclusions wpex
+         WHERE wpex.user_id = $1 AND wpex.date = $3 AND wpex.workout_id = uw.id
        )
      ORDER BY uw.id`,
     [userId, dayOfWeek, dateStr]
@@ -240,14 +244,44 @@ router.post("/workout-plan", async (req, res): Promise<void> => {
   res.status(201).json({ entry_id: result.rows[0].id, date, workout_id });
 });
 
-// ── DELETE /workout-plan/:entryId ── Remove a workout entry ──────────────────
+// ── DELETE /workout-plan/:entryId ── Remove a workout entry or exclude scheduled workout ──
 
 router.delete("/workout-plan/:entryId", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;
 
   const entryId = Number(req.params["entryId"]);
+  const workoutId = Number(req.query["workout_id"]);
+  const dateStr = req.query["date"] as string;
 
+  // If entryId is 0, it's a scheduled workout that needs exclusion
+  if (entryId === 0) {
+    if (!workoutId || !dateStr) {
+      res.status(400).json({ error: "workout_id and date are required for scheduled workout exclusion" });
+      return;
+    }
+    
+    const check = await pool.query(
+      "SELECT id FROM user_workouts WHERE id = $1 AND user_id = $2",
+      [workoutId, userId]
+    );
+    if (!check.rows.length) {
+      res.status(404).json({ error: "Workout not found" });
+      return;
+    }
+
+    await pool.query(
+      `INSERT INTO workout_plan_exclusions (user_id, date, workout_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, date, workout_id) DO NOTHING`,
+      [userId, dateStr, workoutId]
+    );
+
+    res.json({ message: "Excluded from schedule" });
+    return;
+  }
+
+  // Otherwise it's a manually-added entry
   const check = await pool.query(
     "SELECT id, date, workout_id FROM workout_plan_entries WHERE id = $1 AND user_id = $2",
     [entryId, userId]

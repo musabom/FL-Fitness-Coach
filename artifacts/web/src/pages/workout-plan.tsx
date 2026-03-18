@@ -354,12 +354,8 @@ export default function WorkoutPlan() {
   const removeMutation = useMutation({
     mutationFn: async ({ entryId, workoutId, isEntry }: { entryId: number; workoutId: number; isEntry: boolean }) => {
       if (!isEntry) {
-        // Scheduled workout: convert to entry first, then delete so removal persists
-        const addRes = await customFetch<{ entry_id: number }>(`${BASE}/workout-plan`, {
-          method: "POST",
-          body: JSON.stringify({ date, workout_id: workoutId }),
-        });
-        return customFetch(`${BASE}/workout-plan/${addRes.entry_id}`, { method: "DELETE" });
+        // Scheduled workout: exclude from schedule with query params
+        return customFetch(`${BASE}/workout-plan/0?workout_id=${workoutId}&date=${date}`, { method: "DELETE" });
       }
       return customFetch(`${BASE}/workout-plan/${entryId}`, { method: "DELETE" });
     },
