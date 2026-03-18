@@ -247,6 +247,10 @@ export default function Dashboard() {
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
                     <span className="text-2xl font-bold text-orange-400">{Math.round(todayData?.totalBurned ?? 0)}</span>
                     <span className="text-xs text-muted-foreground">kcal</span>
+                    <div className="text-[10px] text-muted-foreground mt-1 text-center">
+                      <div>{Math.round(todayData?.tdee ?? 0)} static</div>
+                      {(training.burned_calories ?? 0) > 0 && <div>+ {Math.round(training.burned_calories)} workout</div>}
+                    </div>
                   </div>
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
@@ -548,6 +552,10 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
                         <span className="text-2xl font-bold text-orange-400">{Math.round(weeklyData.totalBurned)}</span>
                         <span className="text-xs text-muted-foreground">kcal</span>
+                        <div className="text-[10px] text-muted-foreground mt-1 text-center">
+                          <div>{Math.round((weeklyData.tdee ?? 0) * 7)} static</div>
+                          {(weeklyData.totals.burned_calories ?? 0) > 0 && <div>+ {Math.round(weeklyData.totals.burned_calories)} workout</div>}
+                        </div>
                       </div>
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                         <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
