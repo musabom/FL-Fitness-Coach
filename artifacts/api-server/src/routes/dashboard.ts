@@ -31,8 +31,9 @@ function calcExerciseCalories(row: {
   return +(met * weightKg * (durMins / 60)).toFixed(1);
 }
 
-async function getNutritionConsumed(userId: number, date: string) {
-  const res = await pool.query(
+async function getNutritionData(userId: number, date: string) {
+  // Consumed: sum of completed portions
+  const consumedRes = await pool.query(
     `SELECT
        COALESCE(SUM(
          CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
@@ -61,13 +62,53 @@ async function getNutritionConsumed(userId: number, date: string) {
      WHERE mpc.user_id = $1 AND mpc.date = $2`,
     [userId, date]
   );
-  const row = res.rows[0];
-  return {
-    calories: +Number(row.calories).toFixed(1),
-    protein_g: +Number(row.protein_g).toFixed(2),
-    carbs_g: +Number(row.carbs_g).toFixed(2),
-    fat_g: +Number(row.fat_g).toFixed(2),
+  const consumedRow = consumedRes.rows[0];
+  const consumed = {
+    calories: +Number(consumedRow.calories).toFixed(1),
+    protein_g: +Number(consumedRow.protein_g).toFixed(2),
+    carbs_g: +Number(consumedRow.carbs_g).toFixed(2),
+    fat_g: +Number(consumedRow.fat_g).toFixed(2),
   };
+
+  // Planned: sum of all meal portions in meal_plan_entries for this date
+  const plannedRes = await pool.query(
+    `SELECT
+       COALESCE(SUM(
+         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
+           ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END
+       ), 0) AS calories,
+       COALESCE(SUM(
+         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g
+           ELSE COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g / 100 END
+       ), 0) AS protein_g,
+       COALESCE(SUM(
+         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g
+           ELSE COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g / 100 END
+       ), 0) AS carbs_g,
+       COALESCE(SUM(
+         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g
+           ELSE COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g / 100 END
+       ), 0) AS fat_g
+     FROM meal_plan_entries mpe
+     JOIN meal_portions mp ON mp.meal_id = mpe.meal_id
+     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
+     WHERE mpe.user_id = $1 AND mpe.date = $2`,
+    [userId, date]
+  );
+  const plannedRow = plannedRes.rows[0];
+  const planned = {
+    calories: +Number(plannedRow.calories).toFixed(1),
+    protein_g: +Number(plannedRow.protein_g).toFixed(2),
+    carbs_g: +Number(plannedRow.carbs_g).toFixed(2),
+    fat_g: +Number(plannedRow.fat_g).toFixed(2),
+  };
+
+  return { consumed, planned };
 }
 
 async function getWorkoutCalories(userId: number, date: string, weightKg: number) {
@@ -132,7 +173,7 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
   const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
 
   const [nutrition, training] = await Promise.all([
-    getNutritionConsumed(userId, dateStr),
+    getNutritionData(userId, dateStr),
     getWorkoutCalories(userId, dateStr, weightKg),
   ]);
 

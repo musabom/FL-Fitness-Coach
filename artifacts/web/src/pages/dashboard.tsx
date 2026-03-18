@@ -27,7 +27,10 @@ function getMondayStr() {
 }
 
 interface TodayData {
-  nutrition: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  nutrition: {
+    consumed: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+    planned: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  };
   training: { planned_calories: number; burned_calories: number };
 }
 
@@ -43,23 +46,22 @@ interface WeeklyData {
   days: WeeklyDay[];
 }
 
-function MacroBar({ label, consumed, target, color }: { label: string; consumed: number; target: number; color: string }) {
-  const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0;
+function CompactMacroBar({ label, consumed, planned, color, unit }: { label: string; consumed: number; planned: number; color: string; unit: string }) {
+  const pct = planned > 0 ? Math.min(100, (consumed / planned) * 100) : 0;
+  const remaining = Math.max(0, planned - consumed);
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-        <span className="text-xs text-foreground/70">
-          <span className="font-semibold text-foreground">{Math.round(consumed)}</span>
-          <span className="text-muted-foreground"> / {target}g</span>
-        </span>
+        <span className="text-sm font-semibold text-foreground">{Math.round(consumed)}<span className="text-xs text-muted-foreground ml-0.5">{unit}</span></span>
+        <span className="text-xs text-muted-foreground">{Math.round(remaining)} left</span>
       </div>
-      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
+      <div className="text-xs text-muted-foreground text-right">{label} • {Math.round(planned)}{unit} target</div>
     </div>
   );
 }
@@ -116,7 +118,8 @@ export default function Dashboard() {
     refetchOnWindowFocus: true,
   });
 
-  const consumed = todayData?.nutrition ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+  const consumed = todayData?.nutrition.consumed ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+  const planned = todayData?.nutrition.planned ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
   const training = todayData?.training ?? { planned_calories: 0, burned_calories: 0 };
 
   const weeklyMaxCal = useMemo(
@@ -206,47 +209,33 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Daily Nutrition Progress */}
+            {/* Daily Nutrition Progress — Compact bars */}
             <section className="space-y-3">
               <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Nutrition</p>
-              <Card className="p-5 bg-[#1A1A1A] border-none space-y-5">
-                {/* Calories big row */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Consumed</div>
-                    <div className="text-3xl font-bold text-primary">{Math.round(consumed.calories)}</div>
-                    <div className="text-xs text-muted-foreground">/ {plan.calorieTarget} kcal target</div>
+              <Card className="p-5 bg-[#1A1A1A] border-none space-y-6">
+                {/* Calories */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-2xl font-bold text-primary">{Math.round(consumed.calories)}<span className="text-sm text-muted-foreground ml-1">kcal</span></span>
+                    <span className="text-xs text-muted-foreground">{Math.round(Math.max(0, plan.calorieTarget - consumed.calories))} left</span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</div>
-                    <div className={`text-2xl font-bold ${plan.calorieTarget - consumed.calories < 0 ? "text-red-400" : "text-foreground"}`}>
-                      {Math.round(Math.max(0, plan.calorieTarget - consumed.calories))}
-                    </div>
-                    <div className="text-xs text-muted-foreground">kcal</div>
+                  <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (consumed.calories / plan.calorieTarget) * 100)}%` }}
+                    />
                   </div>
+                  <div className="text-xs text-muted-foreground text-right">Target • {plan.calorieTarget} kcal</div>
                 </div>
 
-                {/* Calorie bar */}
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (consumed.calories / plan.calorieTarget) * 100)}%` }}
-                  />
-                </div>
+                {/* Protein */}
+                <CompactMacroBar label="Protein" consumed={consumed.protein_g} planned={planned.protein_g || plan.proteinG} color="#3B82F6" unit="g" />
 
-                {/* Macro bars */}
-                <div className="space-y-3 pt-1">
-                  <MacroBar label="Protein" consumed={consumed.protein_g} target={plan.proteinG} color="#3B82F6" />
-                  <MacroBar label="Carbs" consumed={consumed.carbs_g} target={plan.carbsG} color="#F59E0B" />
-                  <MacroBar label="Fat" consumed={consumed.fat_g} target={plan.fatG} color="#EAB308" />
-                </div>
+                {/* Carbs */}
+                <CompactMacroBar label="Carbs" consumed={consumed.carbs_g} planned={planned.carbs_g || plan.carbsG} color="#F59E0B" unit="g" />
 
-                {/* Macro pills */}
-                <div className="flex gap-2 pt-1">
-                  <MiniStatPill label="Protein" value={consumed.protein_g} unit={`/ ${plan.proteinG}g`} color="#3B82F6" />
-                  <MiniStatPill label="Carbs" value={consumed.carbs_g} unit={`/ ${plan.carbsG}g`} color="#F59E0B" />
-                  <MiniStatPill label="Fat" value={consumed.fat_g} unit={`/ ${plan.fatG}g`} color="#EAB308" />
-                </div>
+                {/* Fat */}
+                <CompactMacroBar label="Fat" consumed={consumed.fat_g} planned={planned.fat_g || plan.fatG} color="#EAB308" unit="g" />
               </Card>
             </section>
 
