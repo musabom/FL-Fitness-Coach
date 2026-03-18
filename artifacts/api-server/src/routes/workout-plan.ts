@@ -29,6 +29,71 @@ function estimateStrengthDuration(sets: number, repsMin: number, repsMax: number
   return (sets * (avgReps * 3 + restSecs)) / 60;
 }
 
+async function getWorkoutSummary(workoutId: number, weightKg: number) {
+  const workoutRes = await pool.query(
+    `SELECT id, workout_name FROM user_workouts WHERE id = $1`,
+    [workoutId]
+  );
+  if (!workoutRes.rows.length) return null;
+
+  const exercisesRes = await pool.query(
+    `SELECT we.*, e.exercise_name, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
+     FROM workout_exercises we
+     JOIN exercises e ON we.exercise_id = e.id
+     WHERE we.workout_id = $1
+     ORDER BY we.order_index`,
+    [workoutId]
+  );
+
+  const exercises = exercisesRes.rows.map(e => {
+    let estimated_calories = 0;
+    let duration_mins_computed = 0;
+    if (e.exercise_type === "cardio") {
+      estimated_calories = estimateCardioCalories(Number(e.met_value) || 5, Number(e.duration_mins) || 0, weightKg);
+      duration_mins_computed = Number(e.duration_mins) || 0;
+    } else {
+      estimated_calories = estimateStrengthCalories(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds), weightKg, e.effort_level || "moderate");
+      duration_mins_computed = +estimateStrengthDuration(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds)).toFixed(1);
+    }
+    return {
+      id: e.id,
+      workout_id: e.workout_id,
+      exercise_id: e.exercise_id,
+      exercise_name: e.exercise_name,
+      muscle_primary: e.muscle_primary,
+      exercise_type: e.exercise_type,
+      equipment: e.equipment,
+      sets: Number(e.sets),
+      reps_min: Number(e.reps_min),
+      reps_max: Number(e.reps_max),
+      weight_kg: e.weight_kg ? Number(e.weight_kg) : null,
+      rest_seconds: Number(e.rest_seconds),
+      duration_mins: e.duration_mins ? Number(e.duration_mins) : null,
+      effort_level: e.effort_level ?? null,
+      order_index: Number(e.order_index),
+      notes: e.notes ?? null,
+      estimated_calories,
+      duration_mins_computed,
+    };
+  });
+
+  const strengthExercises = exercises.filter(e => e.exercise_type !== "cardio");
+  const cardioExercises = exercises.filter(e => e.exercise_type === "cardio");
+  const strengthDuration = strengthExercises.reduce((sum, e) => sum + e.duration_mins_computed, 0);
+  const strengthCalories = strengthDuration > 0
+    ? +(EFFORT_MET.moderate * weightKg * (strengthDuration / 60)).toFixed(1)
+    : 0;
+  const cardioCalories = cardioExercises.reduce((sum, e) => sum + e.estimated_calories, 0);
+  const total_calories = +(strengthCalories + cardioCalories).toFixed(1);
+
+  return {
+    id: workoutRes.rows[0].id,
+    workout_name: workoutRes.rows[0].workout_name,
+    exercises,
+    total_calories,
+  };
+}
+
 // ── GET /workout-plan?date=YYYY-MM-DD ─────────────────────────────────────────
 
 router.get("/workout-plan", async (req, res): Promise<void> => {
@@ -48,104 +113,160 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   const profileRes = await pool.query(`SELECT weight_kg FROM user_profiles WHERE user_id = $1`, [userId]);
   const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
 
-  const workoutsRes = await pool.query(
-    `SELECT DISTINCT uw.id, uw.workout_name, uw.created_at, uw.updated_at
+  // Fetch explicitly added workout entries for this date
+  const entriesRes = await pool.query(
+    `SELECT id AS entry_id, workout_id FROM workout_plan_entries
+     WHERE user_id = $1 AND date = $2
+     ORDER BY created_at`,
+    [userId, dateStr]
+  );
+
+  // Fetch workouts scheduled for this day-of-week NOT already in entries
+  const scheduledRes = await pool.query(
+    `SELECT DISTINCT uw.id AS workout_id
      FROM user_workouts uw
      JOIN workout_schedule ws ON ws.workout_id = uw.id
      WHERE uw.user_id = $1 AND ws.day_of_week = $2
-     ORDER BY uw.created_at ASC`,
-    [userId, dayOfWeek]
+       AND NOT EXISTS (
+         SELECT 1 FROM workout_plan_entries wpe
+         WHERE wpe.user_id = $1 AND wpe.date = $3 AND wpe.workout_id = uw.id
+       )
+     ORDER BY uw.id`,
+    [userId, dayOfWeek, dateStr]
   );
 
-  if (workoutsRes.rows.length === 0) {
-    res.json({ date: dateStr, day_of_week: dayOfWeek, workouts: [] });
+  const allWorkoutRefs = [
+    ...entriesRes.rows.map((r: any) => ({ entry_id: r.entry_id, workout_id: r.workout_id, is_entry: true })),
+    ...scheduledRes.rows.map((r: any) => ({ entry_id: null, workout_id: r.workout_id, is_entry: false })),
+  ];
+
+  // Fetch completion sets
+  const allWorkoutIds = allWorkoutRefs.map(r => r.workout_id);
+  let completedWorkouts = new Set<number>();
+  let completedExercises = new Set<number>();
+
+  if (allWorkoutIds.length > 0) {
+    const wpcRes = await pool.query(
+      `SELECT workout_id FROM workout_plan_completions WHERE user_id = $1 AND date = $2 AND workout_id = ANY($3)`,
+      [userId, dateStr, allWorkoutIds]
+    );
+    completedWorkouts = new Set(wpcRes.rows.map((r: any) => Number(r.workout_id)));
+
+    const wecRes = await pool.query(
+      `SELECT workout_exercise_id FROM workout_exercise_completions WHERE user_id = $1 AND date = $2 AND workout_id = ANY($3)`,
+      [userId, dateStr, allWorkoutIds]
+    );
+    completedExercises = new Set(wecRes.rows.map((r: any) => Number(r.workout_exercise_id)));
+  }
+
+  const entries = await Promise.all(
+    allWorkoutRefs.map(async (ref) => {
+      const workout = await getWorkoutSummary(ref.workout_id, weightKg);
+      if (!workout) return null;
+      return {
+        entry_id: ref.entry_id ?? 0,
+        is_entry: ref.is_entry,
+        completed: completedWorkouts.has(ref.workout_id),
+        workout: {
+          ...workout,
+          exercises: workout.exercises.map(e => ({
+            ...e,
+            completed: completedExercises.has(e.id),
+          })),
+        },
+      };
+    })
+  );
+
+  const validEntries = entries.filter(Boolean) as NonNullable<typeof entries[0]>[];
+  const total_calories = validEntries.reduce((sum, e) => sum + (e!.workout.total_calories ?? 0), 0);
+  const burned_calories = validEntries
+    .filter(e => e!.completed)
+    .reduce((sum, e) => sum + (e!.workout.total_calories ?? 0), 0);
+
+  res.json({
+    date: dateStr,
+    day_of_week: dayOfWeek,
+    entries: validEntries,
+    total_calories: +total_calories.toFixed(1),
+    burned_calories: +burned_calories.toFixed(1),
+  });
+});
+
+// ── POST /workout-plan ── Add a workout to a specific date ────────────────────
+
+router.post("/workout-plan", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { date, workout_id } = req.body as { date?: string; workout_id?: number };
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "Valid date (YYYY-MM-DD) is required" });
+    return;
+  }
+  if (!workout_id) {
+    res.status(400).json({ error: "workout_id is required" });
     return;
   }
 
-  const workoutIds = workoutsRes.rows.map((r: any) => r.id);
-
-  const exercisesRes = await pool.query(
-    `SELECT we.*, e.exercise_name, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
-     FROM workout_exercises we
-     JOIN exercises e ON we.exercise_id = e.id
-     WHERE we.workout_id = ANY($1)
-     ORDER BY we.workout_id, we.order_index`,
-    [workoutIds]
+  const ownerCheck = await pool.query(
+    "SELECT id FROM user_workouts WHERE id = $1 AND user_id = $2",
+    [workout_id, userId]
   );
-
-  const workoutCompletionsRes = await pool.query(
-    `SELECT workout_id FROM workout_plan_completions
-     WHERE user_id = $1 AND date = $2 AND workout_id = ANY($3)`,
-    [userId, dateStr, workoutIds]
-  );
-  const completedWorkouts = new Set<number>(workoutCompletionsRes.rows.map((r: any) => Number(r.workout_id)));
-
-  const exerciseCompletionsRes = await pool.query(
-    `SELECT workout_exercise_id FROM workout_exercise_completions
-     WHERE user_id = $1 AND date = $2 AND workout_id = ANY($3)`,
-    [userId, dateStr, workoutIds]
-  );
-  const completedExercises = new Set<number>(exerciseCompletionsRes.rows.map((r: any) => Number(r.workout_exercise_id)));
-
-  const exercisesByWorkout: Record<number, any[]> = {};
-  for (const e of exercisesRes.rows) {
-    if (!exercisesByWorkout[e.workout_id]) exercisesByWorkout[e.workout_id] = [];
-    let estimated_calories = 0;
-    let duration_mins_computed = 0;
-    if (e.exercise_type === "cardio") {
-      estimated_calories = estimateCardioCalories(Number(e.met_value) || 5, Number(e.duration_mins) || 0, weightKg);
-      duration_mins_computed = Number(e.duration_mins) || 0;
-    } else {
-      estimated_calories = estimateStrengthCalories(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds), weightKg, e.effort_level || "moderate");
-      duration_mins_computed = +estimateStrengthDuration(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds)).toFixed(1);
-    }
-    exercisesByWorkout[e.workout_id].push({
-      id: e.id,
-      workout_id: e.workout_id,
-      exercise_id: e.exercise_id,
-      exercise_name: e.exercise_name,
-      muscle_primary: e.muscle_primary,
-      exercise_type: e.exercise_type,
-      equipment: e.equipment,
-      sets: Number(e.sets),
-      reps_min: Number(e.reps_min),
-      reps_max: Number(e.reps_max),
-      weight_kg: e.weight_kg ? Number(e.weight_kg) : null,
-      rest_seconds: Number(e.rest_seconds),
-      duration_mins: e.duration_mins ? Number(e.duration_mins) : null,
-      effort_level: e.effort_level ?? null,
-      order_index: Number(e.order_index),
-      notes: e.notes ?? null,
-      estimated_calories,
-      duration_mins_computed,
-      completed: completedExercises.has(Number(e.id)),
-    });
+  if (!ownerCheck.rows.length) {
+    res.status(404).json({ error: "Workout not found" });
+    return;
   }
 
-  const workouts = workoutsRes.rows.map((w: any) => {
-    const exercises = (exercisesByWorkout[w.id] || []).sort((a: any, b: any) => a.order_index - b.order_index);
-    const strengthExercises = exercises.filter((e: any) => e.exercise_type !== "cardio");
-    const cardioExercises = exercises.filter((e: any) => e.exercise_type === "cardio");
-    const strengthDuration = strengthExercises.reduce((sum: number, e: any) => sum + e.duration_mins_computed, 0);
-    const strengthCalories = strengthDuration > 0
-      ? +(EFFORT_MET.moderate * weightKg * (strengthDuration / 60)).toFixed(1)
-      : 0;
-    const cardioCalories = cardioExercises.reduce((sum: number, e: any) => sum + e.estimated_calories, 0);
-    const total_calories = +(strengthCalories + cardioCalories).toFixed(1);
-    return {
-      id: w.id,
-      workout_name: w.workout_name,
-      exercises,
-      total_calories,
-      completed: completedWorkouts.has(Number(w.id)),
-    };
-  });
+  const result = await pool.query(
+    `INSERT INTO workout_plan_entries (user_id, date, workout_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, date, workout_id) DO NOTHING
+     RETURNING id`,
+    [userId, date, workout_id]
+  );
 
-  res.json({ date: dateStr, day_of_week: dayOfWeek, workouts });
+  if (!result.rows.length) {
+    res.status(409).json({ error: "Workout already added to this day" });
+    return;
+  }
+
+  res.status(201).json({ entry_id: result.rows[0].id, date, workout_id });
+});
+
+// ── DELETE /workout-plan/:entryId ── Remove a workout entry ──────────────────
+
+router.delete("/workout-plan/:entryId", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const entryId = Number(req.params["entryId"]);
+
+  const check = await pool.query(
+    "SELECT id, date, workout_id FROM workout_plan_entries WHERE id = $1 AND user_id = $2",
+    [entryId, userId]
+  );
+  if (!check.rows.length) {
+    res.status(404).json({ error: "Entry not found" });
+    return;
+  }
+
+  const { date, workout_id } = check.rows[0];
+  await pool.query("DELETE FROM workout_plan_entries WHERE id = $1", [entryId]);
+  await pool.query(
+    "DELETE FROM workout_plan_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
+    [userId, workout_id, date]
+  );
+  await pool.query(
+    "DELETE FROM workout_exercise_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
+    [userId, workout_id, date]
+  );
+
+  res.json({ message: "Removed" });
 });
 
 // ── POST /workout-plan/:workoutId/complete ────────────────────────────────────
-// Marks a workout done AND bulk-inserts all its exercise completions.
 
 router.post("/workout-plan/:workoutId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -168,6 +289,14 @@ router.post("/workout-plan/:workoutId/complete", async (req, res): Promise<void>
     return;
   }
 
+  // If this workout isn't in entries yet, add it so it's tracked
+  await pool.query(
+    `INSERT INTO workout_plan_entries (user_id, date, workout_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, date, workout_id) DO NOTHING`,
+    [userId, date, workoutId]
+  );
+
   await pool.query(
     `INSERT INTO workout_plan_completions (user_id, workout_id, date)
      VALUES ($1, $2, $3)
@@ -175,7 +304,7 @@ router.post("/workout-plan/:workoutId/complete", async (req, res): Promise<void>
     [userId, workoutId, date]
   );
 
-  // Bulk-mark all exercises in this workout as complete
+  // Bulk-mark all exercises complete
   const weRes = await pool.query(
     `SELECT id FROM workout_exercises WHERE workout_id = $1`,
     [workoutId]
@@ -193,7 +322,6 @@ router.post("/workout-plan/:workoutId/complete", async (req, res): Promise<void>
 });
 
 // ── DELETE /workout-plan/:workoutId/complete ──────────────────────────────────
-// Unmarks a workout AND removes all its exercise completions.
 
 router.delete("/workout-plan/:workoutId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -211,8 +339,6 @@ router.delete("/workout-plan/:workoutId/complete", async (req, res): Promise<voi
     "DELETE FROM workout_plan_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
     [userId, workoutId, date]
   );
-
-  // Also clear all exercise completions for this workout/date
   await pool.query(
     "DELETE FROM workout_exercise_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
     [userId, workoutId, date]
@@ -222,7 +348,6 @@ router.delete("/workout-plan/:workoutId/complete", async (req, res): Promise<voi
 });
 
 // ── POST /workout-plan/:workoutId/exercises/:weId/complete ────────────────────
-// Marks one exercise done. If all exercises are now done, auto-completes workout.
 
 router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -237,7 +362,6 @@ router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res
     return;
   }
 
-  // Ownership: exercise must belong to workout which belongs to user
   const check = await pool.query(
     `SELECT we.id FROM workout_exercises we
      JOIN user_workouts uw ON uw.id = we.workout_id
@@ -256,19 +380,13 @@ router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res
     [userId, workoutId, weId, date]
   );
 
-  // Check if all exercises in this workout are now complete
-  const totalRes = await pool.query(
-    `SELECT COUNT(*) AS total FROM workout_exercises WHERE workout_id = $1`,
-    [workoutId]
-  );
-  const completedRes = await pool.query(
-    `SELECT COUNT(*) AS done FROM workout_exercise_completions
-     WHERE user_id = $1 AND workout_id = $2 AND date = $3`,
+  // Auto-complete workout if all exercises done
+  const totalRes = await pool.query(`SELECT COUNT(*) AS total FROM workout_exercises WHERE workout_id = $1`, [workoutId]);
+  const doneRes = await pool.query(
+    `SELECT COUNT(*) AS done FROM workout_exercise_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3`,
     [userId, workoutId, date]
   );
-  const total = Number(totalRes.rows[0].total);
-  const done = Number(completedRes.rows[0].done);
-  const workoutAutoCompleted = total > 0 && done >= total;
+  const workoutAutoCompleted = Number(totalRes.rows[0].total) > 0 && Number(doneRes.rows[0].done) >= Number(totalRes.rows[0].total);
 
   if (workoutAutoCompleted) {
     await pool.query(
@@ -283,7 +401,6 @@ router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res
 });
 
 // ── DELETE /workout-plan/:workoutId/exercises/:weId/complete ──────────────────
-// Unmarks one exercise. Also removes workout-level completion if set.
 
 router.delete("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -302,8 +419,6 @@ router.delete("/workout-plan/:workoutId/exercises/:weId/complete", async (req, r
     "DELETE FROM workout_exercise_completions WHERE user_id = $1 AND workout_id = $2 AND workout_exercise_id = $3 AND date = $4",
     [userId, workoutId, weId, date]
   );
-
-  // Un-complete the workout if it was marked complete
   await pool.query(
     "DELETE FROM workout_plan_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
     [userId, workoutId, date]

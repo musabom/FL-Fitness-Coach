@@ -216,4 +216,17 @@ export async function runMigrations(): Promise<void> {
 
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_wpc_user_date ON workout_plan_completions(user_id, date)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_wec_user_date ON workout_exercise_completions(user_id, date)`);
+
+  // Manually-added workout entries for a specific date (mirrors meal_plan_entries)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_plan_entries (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date       DATE    NOT NULL,
+      workout_id INTEGER NOT NULL REFERENCES user_workouts(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, date, workout_id)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_wpe_user_date ON workout_plan_entries(user_id, date)`);
 }
