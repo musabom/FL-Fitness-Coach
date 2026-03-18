@@ -21,6 +21,10 @@ async function runMigrationsInternal(): Promise<void> {
   `);
 
   await pool.query(`
+    DROP TABLE IF EXISTS user_profiles CASCADE
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS user_profiles (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
@@ -36,7 +40,7 @@ async function runMigrationsInternal(): Promise<void> {
       dietary_preferences JSONB DEFAULT '[]',
       injury_flags JSONB DEFAULT '[]',
       goal_override BOOLEAN DEFAULT FALSE,
-      updated_at TIMESTAMP DEFAULT NOW()
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
 

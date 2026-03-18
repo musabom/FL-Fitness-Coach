@@ -73,91 +73,96 @@ function buildPlanInsertValues(
 }
 
 router.post("/onboarding", async (req, res): Promise<void> => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
+  try {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
 
-  const parsed = CompleteOnboardingBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
-    return;
+    const parsed = CompleteOnboardingBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
+      return;
+    }
+
+    const existing = await db.select({ id: userProfilesTable.id }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
+    if (existing.length > 0) {
+      res.status(400).json({ error: "Profile already exists. Use PATCH /api/profile to update." });
+      return;
+    }
+
+    const data = parsed.data;
+
+    const goalError = validateGoalMode(data.weightKg, data.targetWeightKg, data.goalMode, data.goalOverride ?? false);
+    if (goalError) {
+      res.status(400).json({ error: goalError });
+      return;
+    }
+
+    const [profile] = await db.insert(userProfilesTable).values({
+      userId,
+      heightCm: data.heightCm,
+      weightKg: data.weightKg,
+      targetWeightKg: data.targetWeightKg,
+      age: data.age,
+      gender: data.gender,
+      goalMode: data.goalMode,
+      activityLevel: data.activityLevel,
+      trainingDays: data.trainingDays,
+      trainingLocation: data.trainingLocation,
+      dietaryPreferences: data.dietaryPreferences,
+      injuryFlags: data.injuryFlags,
+      goalOverride: data.goalOverride ?? false,
+    }).returning();
+
+    const { planValues, planResult } = buildPlanInsertValues(
+      userId, 1,
+      { weightKg: data.weightKg, targetWeightKg: data.targetWeightKg, heightCm: data.heightCm, age: data.age, gender: data.gender, goalMode: data.goalMode, activityLevel: data.activityLevel },
+      "onboarding"
+    );
+
+    const [plan] = await db.insert(plansTable).values(planValues).returning();
+
+    res.status(201).json({
+      id: plan.id,
+      version: plan.version,
+      phase: plan.phase,
+      calorieTarget: plan.calorieTarget,
+      proteinG: plan.proteinG,
+      carbsG: plan.carbsG,
+      fatG: plan.fatG,
+      tdeeEstimated: plan.tdeeEstimated,
+      deficitSurplusKcal: plan.deficitSurplusKcal,
+      bfEstimatePct: plan.bfEstimatePct,
+      bfSource: plan.bfSource,
+      goalMode: plan.snapshotGoalMode,
+      weightKg: plan.snapshotWeightKg,
+      targetWeightKg: plan.snapshotTargetWeightKg,
+      weeklyExpectedChangeKg: plan.weeklyExpectedChangeKg,
+      weeksEstimateLow: plan.weeksEstimateLow,
+      weeksEstimateHigh: plan.weeksEstimateHigh,
+      summaryText: plan.summaryText,
+      trigger: plan.trigger,
+      active: plan.active,
+      createdAt: plan.createdAt.toISOString(),
+      profile: {
+        id: profile.id,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        targetWeightKg: profile.targetWeightKg,
+        age: profile.age,
+        gender: profile.gender,
+        goalMode: profile.goalMode,
+        activityLevel: profile.activityLevel,
+        trainingDays: profile.trainingDays,
+        trainingLocation: profile.trainingLocation,
+        dietaryPreferences: profile.dietaryPreferences as string[],
+        injuryFlags: profile.injuryFlags as string[],
+        goalOverride: profile.goalOverride,
+      },
+    });
+  } catch (error) {
+    console.error("Onboarding error:", error);
+    res.status(500).json({ error: "Failed to generate plan: " + (error instanceof Error ? error.message : "Unknown error") });
   }
-
-  const existing = await db.select({ id: userProfilesTable.id }).from(userProfilesTable).where(eq(userProfilesTable.userId, userId));
-  if (existing.length > 0) {
-    res.status(400).json({ error: "Profile already exists. Use PATCH /api/profile to update." });
-    return;
-  }
-
-  const data = parsed.data;
-
-  const goalError = validateGoalMode(data.weightKg, data.targetWeightKg, data.goalMode, data.goalOverride ?? false);
-  if (goalError) {
-    res.status(400).json({ error: goalError });
-    return;
-  }
-
-  const [profile] = await db.insert(userProfilesTable).values({
-    userId,
-    heightCm: data.heightCm,
-    weightKg: data.weightKg,
-    targetWeightKg: data.targetWeightKg,
-    age: data.age,
-    gender: data.gender,
-    goalMode: data.goalMode,
-    activityLevel: data.activityLevel,
-    trainingDays: data.trainingDays,
-    trainingLocation: data.trainingLocation,
-    dietaryPreferences: data.dietaryPreferences,
-    injuryFlags: data.injuryFlags,
-    goalOverride: data.goalOverride ?? false,
-  }).returning();
-
-  const { planValues, planResult } = buildPlanInsertValues(
-    userId, 1,
-    { weightKg: data.weightKg, targetWeightKg: data.targetWeightKg, heightCm: data.heightCm, age: data.age, gender: data.gender, goalMode: data.goalMode, activityLevel: data.activityLevel },
-    "onboarding"
-  );
-
-  const [plan] = await db.insert(plansTable).values(planValues).returning();
-
-  res.status(201).json({
-    id: plan.id,
-    version: plan.version,
-    phase: plan.phase,
-    calorieTarget: plan.calorieTarget,
-    proteinG: plan.proteinG,
-    carbsG: plan.carbsG,
-    fatG: plan.fatG,
-    tdeeEstimated: plan.tdeeEstimated,
-    deficitSurplusKcal: plan.deficitSurplusKcal,
-    bfEstimatePct: plan.bfEstimatePct,
-    bfSource: plan.bfSource,
-    goalMode: plan.snapshotGoalMode,
-    weightKg: plan.snapshotWeightKg,
-    targetWeightKg: plan.snapshotTargetWeightKg,
-    weeklyExpectedChangeKg: plan.weeklyExpectedChangeKg,
-    weeksEstimateLow: plan.weeksEstimateLow,
-    weeksEstimateHigh: plan.weeksEstimateHigh,
-    summaryText: plan.summaryText,
-    trigger: plan.trigger,
-    active: plan.active,
-    createdAt: plan.createdAt.toISOString(),
-    profile: {
-      id: profile.id,
-      heightCm: profile.heightCm,
-      weightKg: profile.weightKg,
-      targetWeightKg: profile.targetWeightKg,
-      age: profile.age,
-      gender: profile.gender,
-      goalMode: profile.goalMode,
-      activityLevel: profile.activityLevel,
-      trainingDays: profile.trainingDays,
-      trainingLocation: profile.trainingLocation,
-      dietaryPreferences: profile.dietaryPreferences as string[],
-      injuryFlags: profile.injuryFlags as string[],
-      goalOverride: profile.goalOverride,
-    },
-  });
 });
 
 router.get("/profile", async (req, res): Promise<void> => {
