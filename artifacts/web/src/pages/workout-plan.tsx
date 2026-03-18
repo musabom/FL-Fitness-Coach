@@ -186,13 +186,9 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise }: {
           </div>
         </button>
 
-        {entry.is_entry ? (
-          <button onClick={onRemove} className="shrink-0 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove workout">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        ) : (
-          <div className="w-8 h-8" />
-        )}
+        <button onClick={onRemove} className="shrink-0 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove workout">
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Progress bar */}
@@ -354,9 +350,17 @@ export default function WorkoutPlan() {
     },
   });
 
-  // Remove workout from date (only manually-added entries)
+  // Remove workout from date
   const removeMutation = useMutation({
-    mutationFn: async ({ entryId }: { entryId: number; workoutId: number }) => {
+    mutationFn: async ({ entryId, workoutId, isEntry }: { entryId: number; workoutId: number; isEntry: boolean }) => {
+      if (!isEntry) {
+        // Scheduled workout: convert to entry first, then delete so removal persists
+        const addRes = await customFetch<{ entry_id: number }>(`${BASE}/workout-plan`, {
+          method: "POST",
+          body: JSON.stringify({ date, workout_id: workoutId }),
+        });
+        return customFetch(`${BASE}/workout-plan/${addRes.entry_id}`, { method: "DELETE" });
+      }
       return customFetch(`${BASE}/workout-plan/${entryId}`, { method: "DELETE" });
     },
     onMutate: async ({ workoutId }) => {
@@ -593,7 +597,7 @@ export default function WorkoutPlan() {
           <WorkoutCard
             key={`${entry.is_entry ? "entry" : "sched"}-${entry.is_entry ? entry.entry_id : entry.workout.id}`}
             entry={entry}
-            onRemove={() => removeMutation.mutate({ entryId: entry.entry_id, workoutId: entry.workout.id })}
+            onRemove={() => removeMutation.mutate({ entryId: entry.entry_id, workoutId: entry.workout.id, isEntry: entry.is_entry })}
             onToggleComplete={() => workoutCompleteMutation.mutate({ workoutId: entry.workout.id, completed: entry.completed })}
             onToggleExercise={(weId) => {
               const ex = entry.workout.exercises.find(e => e.id === weId);

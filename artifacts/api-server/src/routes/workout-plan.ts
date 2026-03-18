@@ -180,9 +180,14 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
 
   const validEntries = entries.filter(Boolean) as NonNullable<typeof entries[0]>[];
   const total_calories = validEntries.reduce((sum, e) => sum + (e!.workout.total_calories ?? 0), 0);
-  const burned_calories = validEntries
-    .filter(e => e!.completed)
-    .reduce((sum, e) => sum + (e!.workout.total_calories ?? 0), 0);
+  
+  // Calculate burned_calories based on completed exercises (partial completion counts)
+  const burned_calories = validEntries.reduce((sum, entry) => {
+    const completedCalories = entry!.workout.exercises
+      .filter(ex => ex.completed)
+      .reduce((exSum, ex) => exSum + ex.estimated_calories, 0);
+    return sum + completedCalories;
+  }, 0);
 
   res.json({
     date: dateStr,
