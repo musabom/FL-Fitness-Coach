@@ -1,0 +1,119 @@
+-- ============================================================
+-- EXERCISE LIBRARY — BODY COMPOSITION APP
+-- Source: Training PDF (4-day split) + Standard Cardio
+-- Library only: name, muscle group, equipment, image
+-- Sets / reps / weights / calories burned = Exercise Plan Builder
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS exercises (
+  id SERIAL PRIMARY KEY,
+  exercise_name VARCHAR(100) NOT NULL,
+  name_arabic VARCHAR(100),
+  muscle_primary VARCHAR(50) NOT NULL,
+  muscle_secondary TEXT[],
+  exercise_type VARCHAR(20) NOT NULL,   -- 'strength' or 'cardio'
+  equipment VARCHAR(50) NOT NULL,
+  injury_contraindications TEXT[],
+  image_url VARCHAR(255),               -- uploaded image path
+  user_id INTEGER REFERENCES users(id) DEFAULT NULL,
+  is_custom BOOLEAN DEFAULT FALSE,      -- TRUE = user-added
+  active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_primary);
+CREATE INDEX IF NOT EXISTS idx_exercises_type ON exercises(exercise_type);
+CREATE INDEX IF NOT EXISTS idx_exercises_custom ON exercises(is_custom);
+CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id);
+
+-- ============================================================
+-- SEED DATA
+-- image_url is NULL — admin uploads images later
+-- ============================================================
+
+INSERT INTO exercises
+(exercise_name, name_arabic, muscle_primary, muscle_secondary,
+ exercise_type, equipment, injury_contraindications) VALUES
+
+-- ============================================================
+-- DAY 1 — CHEST
+-- ============================================================
+('Barbell Bench Press',       'صدر مستوي بار',      'chest',     ARRAY['triceps','front_deltoid'],   'strength', 'barbell',    ARRAY['shoulder']),
+('Machine Chest Press',       'صدر مستوي جهاز',     'chest',     ARRAY['triceps','front_deltoid'],   'strength', 'machine',    ARRAY['shoulder']),
+('Dumbbell Bench Press',      'دامبل مستوي',         'chest',     ARRAY['triceps','front_deltoid'],   'strength', 'dumbbell',   ARRAY['shoulder']),
+('Decline Chest Press',       'صدر سفلي جهاز',      'chest',     ARRAY['triceps'],                   'strength', 'machine',    ARRAY['shoulder']),
+('Incline Chest Press',       'صدر عالي جهاز',      'chest',     ARRAY['triceps','front_deltoid'],   'strength', 'machine',    ARRAY['shoulder']),
+('Machine Chest Fly',         'جهاز تفتيح صدر',     'chest',     ARRAY['front_deltoid'],             'strength', 'machine',    ARRAY['shoulder']),
+
+-- ============================================================
+-- DAY 1 — BICEPS
+-- ============================================================
+('Dumbbell Bicep Curl',       'تبادل دامبل باي',    'biceps',    ARRAY['brachialis'],                'strength', 'dumbbell',   ARRAY[]::text[]),
+('Barbell Bicep Curl',        'بار واسع باي',       'biceps',    ARRAY['brachialis'],                'strength', 'barbell',    ARRAY[]::text[]),
+('Hammer Curl',               'هامر دامبل باي',     'biceps',    ARRAY['brachioradialis'],           'strength', 'dumbbell',   ARRAY[]::text[]),
+('Concentration Curl',        'تكوير باي',          'biceps',    ARRAY[]::text[],                    'strength', 'dumbbell',   ARRAY[]::text[]),
+
+-- ============================================================
+-- DAY 2 — BACK
+-- ============================================================
+('Lat Pulldown Wide Grip',    'سحب امامي واسع',     'back',      ARRAY['biceps','rear_deltoid'],     'strength', 'cable',      ARRAY['shoulder']),
+('Dumbbell Row',              'منشار دامبل',         'back',      ARRAY['biceps','rear_deltoid'],     'strength', 'dumbbell',   ARRAY['lower_back']),
+('Seated Row Machine',        'جهاز منشار',          'back',      ARRAY['biceps','rear_deltoid'],     'strength', 'machine',    ARRAY['lower_back']),
+('Close Grip Lat Pulldown',   'سحب امامي ضيق',      'back',      ARRAY['biceps'],                    'strength', 'cable',      ARRAY['shoulder']),
+('Seated Cable Row',          'سحب ارضي بالمثلث',   'back',      ARRAY['biceps','rear_deltoid'],     'strength', 'cable',      ARRAY['lower_back']),
+('T-Bar Row',                 'تي بار رو',           'back',      ARRAY['biceps','rear_deltoid'],     'strength', 'barbell',    ARRAY['lower_back']),
+('Back Extension',            'جهاز الظهر اسفل',    'back',      ARRAY['glutes','hamstrings'],       'strength', 'machine',    ARRAY['lower_back']),
+
+-- ============================================================
+-- DAY 2 — TRICEPS
+-- ============================================================
+('Tricep Pushdown Reverse Grip', 'تراي عكس مسطره',  'triceps',   ARRAY[]::text[],                   'strength', 'cable',      ARRAY['shoulder']),
+('Tricep Pushdown Rope',      'حبل تراي',            'triceps',   ARRAY[]::text[],                   'strength', 'cable',      ARRAY['shoulder']),
+('Tricep Pushdown Straight Bar', 'مسطره ضيق',       'triceps',   ARRAY[]::text[],                   'strength', 'cable',      ARRAY['shoulder']),
+('Overhead Tricep Extension', 'تراي من فوق الراس',  'triceps',   ARRAY[]::text[],                   'strength', 'dumbbell',   ARRAY['shoulder']),
+('Tricep Dip Machine',        'جهاز تراي غطس',      'triceps',   ARRAY['chest','front_deltoid'],    'strength', 'machine',    ARRAY['shoulder']),
+
+-- ============================================================
+-- DAY 3 — SHOULDERS
+-- ============================================================
+('Front Raises',              'رفرفه امامي',         'shoulders', ARRAY['upper_chest'],              'strength', 'dumbbell',   ARRAY['shoulder']),
+('Shoulder Press Machine',    'جهاز اكتاف',          'shoulders', ARRAY['triceps'],                  'strength', 'machine',    ARRAY['shoulder']),
+('Dumbbell Shoulder Press',   'دامبل بريس',          'shoulders', ARRAY['triceps'],                  'strength', 'dumbbell',   ARRAY['shoulder']),
+('Lateral Raises',            'رفرفه جانبي',         'shoulders', ARRAY[]::text[],                   'strength', 'dumbbell',   ARRAY['shoulder']),
+('Plate Front Raise',         'امامي بالقرص',        'shoulders', ARRAY['upper_chest'],              'strength', 'barbell',    ARRAY['shoulder']),
+('Rear Delt Fly Machine',     'جهاز كتف خلفي',      'shoulders', ARRAY['rear_deltoid','upper_back'],'strength', 'machine',    ARRAY['shoulder']),
+('Barbell Shrugs',            'ترابيس بالبار',       'shoulders', ARRAY['traps'],                    'strength', 'barbell',    ARRAY[]::text[]),
+('Dumbbell Shrugs',           'ترابيس بالدامبل',    'shoulders', ARRAY['traps'],                    'strength', 'dumbbell',   ARRAY[]::text[]),
+
+-- ============================================================
+-- DAY 4 — LEGS
+-- ============================================================
+('Leg Extension',             'رفرفه امامي ارجل',   'quads',     ARRAY[]::text[],                   'strength', 'machine',    ARRAY['knee']),
+('Hack Squats',               'هاك سكوات',           'quads',     ARRAY['glutes','hamstrings'],      'strength', 'machine',    ARRAY['knee','lower_back']),
+('Squats',                    'سكوات',               'quads',     ARRAY['glutes','hamstrings'],      'strength', 'barbell',    ARRAY['knee','lower_back']),
+('Leg Press',                 'دفاع',                'quads',     ARRAY['glutes','hamstrings'],      'strength', 'machine',    ARRAY['knee','lower_back']),
+('Leg Curls',                 'رفرفه خلفي ارجل',    'hamstrings',ARRAY[]::text[],                   'strength', 'machine',    ARRAY['knee']),
+('Lunges',                    'طعن',                 'quads',     ARRAY['glutes','hamstrings'],      'strength', 'bodyweight', ARRAY['knee']),
+('Hip Adductor Machine',      'جهاز داخلي',          'quads',     ARRAY['inner_thigh'],              'strength', 'machine',    ARRAY['knee']),
+('Calf Raise Machine',        'جهاز بطات',           'calves',    ARRAY[]::text[],                   'strength', 'machine',    ARRAY[]::text[]),
+
+-- ============================================================
+-- CARDIO
+-- In exercise plan: user adds duration + speed/intensity
+-- App calculates calories burned from MET values (Phase 3)
+-- ============================================================
+('Treadmill Walk',            'سير',                 'cardio',    ARRAY[]::text[],                   'cardio',   'machine',    ARRAY[]::text[]),
+('Treadmill Run',             'جري',                 'cardio',    ARRAY[]::text[],                   'cardio',   'machine',    ARRAY[]::text[]),
+('Elliptical',                'اوبتكال',             'cardio',    ARRAY[]::text[],                   'cardio',   'machine',    ARRAY['knee']),
+('Stationary Bike',           'دراجة ثابتة',         'cardio',    ARRAY[]::text[],                   'cardio',   'machine',    ARRAY['knee']),
+('Rowing Machine',            'تجديف',               'cardio',    ARRAY['back','arms'],              'cardio',   'machine',    ARRAY['lower_back']),
+('Jump Rope',                 'حبل القفز',           'cardio',    ARRAY[]::text[],                   'cardio',   'bodyweight', ARRAY['knee']),
+('Stair Climber',             'سلم متحرك',           'cardio',    ARRAY['quads','glutes'],           'cardio',   'machine',    ARRAY['knee']);
+
+-- ============================================================
+-- VERIFY
+-- ============================================================
+SELECT exercise_type, muscle_primary, COUNT(*) as count
+FROM exercises
+GROUP BY exercise_type, muscle_primary
+ORDER BY exercise_type, count DESC;

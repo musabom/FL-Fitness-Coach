@@ -1,0 +1,127 @@
+This is part of an existing project. Do not change anything already working. Only build what is described in this message.
+
+Exercise Builder Page
+Concept: Same pattern as the Meal Builder. The user builds their workout by adding exercises from the library, sets the details per exercise, and assigns the workout to specific days of the week.
+
+Database tables
+sqlCREATE TABLE IF NOT EXISTS user_workouts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  workout_name VARCHAR(100) NOT NULL DEFAULT 'Workout 1',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workout_exercises (
+  id SERIAL PRIMARY KEY,
+  workout_id INTEGER REFERENCES user_workouts(id) ON DELETE CASCADE,
+  exercise_id INTEGER REFERENCES exercises(id),
+  sets INTEGER NOT NULL DEFAULT 4,
+  reps_min INTEGER NOT NULL DEFAULT 12,
+  reps_max INTEGER NOT NULL DEFAULT 15,
+  weight_kg DECIMAL(5,1),
+  rest_seconds INTEGER DEFAULT 60,
+  duration_mins INTEGER,
+  speed_kmh DECIMAL(4,1),
+  effort_level VARCHAR(10),
+  order_index INTEGER NOT NULL DEFAULT 1,
+  notes VARCHAR(200)
+);
+
+CREATE TABLE IF NOT EXISTS workout_schedule (
+  id SERIAL PRIMARY KEY,
+  workout_id INTEGER REFERENCES user_workouts(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  day_of_week VARCHAR(10) NOT NULL,
+  CONSTRAINT valid_day CHECK (day_of_week IN
+    ('monday','tuesday','wednesday','thursday',
+     'friday','saturday','sunday'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_workouts_user ON user_workouts(user_id);
+CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises(workout_id);
+CREATE INDEX IF NOT EXISTS idx_workout_schedule_user ON workout_schedule(user_id);
+```
+
+---
+
+### API endpoints
+
+**GET /api/workouts** — all workouts for authenticated user with exercises and computed calorie estimates
+
+**POST /api/workouts** — create new empty workout. Auto-name "Workout 1", "Workout 2" etc
+
+**PATCH /api/workouts/:id** — update workout name only
+
+**DELETE /api/workouts/:id** — delete workout and all its exercises
+
+**POST /api/workouts/:id/exercises** — add exercise to workout
+Body: `{ exercise_id, sets, reps_min, reps_max, weight_kg, rest_seconds, order_index }` for strength
+Body: `{ exercise_id, duration_mins, speed_kmh, effort_level, order_index }` for cardio
+
+**PATCH /api/workouts/:id/exercises/:exerciseId** — update any field
+
+**DELETE /api/workouts/:id/exercises/:exerciseId** — remove exercise
+
+**POST /api/workouts/:id/schedule** — assign workout to days
+Body: `{ days: ['monday','thursday'] }` — replaces existing schedule
+
+**GET /api/workouts/day/:day** — all workouts scheduled for a given day with full exercise list and calorie estimates
+
+---
+
+### Calorie burn calculation — server side only
+```
+// For cardio exercises (exercise.met_value is not null):
+exercise_calories = exercise.met_value × user.weight_kg × (duration_mins / 60)
+
+// For strength session total:
+// At end of workout, user rates effort: light=3.5, moderate=5.0, heavy=6.0
+session_calories = effort_met × user.weight_kg × (total_session_duration_mins / 60)
+
+// Return per exercise for cardio
+// Return session total for strength
+// Return grand total for the full workout
+These calorie totals feed directly into the daily deficit calculation in the dashboard.
+
+Screen — /training/builder
+Top section — daily burn summary
+Shows estimated calories burned today from all workouts scheduled for today. Single number displayed prominently. Updates as user adds or modifies exercises.
+Workout cards
+One card per workout. Default name "Workout 1" — editable inline by tapping.
+Each card shows:
+
+Workout name
+Total estimated calorie burn for this workout
+List of exercises added — exercise name, sets × reps and weight (for strength) or duration and speed (for cardio)
+Drag handle to reorder exercises within the workout
+Edit and delete icons per exercise
+Add exercise button — opens exercise search sheet
+Day selector — 7 boxes Mon Tue Wed Thu Fri Sat Sun. Tap to toggle. Active days in teal.
+
+Add exercise sheet (slides up from bottom)
+
+Search input — searches exercises table by name or muscle group
+Filter tabs: All / Chest / Back / Shoulders / Arms / Legs / Cardio
+Tap an exercise to select it
+For strength exercises: inputs appear for sets, reps min, reps max, weight (kg), rest (seconds). Show live calorie estimate using moderate MET as placeholder.
+For cardio exercises (exercise_type = 'cardio'): inputs appear for duration (minutes), speed or intensity (light / moderate / vigorous). Show live calorie estimate using met_value from database.
+Confirm adds to workout
+
+Add workout button — bottom of screen. Creates new empty workout card.
+At end of workout (strength only) — a prompt appears: "How hard was this session?" with three options: Light / Moderate / Heavy. This sets the effort_level used in the final calorie calculation.
+
+Design
+Match existing app design exactly — dark background, teal accent, same card style as meal builder. Muscle group filter tabs use the same pill style as the food group filters.
+
+Acceptance test
+
+User creates a new workout — appears as "Workout 1"
+User searches "chest" — sees all chest exercises
+User adds Barbell Bench Press with 4 sets, 12–15 reps, 80kg — saves correctly
+User adds Elliptical with 30 minutes, moderate effort — calorie estimate shows correctly
+User assigns workout to Monday and Thursday — day boxes highlight
+GET /api/workouts/day/monday returns the workout with calorie totals
+Dashboard calorie burn updates to reflect today's scheduled workout
+User can delete an exercise — workout updates
+User can reorder exercises by dragging
