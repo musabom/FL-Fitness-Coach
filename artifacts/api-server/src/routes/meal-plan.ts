@@ -36,7 +36,7 @@ function sumMacros(portions: ReturnType<typeof calcPortion>[]) {
   );
 }
 
-async function getMealSummary(mealId: number) {
+async function getMealSummary(mealId: number, completedPortionIds: Set<number>) {
   const mealRes = await pool.query(
     `SELECT id, meal_name FROM user_meals WHERE id = $1`,
     [mealId]
@@ -68,17 +68,20 @@ async function getMealSummary(mealId: number) {
       quantity_g: Number(row.quantity_g),
       serving_unit: row.serving_unit,
       notes: row.notes ?? null,
+      completed: completedPortionIds.has(row.id),
       ...macros,
     };
   });
 
   const totals = sumMacros(portions);
+  const consumed_totals = sumMacros(portions.filter(p => p.completed));
 
   return {
     id: mealRes.rows[0].id,
     meal_name: mealRes.rows[0].meal_name,
     portions,
     totals,
+    consumed_totals,
   };
 }
 
@@ -95,11 +98,10 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     return;
   }
 
-  // Get day of week for scheduled_days lookup (lowercase, e.g., "monday")
   const d = new Date(dateStr + "T00:00:00");
   const dayOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 
-  // Fetch explicitly added meals from meal_plan_entries
+  // Fetch manually added meal entries
   const entriesRes = await pool.query(
     `SELECT mpe.id AS entry_id, mpe.meal_id, true AS is_scheduled,
        (SELECT completed_at FROM meal_plan_completions mpc
@@ -111,7 +113,7 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     [userId, dateStr]
   );
 
-  // Fetch meals scheduled for this day of week (that aren't already in meal_plan_entries and not excluded)
+  // Fetch scheduled meals (not already in entries, not excluded)
   const scheduledRes = await pool.query(
     `SELECT DISTINCT ms.meal_id
      FROM meal_schedule ms
@@ -129,42 +131,63 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     [userId, dayOfWeek, dateStr]
   );
 
-  // Combine both sets of meal IDs
   const allMealIds = [
-    ...entriesRes.rows.map(row => ({ 
-      entry_id: row.entry_id, 
-      meal_id: row.meal_id, 
+    ...entriesRes.rows.map(row => ({
+      entry_id: row.entry_id,
+      meal_id: row.meal_id,
       completed_at: row.completed_at,
-      is_scheduled: true 
+      is_scheduled: true,
     })),
-    ...scheduledRes.rows.map(row => ({ 
-      entry_id: null, 
-      meal_id: row.meal_id, 
+    ...scheduledRes.rows.map(row => ({
+      entry_id: null,
+      meal_id: row.meal_id,
       completed_at: null,
-      is_scheduled: false 
+      is_scheduled: false,
     })),
   ];
 
+  // Fetch all portion completions for this date in one query
+  const allMealIdList = allMealIds.map(m => m.meal_id);
+  let completedPortionIds = new Set<number>();
+
+  if (allMealIdList.length > 0) {
+    const mpcRes = await pool.query(
+      `SELECT portion_id FROM meal_portion_completions
+       WHERE user_id = $1 AND date = $2 AND meal_id = ANY($3)`,
+      [userId, dateStr, allMealIdList]
+    );
+    completedPortionIds = new Set(mpcRes.rows.map((r: any) => Number(r.portion_id)));
+  }
+
   const entries = await Promise.all(
     allMealIds.map(async (row) => {
-      const meal = await getMealSummary(row.meal_id);
+      const meal = await getMealSummary(row.meal_id, completedPortionIds);
+      // A meal is "completed" if all portions are done OR the old meal-level completion exists
+      const allPortionsDone = meal && meal.portions.length > 0 && meal.portions.every(p => p.completed);
+      const mealLevelCompleted = row.completed_at !== null;
+      const completed = mealLevelCompleted || !!allPortionsDone;
       return {
-        entry_id: row.entry_id ?? 0, // Scheduled meals don't have explicit entries yet
+        entry_id: row.entry_id ?? 0,
         meal,
-        completed: row.completed_at !== null,
+        completed,
         completed_at: row.completed_at ?? null,
-        is_scheduled: row.is_scheduled, // Track if this meal was added manually (true) or scheduled (false)
+        is_scheduled: row.is_scheduled,
       };
     })
   );
 
   const dailyTotals = sumMacros(
-    entries
-      .filter((e) => e.meal !== null)
-      .map((e) => e.meal!.totals)
+    entries.filter((e) => e.meal !== null).map((e) => e.meal!.totals)
   );
 
-  res.json({ date: dateStr, entries, daily_totals: dailyTotals });
+  // consumed_totals: sum of completed portions across ALL meals
+  const consumedTotals = sumMacros(
+    entries
+      .filter((e) => e.meal !== null)
+      .flatMap((e) => e.meal!.portions.filter(p => p.completed))
+  );
+
+  res.json({ date: dateStr, entries, daily_totals: dailyTotals, consumed_totals: consumedTotals });
 });
 
 // ── POST /meal-plan ───────────────────────────────────────────────────────────
@@ -232,11 +255,16 @@ router.delete("/meal-plan/:entryId", async (req, res): Promise<void> => {
     "DELETE FROM meal_plan_completions WHERE user_id = $1 AND date = $2 AND meal_id = $3",
     [userId, date, meal_id]
   );
+  await pool.query(
+    "DELETE FROM meal_portion_completions WHERE user_id = $1 AND date = $2 AND meal_id = $3",
+    [userId, date, meal_id]
+  );
 
   res.json({ message: "Removed" });
 });
 
 // ── POST /meal-plan/:entryId/complete ─────────────────────────────────────────
+// Marks the whole meal complete (marks all portions complete too)
 
 router.post("/meal-plan/:entryId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -255,42 +283,54 @@ router.post("/meal-plan/:entryId/complete", async (req, res): Promise<void> => {
 
   const { date, meal_id } = check.rows[0];
 
-  const insertResult = await pool.query(
+  await pool.query(
     `INSERT INTO meal_plan_completions (user_id, date, meal_id)
      VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, date, meal_id) DO NOTHING
-     RETURNING id`,
+     ON CONFLICT (user_id, date, meal_id) DO NOTHING`,
     [userId, date, meal_id]
   );
 
-  // Only deduct stock if this was a fresh completion (not a duplicate)
-  if (insertResult.rowCount && insertResult.rowCount > 0) {
-    const portionsRes = await pool.query(
-      `SELECT mp.food_id, mp.food_source, mp.quantity_g,
-              COALESCE(f.food_name, uf.food_name) AS food_name
-       FROM meal_portions mp
-       LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
-       LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
-       WHERE mp.meal_id = $1`,
-      [meal_id]
+  // Mark all portions complete
+  const portionsRes = await pool.query(
+    `SELECT id FROM meal_portions WHERE meal_id = $1`,
+    [meal_id]
+  );
+  for (const p of portionsRes.rows) {
+    await pool.query(
+      `INSERT INTO meal_portion_completions (user_id, meal_id, portion_id, date)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, meal_id, portion_id, date) DO NOTHING`,
+      [userId, meal_id, p.id, date]
     );
-    for (const p of portionsRes.rows) {
-      await pool.query(
-        `INSERT INTO food_stock (user_id, food_id, food_source, food_name, quantity_g, updated_at)
-         VALUES ($1, $2, $3, $4, 0, NOW())
-         ON CONFLICT (user_id, food_id, food_source)
-         DO UPDATE SET
-           quantity_g = GREATEST(0, food_stock.quantity_g - $5),
-           updated_at = NOW()`,
-        [userId, p.food_id, p.food_source, p.food_name, Number(p.quantity_g)]
-      );
-    }
+  }
+
+  // Deduct stock
+  const stockPortions = await pool.query(
+    `SELECT mp.food_id, mp.food_source, mp.quantity_g,
+            COALESCE(f.food_name, uf.food_name) AS food_name
+     FROM meal_portions mp
+     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
+     WHERE mp.meal_id = $1`,
+    [meal_id]
+  );
+  for (const p of stockPortions.rows) {
+    await pool.query(
+      `INSERT INTO food_stock (user_id, food_id, food_source, food_name, quantity_g, updated_at)
+       VALUES ($1, $2, $3, $4, 0, NOW())
+       ON CONFLICT (user_id, food_id, food_source)
+       DO UPDATE SET
+         quantity_g = GREATEST(0, food_stock.quantity_g - $5),
+         updated_at = NOW()`,
+      [userId, p.food_id, p.food_source, p.food_name, Number(p.quantity_g)]
+    );
   }
 
   res.json({ entry_id: entryId, completed: true });
 });
 
 // ── DELETE /meal-plan/:entryId/complete ───────────────────────────────────────
+// Marks the whole meal incomplete (clears all portion completions too)
 
 router.delete("/meal-plan/:entryId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -314,18 +354,22 @@ router.delete("/meal-plan/:entryId/complete", async (req, res): Promise<void> =>
     [userId, date, meal_id]
   );
 
-  // Restore stock only if something was actually deleted
+  // Clear all portion completions
+  await pool.query(
+    "DELETE FROM meal_portion_completions WHERE user_id = $1 AND date = $2 AND meal_id = $3",
+    [userId, date, meal_id]
+  );
+
+  // Restore stock
   if (deleteResult.rowCount && deleteResult.rowCount > 0) {
     const portionsRes = await pool.query(
       `SELECT mp.food_id, mp.food_source, mp.quantity_g
-       FROM meal_portions mp
-       WHERE mp.meal_id = $1`,
+       FROM meal_portions mp WHERE mp.meal_id = $1`,
       [meal_id]
     );
     for (const p of portionsRes.rows) {
       await pool.query(
-        `UPDATE food_stock
-         SET quantity_g = quantity_g + $1, updated_at = NOW()
+        `UPDATE food_stock SET quantity_g = quantity_g + $1, updated_at = NOW()
          WHERE user_id = $2 AND food_id = $3 AND food_source = $4`,
         [Number(p.quantity_g), userId, p.food_id, p.food_source]
       );
@@ -333,6 +377,106 @@ router.delete("/meal-plan/:entryId/complete", async (req, res): Promise<void> =>
   }
 
   res.json({ entry_id: entryId, completed: false });
+});
+
+// ── POST /meal-plan/:mealId/portions/:portionId/complete ─────────────────────
+// Toggle a single food portion as eaten
+
+router.post("/meal-plan/:mealId/portions/:portionId/complete", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const mealId = Number(req.params["mealId"]);
+  const portionId = Number(req.params["portionId"]);
+  const { date } = req.body as { date?: string };
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "Valid date (YYYY-MM-DD) is required" });
+    return;
+  }
+
+  // Verify portion belongs to meal and meal belongs to user
+  const check = await pool.query(
+    `SELECT mp.id FROM meal_portions mp
+     JOIN user_meals um ON um.id = mp.meal_id
+     WHERE mp.id = $1 AND mp.meal_id = $2 AND um.user_id = $3`,
+    [portionId, mealId, userId]
+  );
+  if (!check.rows.length) {
+    res.status(404).json({ error: "Portion not found" });
+    return;
+  }
+
+  await pool.query(
+    `INSERT INTO meal_portion_completions (user_id, meal_id, portion_id, date)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, meal_id, portion_id, date) DO NOTHING`,
+    [userId, mealId, portionId, date]
+  );
+
+  // Check if all portions are now complete → auto-complete the meal
+  const totalRes = await pool.query(
+    `SELECT COUNT(*) AS total FROM meal_portions WHERE meal_id = $1`,
+    [mealId]
+  );
+  const doneRes = await pool.query(
+    `SELECT COUNT(*) AS done FROM meal_portion_completions
+     WHERE user_id = $1 AND meal_id = $2 AND date = $3`,
+    [userId, mealId, date]
+  );
+
+  const allDone =
+    Number(totalRes.rows[0].total) > 0 &&
+    Number(doneRes.rows[0].done) >= Number(totalRes.rows[0].total);
+
+  if (allDone) {
+    // Ensure there's a meal_plan_entry first (needed for completions FK-like behaviour)
+    await pool.query(
+      `INSERT INTO meal_plan_entries (user_id, date, meal_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, date, meal_id) DO NOTHING`,
+      [userId, date, mealId]
+    );
+    await pool.query(
+      `INSERT INTO meal_plan_completions (user_id, date, meal_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, date, meal_id) DO NOTHING`,
+      [userId, date, mealId]
+    );
+  }
+
+  res.json({ portion_id: portionId, date, completed: true, meal_completed: allDone });
+});
+
+// ── DELETE /meal-plan/:mealId/portions/:portionId/complete ───────────────────
+// Un-eat a single food portion
+
+router.delete("/meal-plan/:mealId/portions/:portionId/complete", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const mealId = Number(req.params["mealId"]);
+  const portionId = Number(req.params["portionId"]);
+  const date = req.query["date"] as string | undefined;
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: "Valid date query param (YYYY-MM-DD) is required" });
+    return;
+  }
+
+  await pool.query(
+    `DELETE FROM meal_portion_completions
+     WHERE user_id = $1 AND meal_id = $2 AND portion_id = $3 AND date = $4`,
+    [userId, mealId, portionId, date]
+  );
+
+  // Un-complete the meal-level completion when any portion is unchecked
+  await pool.query(
+    `DELETE FROM meal_plan_completions WHERE user_id = $1 AND date = $2 AND meal_id = $3`,
+    [userId, date, mealId]
+  );
+
+  res.json({ portion_id: portionId, date, completed: false });
 });
 
 // ── POST /meal-plan/:date/exclude/:mealId ─────────────────────────────────
@@ -349,7 +493,6 @@ router.post("/meal-plan/:date/exclude/:mealId", async (req, res): Promise<void> 
     return;
   }
 
-  // Add exclusion for this date/meal combo
   await pool.query(
     `INSERT INTO meal_plan_exclusions (user_id, date, meal_id)
      VALUES ($1, $2, $3)

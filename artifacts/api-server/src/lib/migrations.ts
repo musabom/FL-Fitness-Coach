@@ -230,6 +230,20 @@ export async function runMigrations(): Promise<void> {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_wpe_user_date ON workout_plan_entries(user_id, date)`);
 
+  // Per-food-item completion tracking for partial meal logging
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_portion_completions (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      meal_id    INTEGER NOT NULL REFERENCES user_meals(id) ON DELETE CASCADE,
+      portion_id INTEGER NOT NULL REFERENCES meal_portions(id) ON DELETE CASCADE,
+      date       DATE    NOT NULL,
+      completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, meal_id, portion_id, date)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mpc2_user_date ON meal_portion_completions(user_id, date)`);
+
   // Excluded scheduled workouts (prevent scheduled workouts from showing on specific dates)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS workout_plan_exclusions (

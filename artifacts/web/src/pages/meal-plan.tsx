@@ -12,48 +12,34 @@ import { usePlan } from "@/hooks/use-plan";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
-// ── Date helpers (uses device's local timezone automatically) ──────────────
+// ── Date helpers ──────────────────────────────────────────────────────────────
 
 function getTodayLocal() {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
-
-// Keep alias so existing code doesn't break
 const getTodayMuscat = getTodayLocal;
 
 function toDateStr(d: Date) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function formatDisplay(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
-  const today = getTodayMuscat();
-  const yesterday = offsetDate(today, -1);
-  const tomorrow = offsetDate(today, 1);
+  const today = getTodayLocal();
+  if (dateStr === offsetDate(today, -1)) return "Yesterday";
   if (dateStr === today) return "Today";
-  if (dateStr === yesterday) return "Yesterday";
-  if (dateStr === tomorrow) return "Tomorrow";
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  if (dateStr === offsetDate(today, 1)) return "Tomorrow";
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
 function offsetDate(dateStr: string, days: number) {
   const [year, month, day] = dateStr.split("-").map(Number);
   const d = new Date(year, month - 1, day);
   d.setDate(d.getDate() + days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dy = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dy}`;
+  return toDateStr(d);
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PortionRow {
   id: number;
@@ -65,6 +51,7 @@ interface PortionRow {
   carbs_g: number;
   fat_g: number;
   notes?: string | null;
+  completed: boolean;
 }
 
 interface MealSummary {
@@ -72,6 +59,7 @@ interface MealSummary {
   meal_name: string;
   portions: PortionRow[];
   totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  consumed_totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 }
 
 interface PlanEntry {
@@ -86,6 +74,7 @@ interface DayPlan {
   date: string;
   entries: PlanEntry[];
   daily_totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  consumed_totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 }
 
 interface LibraryMeal {
@@ -95,7 +84,7 @@ interface LibraryMeal {
   totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 }
 
-// ── Macro pill ─────────────────────────────────────────────────────────────────
+// ── Macro pill ────────────────────────────────────────────────────────────────
 
 function MacroPill({ label, value, unit, accent = false }: { label: string; value: number; unit: string; accent?: boolean }) {
   return (
@@ -112,79 +101,40 @@ function MacroPill({ label, value, unit, accent = false }: { label: string; valu
 
 function CalendarPicker({ selectedDate, onSelectDate, onClose }: { selectedDate: string; onSelectDate: (date: string) => void; onClose: () => void }) {
   const [calendarDate, setCalendarDate] = useState(selectedDate);
-  const [year, month, day] = calendarDate.split("-").map(Number);
+  const [year, month] = calendarDate.split("-").map(Number);
   const d = new Date(year, month - 1, 1);
-  
   const monthName = d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   const firstDay = d.getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
-  
+
   const days: (number | null)[] = [];
-  for (let i = firstDay - 1; i >= 0; i--) {
-    days.push(null);
-  }
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push(i);
-  }
-  
-  const handleDateClick = (dayNum: number) => {
-    const newDate = `${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-    onSelectDate(newDate);
-    onClose();
-  };
-  
-  const handlePrevMonth = () => {
-    const prev = new Date(year, month - 2, 1);
-    setCalendarDate(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-01`);
-  };
-  
-  const handleNextMonth = () => {
-    const next = new Date(year, month, 1);
-    setCalendarDate(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`);
-  };
-  
+  for (let i = firstDay - 1; i >= 0; i--) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ maxWidth: 430, margin: "0 auto" }}>
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      
-      {/* Calendar sheet */}
       <div className="relative bg-[#111111] border-t border-border/40 rounded-t-2xl w-full">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
-          <button onClick={handlePrevMonth} className="p-2 hover:bg-muted rounded-lg">
+          <button onClick={() => { const p = new Date(year, month - 2, 1); setCalendarDate(`${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, "0")}-01`); }} className="p-2 hover:bg-muted rounded-lg">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <h3 className="font-semibold text-sm">{monthName}</h3>
-          <button onClick={handleNextMonth} className="p-2 hover:bg-muted rounded-lg">
+          <button onClick={() => { const n = new Date(year, month, 1); setCalendarDate(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`); }} className="p-2 hover:bg-muted rounded-lg">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        
-        {/* Days of week */}
         <div className="px-5 pt-3 pb-1 grid grid-cols-7 gap-1 text-[10px] font-medium text-muted-foreground uppercase">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
             <div key={day} className="text-center py-1">{day}</div>
           ))}
         </div>
-        
-        {/* Days grid */}
         <div className="px-5 pb-4 grid grid-cols-7 gap-1">
           {days.map((dayNum, idx) => {
             const isSelected = dayNum && `${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` === selectedDate;
             return (
-              <button
-                key={idx}
-                onClick={() => dayNum && handleDateClick(dayNum)}
-                disabled={!dayNum}
-                className={`aspect-square rounded-lg text-sm font-medium transition-colors ${
-                  !dayNum
-                    ? "text-muted-foreground/20 cursor-default"
-                    : isSelected
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
-                }`}
-              >
+              <button key={idx} onClick={() => { if (!dayNum) return; onSelectDate(`${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`); onClose(); }} disabled={!dayNum}
+                className={`aspect-square rounded-lg text-sm font-medium transition-colors ${!dayNum ? "text-muted-foreground/20 cursor-default" : isSelected ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"}`}>
                 {dayNum}
               </button>
             );
@@ -195,81 +145,86 @@ function CalendarPicker({ selectedDate, onSelectDate, onClose }: { selectedDate:
   );
 }
 
-// ── Meal card ──────────────────────────────────────────────────────────────────
+// ── Meal card ─────────────────────────────────────────────────────────────────
 
-function MealCard({
-  entry,
-  date,
-  onRemove,
-  onToggleComplete,
-}: {
+function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
   entry: PlanEntry;
-  date: string;
   onRemove: () => void;
   onToggleComplete: () => void;
+  onTogglePortion: (portionId: number, completed: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const meal = entry.meal;
   if (!meal) return null;
 
+  const completedCount = meal.portions.filter(p => p.completed).length;
+  const total = meal.portions.length;
+
   return (
     <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3.5">
-        {/* Complete toggle */}
-        <button
-          onClick={onToggleComplete}
-          className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-          aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}
-        >
+        <button onClick={onToggleComplete} className="shrink-0 text-muted-foreground hover:text-primary transition-colors" aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}>
           {entry.completed
             ? <CheckCircle2 className="w-6 h-6 text-primary" />
             : <Circle className="w-6 h-6" />}
         </button>
 
-        {/* Meal name + expand */}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="flex-1 text-left min-w-0"
-        >
-          <p className={`font-medium text-sm break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+        <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left min-w-0">
+          <p className={`font-semibold text-sm break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
             {meal.meal_name}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {Math.round(meal.totals.calories)} kcal · {Math.round(meal.totals.protein_g)}g P · {Math.round(meal.totals.carbs_g)}g C · {Math.round(meal.totals.fat_g)}g F
           </p>
+          {total > 0 && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{completedCount}/{total} eaten</p>}
         </button>
 
-        {/* Remove */}
-        <button
-          onClick={onRemove}
-          className="shrink-0 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"
-          aria-label="Remove meal from day"
-        >
+        <button onClick={onRemove} className="shrink-0 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove meal">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Portions list (collapsible) */}
+      {/* Portion progress bar */}
+      {total > 0 && (
+        <div className="px-4 pb-2">
+          <div className="h-1 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(completedCount / total) * 100}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Portions list (expandable with checkboxes) */}
       {expanded && meal.portions.length > 0 && (
-        <div className="border-t border-border/30 px-4 py-3 space-y-3">
+        <div className="border-t border-border/30 px-4 divide-y divide-border/20">
           {meal.portions.map((p) => (
-            <div key={p.id} className="space-y-1">
-              <div className="flex justify-between items-start gap-2 text-xs">
-                <span className="flex-1 break-words text-foreground/80">{p.food_name}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {p.serving_unit === "per_piece"
-                    ? `${p.quantity_g} can${p.quantity_g !== 1 ? "s" : ""}`
-                    : `${Math.round(p.quantity_g)}g`}
-                  {" · "}
-                  {Math.round(p.calories)} kcal
-                </span>
+            <div key={p.id} className={`flex items-start gap-3 py-2.5 transition-opacity ${p.completed ? "opacity-50" : ""}`}>
+              <button
+                onClick={() => onTogglePortion(p.id, p.completed)}
+                className="shrink-0 mt-0.5 text-muted-foreground hover:text-primary transition-colors"
+                aria-label={p.completed ? "Mark uneaten" : "Mark eaten"}
+              >
+                {p.completed
+                  ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                  : <Circle className="w-5 h-5" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start gap-2">
+                  <span className={`text-sm font-medium break-words ${p.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                    {p.food_name}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {p.serving_unit === "per_piece"
+                      ? `${p.quantity_g} pc`
+                      : `${Math.round(p.quantity_g)}g`}
+                    {" · "}{Math.round(p.calories)} kcal
+                  </span>
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {Math.round(p.protein_g)}g P · {Math.round(p.carbs_g)}g C · {Math.round(p.fat_g)}g F
+                </div>
+                {p.notes && <p className="text-[10px] text-muted-foreground/60 italic mt-0.5">Note: {p.notes}</p>}
               </div>
-              {p.notes && (
-                <p className="text-[10px] text-muted-foreground/70 italic pl-0">
-                  Note: {p.notes}
-                </p>
-              )}
             </div>
           ))}
         </div>
@@ -281,28 +236,29 @@ function MealCard({
         </div>
       )}
 
-      {/* Tap to expand hint if collapsed */}
+      {/* Tap to expand hint */}
       {!expanded && meal.portions.length > 0 && (
-        <button
-          onClick={() => setExpanded(true)}
-          className="w-full text-center text-[10px] text-muted-foreground/50 pb-2 hover:text-muted-foreground transition-colors"
-        >
+        <button onClick={() => setExpanded(true)} className="w-full text-center text-[10px] text-muted-foreground/50 pb-2 hover:text-muted-foreground transition-colors">
           {meal.portions.length} food{meal.portions.length !== 1 ? "s" : ""} · tap to view
         </button>
+      )}
+
+      {/* Mark all eaten button when expanded */}
+      {expanded && total > 0 && !entry.completed && (
+        <div className="px-4 pb-3 pt-1">
+          <button onClick={onToggleComplete}
+            className={`w-full text-center rounded-xl py-2.5 text-xs font-semibold transition-all border ${completedCount === total ? "bg-primary/20 text-primary border-primary/40" : "bg-muted text-muted-foreground border-border/30"}`}>
+            {completedCount === total ? "Mark Meal Complete" : `Mark All Eaten (${total - completedCount} remaining)`}
+          </button>
+        </div>
       )}
     </Card>
   );
 }
 
-// ── Add Meal Sheet ─────────────────────────────────────────────────────────────
+// ── Add Meal Sheet ────────────────────────────────────────────────────────────
 
-function AddMealSheet({
-  date,
-  existingMealIds,
-  onClose,
-  onAdd,
-  isAdding,
-}: {
+function AddMealSheet({ date, existingMealIds, onClose, onAdd, isAdding }: {
   date: string;
   existingMealIds: Set<number>;
   onClose: () => void;
@@ -318,33 +274,25 @@ function AddMealSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ maxWidth: 430, margin: "0 auto" }}>
-      {/* Backdrop */}
       <div className="flex-1 bg-black/60" onClick={onClose} />
-
-      {/* Sheet */}
       <div className="bg-[#111111] border-t border-border/40 rounded-t-2xl flex flex-col max-h-[70vh]">
-        {/* Handle + title */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border/30">
           <h3 className="font-semibold text-sm">Add meal to {formatDisplay(date)}</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
-
         <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
           {(isLoading || isAdding) && (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           )}
-
           {error && !isLoading && (
-            <div className="text-center py-10 space-y-2">
+            <div className="text-center py-10">
               <div className="text-sm text-destructive">Failed to load meals</div>
-              <p className="text-xs text-muted-foreground">Please try again</p>
             </div>
           )}
-
           {!isLoading && !error && meals.length === 0 && (
             <div className="text-center py-10 space-y-2">
               <UtensilsCrossed className="w-10 h-10 text-muted-foreground/40 mx-auto" />
@@ -354,20 +302,11 @@ function AddMealSheet({
               </Link>
             </div>
           )}
-
           {!isLoading && !error && meals.map((meal) => {
             const alreadyAdded = existingMealIds.has(meal.id);
             return (
-              <button
-                key={meal.id}
-                onClick={() => !alreadyAdded && !isAdding && onAdd(meal.id)}
-                disabled={alreadyAdded || isAdding}
-                className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${
-                  alreadyAdded || isAdding
-                    ? "bg-[#1A1A1A] border-border/20 opacity-40 cursor-not-allowed"
-                    : "bg-[#1A1A1A] border-border/40 hover:border-primary/40 active:scale-[0.99]"
-                }`}
-              >
+              <button key={meal.id} onClick={() => !alreadyAdded && !isAdding && onAdd(meal.id)} disabled={alreadyAdded || isAdding}
+                className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${alreadyAdded ? "bg-[#1A1A1A] border-border/20 opacity-40 cursor-not-allowed" : "bg-[#1A1A1A] border-border/40 hover:border-primary/40 active:scale-[0.99]"}`}>
                 <div className="flex justify-between items-start gap-2">
                   <p className="font-medium text-sm text-foreground">{meal.meal_name}</p>
                   {alreadyAdded && <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5 shrink-0">Added</span>}
@@ -387,7 +326,7 @@ function AddMealSheet({
   );
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MealPlan() {
   const [date, setDate] = useState(getTodayMuscat());
@@ -403,6 +342,8 @@ export default function MealPlan() {
 
   const { plan } = usePlan();
 
+  // ── Add meal ──────────────────────────────────────────────────────────────
+
   const addMutation = useMutation({
     mutationFn: (mealId: number) =>
       customFetch(`${BASE}/meal-plan`, {
@@ -415,13 +356,13 @@ export default function MealPlan() {
     },
   });
 
+  // ── Remove meal ───────────────────────────────────────────────────────────
+
   const removeMutation = useMutation({
     mutationFn: async ({ entryId, mealId, isScheduled }: { entryId: number; mealId?: number; isScheduled?: boolean }) => {
-      // For scheduled meals (not manually added), exclude them instead of deleting
       if (isScheduled === false && mealId) {
         return customFetch(`${BASE}/meal-plan/${date}/exclude/${mealId}`, { method: "POST" });
       }
-      // For manually added meals, delete the entry
       return customFetch(`${BASE}/meal-plan/${entryId}`, { method: "DELETE" });
     },
     onMutate: async ({ entryId, mealId, isScheduled }) => {
@@ -431,11 +372,7 @@ export default function MealPlan() {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
           ...prev,
           entries: prev.entries.filter((e) => {
-            if (isScheduled === false && mealId) {
-              // For scheduled meals, filter by meal_id
-              return e.meal?.id !== mealId || e.is_scheduled === true;
-            }
-            // For manually added meals, filter by entry_id
+            if (isScheduled === false && mealId) return e.meal?.id !== mealId || e.is_scheduled === true;
             return e.entry_id !== entryId;
           }),
         });
@@ -448,9 +385,10 @@ export default function MealPlan() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
   });
 
+  // ── Toggle whole-meal complete ────────────────────────────────────────────
+
   const completeMutation = useMutation({
     mutationFn: async ({ entryId, mealId, completed }: { entryId: number; mealId?: number; completed: boolean }) => {
-      // If this is a scheduled meal (entry_id = 0), first create the meal_plan_entry
       let actualEntryId = entryId;
       if (entryId === 0 && mealId) {
         const addRes = await customFetch<{ entry_id: number }>(`${BASE}/meal-plan`, {
@@ -459,7 +397,6 @@ export default function MealPlan() {
         });
         actualEntryId = addRes.entry_id;
       }
-      // Then mark it complete/incomplete
       return customFetch(`${BASE}/meal-plan/${actualEntryId}/complete`, {
         method: completed ? "DELETE" : "POST",
       });
@@ -470,11 +407,20 @@ export default function MealPlan() {
       if (prev) {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
           ...prev,
-          entries: prev.entries.map((e) =>
-            e.entry_id === entryId || (entryId === 0 && e.entry_id === 0)
-              ? { ...e, completed: !completed, completed_at: completed ? null : new Date().toISOString() }
-              : e
-          ),
+          entries: prev.entries.map((e) => {
+            if (e.entry_id !== entryId && !(entryId === 0 && e.entry_id === 0)) return e;
+            const marking = !completed;
+            const updatedPortions = e.meal?.portions.map(p => ({ ...p, completed: marking })) ?? [];
+            const consumed_totals = marking
+              ? { ...(e.meal?.totals ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }) }
+              : { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+            return {
+              ...e,
+              completed: marking,
+              completed_at: marking ? new Date().toISOString() : null,
+              meal: e.meal ? { ...e.meal, portions: updatedPortions, consumed_totals } : null,
+            };
+          }),
         });
       }
       return { prev };
@@ -485,22 +431,72 @@ export default function MealPlan() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
   });
 
+  // ── Toggle individual portion ─────────────────────────────────────────────
+
+  const portionMutation = useMutation({
+    mutationFn: async ({ mealId, portionId, completed }: { entryId: number; mealId: number; portionId: number; completed: boolean }) => {
+      if (completed) {
+        return customFetch(`${BASE}/meal-plan/${mealId}/portions/${portionId}/complete?date=${date}`, { method: "DELETE" });
+      }
+      return customFetch<{ meal_completed?: boolean }>(`${BASE}/meal-plan/${mealId}/portions/${portionId}/complete`, {
+        method: "POST",
+        body: JSON.stringify({ date }),
+      });
+    },
+    onMutate: async ({ entryId, mealId, portionId, completed }) => {
+      await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
+      const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
+      if (prev) {
+        queryClient.setQueryData<DayPlan>(["meal-plan", date], {
+          ...prev,
+          entries: prev.entries.map((e) => {
+            if (e.meal?.id !== mealId) return e;
+            const updatedPortions = e.meal.portions.map(p =>
+              p.id === portionId ? { ...p, completed: !completed } : p
+            );
+            const allDone = updatedPortions.length > 0 && updatedPortions.every(p => p.completed);
+            const consumed_totals = {
+              calories: updatedPortions.filter(p => p.completed).reduce((s, p) => s + p.calories, 0),
+              protein_g: updatedPortions.filter(p => p.completed).reduce((s, p) => s + p.protein_g, 0),
+              carbs_g: updatedPortions.filter(p => p.completed).reduce((s, p) => s + p.carbs_g, 0),
+              fat_g: updatedPortions.filter(p => p.completed).reduce((s, p) => s + p.fat_g, 0),
+            };
+            return {
+              ...e,
+              completed: !completed ? (allDone ? true : e.completed) : false,
+              meal: { ...e.meal, portions: updatedPortions, consumed_totals },
+            };
+          }),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["meal-plan", date], ctx.prev);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
+  });
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+
   const entries = dayPlan?.entries ?? [];
   const dailyTotals = dayPlan?.daily_totals ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
-  const existingMealIds = useMemo(() => new Set(entries.map((e) => e.meal?.id ?? -1)), [entries]);
 
-  const completedCount = entries.filter((e) => e.completed).length;
-  
-  // Calculate totals for completed meals only
-  const completedTotals = useMemo(() => {
-    const completed = entries.filter((e) => e.completed);
-    return {
-      calories: completed.reduce((sum, e) => sum + (e.meal?.totals.calories ?? 0), 0),
-      protein_g: completed.reduce((sum, e) => sum + (e.meal?.totals.protein_g ?? 0), 0),
-      carbs_g: completed.reduce((sum, e) => sum + (e.meal?.totals.carbs_g ?? 0), 0),
-      fat_g: completed.reduce((sum, e) => sum + (e.meal?.totals.fat_g ?? 0), 0),
-    };
+  // Consumed = sum of completed portions across all meals
+  const consumedTotals = useMemo(() => {
+    return entries.reduce(
+      (acc, e) => ({
+        calories: acc.calories + (e.meal?.consumed_totals.calories ?? 0),
+        protein_g: acc.protein_g + (e.meal?.consumed_totals.protein_g ?? 0),
+        carbs_g: acc.carbs_g + (e.meal?.consumed_totals.carbs_g ?? 0),
+        fat_g: acc.fat_g + (e.meal?.consumed_totals.fat_g ?? 0),
+      }),
+      { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
+    );
   }, [entries]);
+
+  const existingMealIds = useMemo(() => new Set(entries.map(e => e.meal?.id ?? -1)), [entries]);
+  const completedCount = entries.filter(e => e.completed).length;
 
   return (
     <div className="mobile-container flex flex-col bg-background min-h-screen">
@@ -516,10 +512,7 @@ export default function MealPlan() {
           <h1 className="text-base font-semibold">Meal Plan</h1>
         </div>
         {date !== today ? (
-          <button
-            onClick={() => setDate(today)}
-            className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors"
-          >
+          <button onClick={() => setDate(today)} className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors">
             Today
           </button>
         ) : (
@@ -529,42 +522,31 @@ export default function MealPlan() {
 
       {/* Date navigator */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border/20">
-        <button
-          onClick={() => setDate(offsetDate(date, -1))}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-        >
+        <button onClick={() => setDate(offsetDate(date, -1))} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
           <ChevronLeft className="w-5 h-5" />
         </button>
-
-        <button
-          onClick={() => setShowCalendar(true)}
-          className="text-center hover:opacity-70 transition-opacity flex-1"
-        >
+        <button onClick={() => setShowCalendar(true)} className="text-center hover:opacity-70 transition-opacity flex-1">
           <p className="font-semibold text-base">{formatDisplay(date)}</p>
           <p className="text-xs text-muted-foreground">
             {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </p>
         </button>
-
-        <button
-          onClick={() => setDate(offsetDate(date, 1))}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-        >
+        <button onClick={() => setDate(offsetDate(date, 1))} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Daily macro summary with progress */}
+      {/* Daily summary */}
       <div className="px-5 py-4 border-b border-border/20 space-y-3">
-        {/* Current vs Target */}
+        {/* Consumed macro pills */}
         <div className="flex gap-2">
-          <MacroPill label="Cal" value={dailyTotals.calories} unit="kcal" accent />
-          <MacroPill label="Protein" value={dailyTotals.protein_g} unit="g" />
-          <MacroPill label="Carbs" value={dailyTotals.carbs_g} unit="g" />
-          <MacroPill label="Fat" value={dailyTotals.fat_g} unit="g" />
+          <MacroPill label="Cal" value={consumedTotals.calories} unit="kcal" accent />
+          <MacroPill label="Protein" value={consumedTotals.protein_g} unit="g" />
+          <MacroPill label="Carbs" value={consumedTotals.carbs_g} unit="g" />
+          <MacroPill label="Fat" value={consumedTotals.fat_g} unit="g" />
         </div>
 
-        {/* Target progress bars */}
+        {/* Progress bars vs target */}
         {plan && (
           <div className="space-y-3">
             {/* Calories */}
@@ -572,86 +554,62 @@ export default function MealPlan() {
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Calories</span>
                 <span className="text-xs font-semibold text-foreground">
-                  {Math.round(dailyTotals.calories)} / {plan.calorieTarget} kcal
+                  {Math.round(consumedTotals.calories)} / {plan.calorieTarget} kcal
                 </span>
               </div>
               <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-primary transition-all" style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
               </div>
               <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary/50 transition-all"
-                  style={{ width: `${Math.min((completedTotals.calories / plan.calorieTarget) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-primary/60 transition-all" style={{ width: `${Math.min((consumedTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
               </div>
             </div>
-            
+
             {/* Protein */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Protein</span>
                 <span className="text-xs font-semibold text-foreground">
-                  {Math.round(dailyTotals.protein_g)} / {plan.proteinG}g
+                  {Math.round(consumedTotals.protein_g)} / {plan.proteinG}g
                 </span>
               </div>
               <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
-                <div
-                  className="h-full bg-blue-500 transition-all"
-                  style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
               </div>
               <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500/50 transition-all"
-                  style={{ width: `${Math.min((completedTotals.protein_g / plan.proteinG) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-blue-500/70 transition-all" style={{ width: `${Math.min((consumedTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
               </div>
             </div>
-            
+
             {/* Carbs */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Carbs</span>
                 <span className="text-xs font-semibold text-foreground">
-                  {Math.round(dailyTotals.carbs_g)} / {plan.carbsG}g
+                  {Math.round(consumedTotals.carbs_g)} / {plan.carbsG}g
                 </span>
               </div>
               <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
-                <div
-                  className="h-full bg-amber-400 transition-all"
-                  style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
               </div>
               <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-amber-400/50 transition-all"
-                  style={{ width: `${Math.min((completedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-amber-400/70 transition-all" style={{ width: `${Math.min((consumedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
               </div>
             </div>
-            
+
             {/* Fat */}
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">Fat</span>
                 <span className="text-xs font-semibold text-foreground">
-                  {Math.round(dailyTotals.fat_g)} / {plan.fatG}g
+                  {Math.round(consumedTotals.fat_g)} / {plan.fatG}g
                 </span>
               </div>
               <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
-                <div
-                  className="h-full bg-yellow-400 transition-all"
-                  style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-yellow-400 transition-all" style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
               </div>
               <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-yellow-400/50 transition-all"
-                  style={{ width: `${Math.min((completedTotals.fat_g / plan.fatG) * 100, 100)}%` }}
-                />
+                <div className="h-full bg-yellow-400/70 transition-all" style={{ width: `${Math.min((consumedTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
               </div>
             </div>
           </div>
@@ -662,9 +620,7 @@ export default function MealPlan() {
           <div className="space-y-1.5 pt-1">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-medium text-muted-foreground uppercase">Meals</span>
-              <span className="text-xs font-semibold text-foreground">
-                {completedCount} / {entries.length}
-              </span>
+              <span className="text-xs font-semibold text-foreground">{completedCount} / {entries.length}</span>
             </div>
             <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden">
               <div
@@ -698,29 +654,27 @@ export default function MealPlan() {
 
         {entries.map((entry) => (
           <MealCard
-            key={`${entry.is_scheduled === false ? 'scheduled' : 'entry'}-${entry.is_scheduled === false ? entry.meal?.id : entry.entry_id}`}
+            key={`${entry.is_scheduled === false ? "sched" : "entry"}-${entry.is_scheduled === false ? entry.meal?.id : entry.entry_id}`}
             entry={entry}
-            date={date}
             onRemove={() => removeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, isScheduled: entry.is_scheduled })}
-            onToggleComplete={() =>
-              completeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, completed: entry.completed })
-            }
+            onToggleComplete={() => completeMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal?.id, completed: entry.completed })}
+            onTogglePortion={(portionId, completed) => {
+              if (entry.meal) {
+                portionMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal.id, portionId, completed });
+              }
+            }}
           />
         ))}
       </div>
 
       {/* Add Meal FAB */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(430px, 100vw) - 40px)" }}>
-        <Button
-          onClick={() => setShowSheet(true)}
-          className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2"
-        >
+        <Button onClick={() => setShowSheet(true)} className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2">
           <Plus className="w-4 h-4" />
           Add Meal
         </Button>
       </div>
 
-      {/* Add Meal Sheet */}
       {showSheet && (
         <AddMealSheet
           date={date}
