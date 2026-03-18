@@ -232,9 +232,10 @@ interface AddExerciseSheetProps {
   workoutId: number;
   open: boolean;
   onClose: () => void;
+  onOpenCustomExercise: () => void;
 }
 
-function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
+function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: AddExerciseSheetProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -422,7 +423,12 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
             <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-2">
               {exercisesLoading && <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
               {!exercisesLoading && exercises.length === 0 && (
-                <p className="text-center text-muted-foreground text-sm py-8">No exercises found</p>
+                <div className="flex flex-col items-center justify-center py-8 gap-4">
+                  <p className="text-center text-muted-foreground text-sm">No exercises found</p>
+                  <Button onClick={onOpenCustomExercise} size="sm" className="bg-primary text-primary-foreground">
+                    Add Custom Exercise
+                  </Button>
+                </div>
               )}
               {exercises.map(ex => (
                 <button
@@ -891,7 +897,7 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
         )}
       </Card>
 
-      <AddExerciseSheet workoutId={workout.id} open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddExerciseSheet workoutId={workout.id} open={addOpen} onClose={() => setAddOpen(false)} onOpenCustomExercise={() => { setAddOpen(false); setCustomExerciseOpen(true); }} />
     </>
   );
 }
@@ -941,8 +947,9 @@ export default function TrainingBuilder() {
             Exercise Builder
           </h1>
         </div>
-        <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors" title="Add Custom Exercise">
-          <Plus className="w-5 h-5" />
+        <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-xs font-medium">
+          <Plus className="w-4 h-4" />
+          Add Custom
         </button>
       </div>
 
