@@ -102,6 +102,12 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
   const [speedKmh, setSpeedKmh] = useState("");
   const [effortLevel, setEffortLevel] = useState("moderate");
 
+  const { data: userProfile } = useQuery<any>({
+    queryKey: ["user-profile"],
+    queryFn: () => customFetch(`${BASE}/profile`),
+    enabled: open,
+  });
+
   const { data: exercises = [], isLoading: exercisesLoading } = useQuery<Exercise[]>({
     queryKey: ["exercises", search, muscleFilter],
     queryFn: () => {
@@ -133,10 +139,11 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
   }
 
   const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
-  const liveCalories = selectedExercise
+  const userWeight = userProfile?.weightKg ? Number(userProfile.weightKg) : null;
+  const liveCalories = selectedExercise && userWeight
     ? selectedExercise.exercise_type === "cardio"
-      ? +((Number(selectedExercise.met_value) || 5) * 80 * (Number(durationMins) / 60)).toFixed(0)
-      : +(EFFORT_MET[effortLevel] * 80 * ((Number(sets) * ((Number(repsMin) + Number(repsMax)) / 2 * 3 + Number(restSecs))) / 3600)).toFixed(0)
+      ? +((Number(selectedExercise.met_value) || 5) * userWeight * (Number(durationMins) / 60)).toFixed(0)
+      : +(EFFORT_MET[effortLevel] * userWeight * ((Number(sets) * ((Number(repsMin) + Number(repsMax)) / 2 * 3 + Number(restSecs))) / 3600)).toFixed(0)
     : 0;
 
   function handleAdd() {
@@ -240,8 +247,14 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
             {/* Live calorie estimate */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
               <Flame className="w-4 h-4 text-primary" />
-              <p className="text-sm font-medium text-primary">Est. ~{liveCalories} kcal</p>
-              <p className="text-xs text-muted-foreground">(for 80 kg body weight)</p>
+              {userWeight ? (
+                <>
+                  <p className="text-sm font-medium text-primary">Est. ~{liveCalories} kcal</p>
+                  <p className="text-xs text-muted-foreground">(for {userWeight}kg body weight)</p>
+                </>
+              ) : (
+                <p className="text-sm text-primary font-medium">Complete your profile to see calorie estimates</p>
+              )}
             </div>
 
             {selectedExercise.exercise_type === "strength" ? (
