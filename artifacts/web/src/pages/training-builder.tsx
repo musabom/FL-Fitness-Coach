@@ -66,7 +66,7 @@ const MUSCLE_LABELS: Record<string, string> = {
   arms:"Arms", legs:"Legs", cardio:"Cardio"
 };
 const EQUIPMENT_ICONS: Record<string, string> = {
-  barbell:"🏋️", dumbbell:"💪", machine:"🔧", cable:"🔗", bodyweight:"🤸"
+  barbell:"[B]", dumbbell:"[D]", machine:"[M]", cable:"[C]", bodyweight:"[BW]"
 };
 
 // ── Utility ───────────────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
                   className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] border border-border/30 hover:border-primary/40 active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-lg">{EQUIPMENT_ICONS[ex.equipment] || "💪"}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{EQUIPMENT_ICONS[ex.equipment] || "[E]"}</span>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-foreground truncate">{ex.exercise_name}</p>
                       <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{ex.muscle_primary} · {ex.equipment}</p>
@@ -230,7 +230,7 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
           <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-4">
             {/* Exercise info */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1A1A1A] border border-border/30">
-              <span className="text-xl">{EQUIPMENT_ICONS[selectedExercise.equipment] || "💪"}</span>
+              <span className="text-xs font-semibold text-muted-foreground px-2 py-1 bg-muted/30 rounded">{EQUIPMENT_ICONS[selectedExercise.equipment] || "[E]"}</span>
               <div>
                 <p className="text-sm font-medium">{selectedExercise.exercise_name}</p>
                 <p className="text-[10px] text-muted-foreground capitalize">{selectedExercise.muscle_primary} · {selectedExercise.exercise_type}</p>
