@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, getGetActivePlanQueryKey } from "@workspace/api-client-react";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -117,6 +117,7 @@ export default function Dashboard() {
   const [editWeight, setEditWeight] = useState<string>("");
   const { plan, isLoading: planLoading } = usePlan();
   const { logout } = useAuth();
+  const queryClient = useQueryClient();
   const today = todayStr();
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
@@ -395,10 +396,16 @@ export default function Dashboard() {
                                   await customFetch(`${BASE}/profile`, {
                                     method: "PATCH",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ weight_kg: parseFloat(editWeight) }),
+                                    body: JSON.stringify({ weightKg: parseFloat(editWeight) }),
                                   });
                                   setEditingWeight(false);
                                   setEditWeight("");
+                                  // Invalidate plan to trigger refetch with new weight and recalculated metabolic rate
+                                  await queryClient.invalidateQueries({ 
+                                    queryKey: getGetActivePlanQueryKey() 
+                                  });
+                                  // Also refetch today's data to update calorie targets
+                                  refetchToday();
                                 } catch (error) {
                                   console.error("Failed to update weight:", error);
                                 }
