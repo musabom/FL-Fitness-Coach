@@ -22,6 +22,7 @@ interface Exercise {
   exercise_type: "strength" | "cardio";
   equipment: string;
   met_value?: number;
+  is_custom?: boolean;
 }
 
 interface WorkoutExercise {
@@ -73,6 +74,156 @@ const EQUIPMENT_ICONS: Record<string, string> = {
 
 function todayDayName() {
   return ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][new Date().getDay()];
+}
+
+// ── Create Custom Exercise Sheet ──────────────────────────────────────────────
+
+interface CreateCustomExerciseSheetProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function CreateCustomExerciseSheet({ open, onClose }: CreateCustomExerciseSheetProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [name, setName] = useState("");
+  const [type, setType] = useState<"strength" | "cardio">("strength");
+  const [muscle, setMuscle] = useState("chest");
+  const [equipment, setEquipment] = useState("dumbbell");
+  const [injuries, setInjuries] = useState<string[]>([]);
+  const [formCue, setFormCue] = useState("");
+  const [lightMet, setLightMet] = useState("4.0");
+  const [moderateMet, setModerateMet] = useState("6.0");
+  const [vigorousMet, setVigorousMet] = useState("8.0");
+
+  const createMutation = useMutation({
+    mutationFn: (body: any) => customFetch(`${BASE}/exercises`, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast({ title: "Custom exercise created" });
+      onClose();
+      resetForm();
+    },
+    onError: () => toast({ title: "Failed to create exercise", variant: "destructive" }),
+  });
+
+  function resetForm() {
+    setName(""); setType("strength"); setMuscle("chest"); setEquipment("dumbbell");
+    setInjuries([]); setFormCue(""); setLightMet("4.0"); setModerateMet("6.0"); setVigorousMet("8.0");
+  }
+
+  function handleSave() {
+    if (!name.trim()) return toast({ title: "Exercise name is required", variant: "destructive" });
+    createMutation.mutate({
+      exercise_name: name.trim(),
+      exercise_type: type,
+      muscle_primary: muscle,
+      equipment,
+      injury_contraindications: injuries.length > 0 ? injuries : ["none"],
+      form_cue: formCue.trim() || null,
+      light_met: type === "cardio" ? Number(lightMet) || 4.0 : undefined,
+      moderate_met: type === "cardio" ? Number(moderateMet) || 6.0 : undefined,
+      vigorous_met: type === "cardio" ? Number(vigorousMet) || 8.0 : undefined,
+    });
+  }
+
+  if (!open) return null;
+
+  const muscles = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "other"];
+  const equipmentOptions = ["barbell", "dumbbell", "machine", "cable", "bodyweight", "band", "other"];
+  const injuryOptions = ["knee", "shoulder", "lower back"];
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#111] rounded-t-2xl border-t border-border/40 z-10 max-h-[90vh] flex flex-col">
+        <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-border/60" /></div>
+        <div className="flex items-center justify-between px-4 pb-3">
+          <h2 className="font-semibold text-sm">Create Custom Exercise</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Exercise Name *</label>
+            <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Cable Flyes" className="bg-[#1A1A1A] border-border/40 text-sm" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Type *</label>
+              <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-[#1A1A1A] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                <option value="strength">Strength</option>
+                <option value="cardio">Cardio</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Muscle Group *</label>
+              <select value={muscle} onChange={e => setMuscle(e.target.value)} className="w-full bg-[#1A1A1A] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                {muscles.map(m => <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Equipment *</label>
+              <select value={equipment} onChange={e => setEquipment(e.target.value)} className="w-full bg-[#1A1A1A] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                {equipmentOptions.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Injury Concerns</label>
+              <div className="space-y-1.5">
+                {injuryOptions.map(inj => (
+                  <label key={inj} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={injuries.includes(inj)}
+                      onChange={e => setInjuries(e.target.checked ? [...injuries, inj] : injuries.filter(i => i !== inj))}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-muted-foreground capitalize">{inj}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Form Cue (optional)</label>
+            <Input type="text" value={formCue} onChange={e => setFormCue(e.target.value)} placeholder="e.g. Keep elbows high" className="bg-[#1A1A1A] border-border/40 text-sm" />
+          </div>
+
+          {type === "cardio" && (
+            <>
+              <div className="pt-2 border-t border-border/40">
+                <p className="text-xs font-medium text-foreground mb-3">MET Values</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Light</label>
+                    <Input type="number" step="0.5" value={lightMet} onChange={e => setLightMet(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Moderate</label>
+                    <Input type="number" step="0.5" value={moderateMet} onChange={e => setModerateMet(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Vigorous</label>
+                    <Input type="number" step="0.5" value={vigorousMet} onChange={e => setVigorousMet(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <Button onClick={handleSave} disabled={createMutation.isPending} className="w-full bg-primary text-primary-foreground mt-4">
+            {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Create Exercise"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Add Exercise Sheet ────────────────────────────────────────────────────────
@@ -282,7 +433,10 @@ function AddExerciseSheet({ workoutId, open, onClose }: AddExerciseSheetProps) {
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold text-muted-foreground">{EQUIPMENT_ICONS[ex.equipment] || "[E]"}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground truncate">{ex.exercise_name}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-sm text-foreground truncate">{ex.exercise_name}</p>
+                        {ex.is_custom && <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 whitespace-nowrap">Custom</span>}
+                      </div>
                       <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{ex.muscle_primary} · {ex.equipment}</p>
                     </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ex.exercise_type === "cardio" ? "bg-blue-500/15 text-blue-400" : "bg-primary/10 text-primary"}`}>
@@ -747,6 +901,7 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
 export default function TrainingBuilder() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [customExerciseOpen, setCustomExerciseOpen] = useState(false);
 
   const today = todayDayName();
 
@@ -786,6 +941,9 @@ export default function TrainingBuilder() {
             Exercise Builder
           </h1>
         </div>
+        <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors" title="Add Custom Exercise">
+          <Plus className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -862,6 +1020,8 @@ export default function TrainingBuilder() {
 
         <div className="pb-8" />
       </div>
+
+      <CreateCustomExerciseSheet open={customExerciseOpen} onClose={() => setCustomExerciseOpen(false)} />
     </div>
   );
 }

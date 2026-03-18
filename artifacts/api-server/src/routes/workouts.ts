@@ -316,4 +316,49 @@ router.get("/exercises", async (req, res) => {
   res.json(result.rows);
 });
 
+// ── POST /exercises - Create custom exercise ────────────────────────────────────
+
+router.post("/exercises", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (userId === null) return;
+
+  const {
+    exercise_name,
+    exercise_type,
+    muscle_primary,
+    equipment,
+    injury_contraindications,
+    form_cue,
+    light_met,
+    moderate_met,
+    vigorous_met,
+  } = req.body;
+
+  if (!exercise_name || !exercise_type || !muscle_primary || !equipment || !injury_contraindications) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const met_values = exercise_type === "cardio"
+    ? JSON.stringify({ light: light_met || 4.0, moderate: moderate_met || 6.0, vigorous: vigorous_met || 8.0 })
+    : null;
+
+  const met_value = exercise_type === "cardio" ? (moderate_met || 6.0) : 5.0;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO exercises (
+        exercise_name, exercise_type, muscle_primary, equipment,
+        injury_contraindications, form_cue, met_value, met_values,
+        is_custom, user_id, active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, TRUE)
+      RETURNING id, exercise_name, exercise_type, muscle_primary, equipment, met_value, is_custom`,
+      [exercise_name, exercise_type, muscle_primary, equipment, JSON.stringify(injury_contraindications), form_cue, met_value, met_values, userId]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error("Failed to create custom exercise:", e);
+    res.status(500).json({ error: "Failed to create custom exercise" });
+  }
+});
+
 export default router;
