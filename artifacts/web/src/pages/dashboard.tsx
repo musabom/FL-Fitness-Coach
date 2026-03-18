@@ -227,6 +227,32 @@ export default function Dashboard() {
               </div>
             </section>
 
+            {/* Calorie Balance */}
+            <section className="space-y-3">
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
+              <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
+                    <span className="text-2xl font-bold text-foreground">{Math.round(todayData?.nutrition.consumed.calories ?? 0)}</span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                    <span className="text-2xl font-bold text-orange-400">{Math.round(todayData?.totalBurned ?? 0)}</span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
+                    <span className={`text-2xl font-bold ${(todayData?.balance ?? 0) < 0 ? "text-primary" : "text-red-400"}`}>
+                      {(todayData?.balance ?? 0) < 0 ? "−" : "+"}{Math.abs(Math.round(todayData?.balance ?? 0))}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{(todayData?.balance ?? 0) < 0 ? "deficit" : "surplus"}</span>
+                  </div>
+                </div>
+              </Card>
+            </section>
+
             {/* Daily Nutrition Progress — Compact bars */}
             <section className="space-y-3">
               <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Nutrition</p>
@@ -294,32 +320,6 @@ export default function Dashboard() {
                     color="#F97316"
                   />
                 )}
-              </Card>
-            </section>
-
-            {/* Calorie Balance */}
-            <section className="space-y-3">
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
-              <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
-                <div className="flex gap-3">
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
-                    <span className="text-2xl font-bold text-foreground">{Math.round(todayData?.nutrition.consumed.calories ?? 0)}</span>
-                    <span className="text-xs text-muted-foreground">kcal</span>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
-                    <span className="text-2xl font-bold text-orange-400">{Math.round(todayData?.totalBurned ?? 0)}</span>
-                    <span className="text-xs text-muted-foreground">kcal</span>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
-                    <span className={`text-2xl font-bold ${(todayData?.balance ?? 0) < 0 ? "text-primary" : "text-red-400"}`}>
-                      {(todayData?.balance ?? 0) < 0 ? "−" : "+"}{Math.abs(Math.round(todayData?.balance ?? 0))}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{(todayData?.balance ?? 0) < 0 ? "deficit" : "surplus"}</span>
-                  </div>
-                </div>
               </Card>
             </section>
 
