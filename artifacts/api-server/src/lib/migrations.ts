@@ -225,12 +225,63 @@ async function runMigrationsInternal(): Promise<void> {
       fat_g REAL,
       fibre_g REAL,
       leucine_g REAL,
+      active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
 
   await pool.query(`ALTER TABLE foods ADD COLUMN IF NOT EXISTS cooking_method VARCHAR(50) DEFAULT 'custom'`);
   await pool.query(`ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_tags TEXT[] DEFAULT ARRAY[]::text[]`);
+  await pool.query(`ALTER TABLE foods ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE`);
+
+  // Seed common foods (idempotent — only if table is empty)
+  const { rows: existingFoods } = await pool.query(`SELECT COUNT(*) FROM foods`);
+  if (Number(existingFoods[0].count) === 0) {
+    await pool.query(`
+      INSERT INTO foods (food_name, food_group, serving_unit, serving_weight_g, calories, protein_g, carbs_g, fat_g, fibre_g, leucine_g) VALUES
+      ('Chicken Breast', 'Protein', 'per_100g', 100, 165, 31, 0, 3.6, 0, 2.3),
+      ('Ground Beef 80/20', 'Protein', 'per_100g', 100, 217, 23, 0, 13, 0, 1.8),
+      ('Salmon', 'Protein', 'per_100g', 100, 206, 22, 0, 13, 0, 1.9),
+      ('Eggs', 'Protein', 'per_piece', 1, 78, 6.3, 0.6, 5.3, 0, 0.5),
+      ('Greek Yogurt', 'Dairy', 'per_100g', 100, 59, 10, 3.3, 0.4, 0, 0.8),
+      ('Cottage Cheese', 'Dairy', 'per_100g', 100, 98, 11, 4.3, 5, 0, 0.9),
+      ('Whole Milk', 'Dairy', 'per_100g', 100, 61, 3.2, 4.8, 3.3, 0, 0.3),
+      ('Cheddar Cheese', 'Dairy', 'per_100g', 100, 403, 23, 3.3, 33, 0, 1.8),
+      ('Brown Rice', 'Carbs', 'per_100g', 100, 111, 2.6, 23, 0.9, 1.8, 0.1),
+      ('White Rice', 'Carbs', 'per_100g', 100, 130, 2.7, 28, 0.3, 0.4, 0.1),
+      ('Sweet Potato', 'Carbs', 'per_100g', 100, 86, 1.6, 20, 0.1, 3, 0.1),
+      ('Oats', 'Carbs', 'per_100g', 100, 389, 17, 66, 6.9, 10.6, 0.5),
+      ('Whole Wheat Bread', 'Carbs', 'per_100g', 100, 247, 9, 43, 3.3, 7.0, 0.3),
+      ('Banana', 'Carbs', 'per_piece', 1, 89, 1.1, 23, 0.3, 2.6, 0.1),
+      ('Apple', 'Fruit', 'per_piece', 1, 52, 0.3, 14, 0.2, 2.4, 0.0),
+      ('Broccoli', 'Vegetable', 'per_100g', 100, 34, 2.8, 7, 0.4, 2.4, 0.2),
+      ('Spinach', 'Vegetable', 'per_100g', 100, 23, 2.9, 3.6, 0.4, 2.2, 0.3),
+      ('Carrot', 'Vegetable', 'per_100g', 100, 41, 0.9, 10, 0.2, 2.8, 0.1),
+      ('Olive Oil', 'Fat', 'per_100g', 100, 884, 0, 0, 100, 0, 0),
+      ('Almonds', 'Nuts', 'per_100g', 100, 579, 21, 22, 50, 12.5, 1.1),
+      ('Peanut Butter', 'Nuts', 'per_100g', 100, 588, 25, 20, 50, 6.0, 1.0),
+      ('Salmon Canned', 'Protein', 'per_100g', 100, 208, 20, 0, 13, 0, 1.9),
+      ('Tuna Canned', 'Protein', 'per_100g', 100, 132, 29, 0, 1.3, 0, 2.3),
+      ('Chicken Thigh', 'Protein', 'per_100g', 100, 209, 26, 0, 11, 0, 1.9),
+      ('Turkey Breast', 'Protein', 'per_100g', 100, 135, 29, 0, 1.6, 0, 2.4),
+      ('Lean Beef', 'Protein', 'per_100g', 100, 180, 27, 0, 8, 0, 2.1),
+      ('Pasta', 'Carbs', 'per_100g', 100, 371, 13, 75, 1.1, 1.8, 0.4),
+      ('Potato', 'Carbs', 'per_100g', 100, 77, 2, 17, 0.1, 2.1, 0.1),
+      ('Quinoa', 'Carbs', 'per_100g', 100, 368, 14, 64, 6, 7, 0.6),
+      ('Lentils', 'Carbs', 'per_100g', 100, 353, 25, 63, 1.5, 10.5, 0.6),
+      ('Chickpeas', 'Carbs', 'per_100g', 100, 364, 19, 61, 6, 10, 0.5),
+      ('Blueberries', 'Fruit', 'per_100g', 100, 57, 0.7, 14, 0.3, 2.4, 0.1),
+      ('Strawberries', 'Fruit', 'per_100g', 100, 32, 0.7, 8, 0.3, 2, 0.1),
+      ('Orange', 'Fruit', 'per_piece', 1, 47, 0.9, 12, 0.3, 2.4, 0.1),
+      ('Bell Pepper', 'Vegetable', 'per_100g', 100, 31, 1, 7, 0.3, 2.2, 0.2),
+      ('Tomato', 'Vegetable', 'per_100g', 100, 18, 0.9, 3.9, 0.2, 1.2, 0.1),
+      ('Cucumber', 'Vegetable', 'per_100g', 100, 16, 0.7, 4, 0.1, 0.5, 0.1),
+      ('Avocado', 'Fat', 'per_100g', 100, 160, 2, 9, 15, 7, 0.1),
+      ('Coconut Oil', 'Fat', 'per_100g', 100, 892, 0, 0, 100, 0, 0),
+      ('Butter', 'Fat', 'per_100g', 100, 717, 0.7, 0.1, 81, 0, 0),
+      ('Milk', 'Dairy', 'per_100g', 100, 42, 3.4, 5, 0.1, 0, 0.3)
+    `);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_foods (
