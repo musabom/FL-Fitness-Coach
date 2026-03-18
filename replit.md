@@ -143,8 +143,10 @@ Macro calculation for portions:
 
 - Dashboard refetches every 30 seconds (staleTime: 5s) to keep nutrition and training data in sync with meal plan and workout plan changes
 - Data sources: `/api/dashboard/today?date=YYYY-MM-DD` and `/api/dashboard/weekly?week_start=YYYY-MM-DD`
-- Nutrition data returns: consumed (from `meal_portion_completions`) and planned (from `meal_plan_entries`)
-- Training data returns: planned (from schedule or plan entries) and burned (from completion records)
+- Nutrition data returns: 
+  - consumed (from `meal_portion_completions` — actual food eaten)
+  - planned (from `plans` table — user's active daily nutrition targets)
+- Training data returns: planned (from workout schedule or plan entries) and burned (from completion records)
 
 ## Development
 

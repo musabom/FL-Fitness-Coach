@@ -70,42 +70,21 @@ async function getNutritionData(userId: number, date: string) {
     fat_g: +Number(consumedRow.fat_g).toFixed(2),
   };
 
-  // Planned: sum of all meal portions in meal_plan_entries for this date
-  const plannedRes = await pool.query(
-    `SELECT
-       COALESCE(SUM(
-         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
-           ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END
-       ), 0) AS calories,
-       COALESCE(SUM(
-         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g
-           ELSE COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g / 100 END
-       ), 0) AS protein_g,
-       COALESCE(SUM(
-         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g
-           ELSE COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g / 100 END
-       ), 0) AS carbs_g,
-       COALESCE(SUM(
-         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g
-           ELSE COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g / 100 END
-       ), 0) AS fat_g
-     FROM meal_plan_entries mpe
-     JOIN meal_portions mp ON mp.meal_id = mpe.meal_id
-     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
-     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
-     WHERE mpe.user_id = $1 AND mpe.date = $2`,
-    [userId, date]
+  // Planned: user's active nutrition plan targets
+  const planRes = await pool.query(
+    `SELECT calorie_target, protein_g, carbs_g, fat_g
+     FROM plans
+     WHERE user_id = $1 AND active = true
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId]
   );
-  const plannedRow = plannedRes.rows[0];
+  const planRow = planRes.rows[0];
   const planned = {
-    calories: +Number(plannedRow.calories).toFixed(1),
-    protein_g: +Number(plannedRow.protein_g).toFixed(2),
-    carbs_g: +Number(plannedRow.carbs_g).toFixed(2),
-    fat_g: +Number(plannedRow.fat_g).toFixed(2),
+    calories: planRow ? +Number(planRow.calorie_target).toFixed(1) : 0,
+    protein_g: planRow ? +Number(planRow.protein_g).toFixed(2) : 0,
+    carbs_g: planRow ? +Number(planRow.carbs_g).toFixed(2) : 0,
+    fat_g: planRow ? +Number(planRow.fat_g).toFixed(2) : 0,
   };
 
   return { consumed, planned };
