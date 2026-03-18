@@ -4,8 +4,8 @@ import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import {
-  Settings, LogOut, Loader2, ChevronRight,
-  UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap,
+  Settings, LogOut, Loader2, ChevronRight, ChevronDown,
+  UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap, Edit2, Check, X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,6 +110,9 @@ function MiniStatPill({ label, value, unit, color }: { label: string; value: num
 
 export default function Dashboard() {
   const [view, setView] = useState<"daily" | "weekly">("daily");
+  const [collapsedNutrition, setCollapsedNutrition] = useState(false);
+  const [editingWeight, setEditingWeight] = useState(false);
+  const [editWeight, setEditWeight] = useState<string>("");
   const { plan, isLoading: planLoading } = usePlan();
   const { logout } = useAuth();
   const today = todayStr();
@@ -255,35 +258,43 @@ export default function Dashboard() {
 
             {/* Daily Nutrition Progress — Compact bars */}
             <section className="space-y-3">
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Nutrition</p>
-              <Card className="p-5 bg-[#1A1A1A] border-none space-y-6">
-                {/* Calories */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-primary">
-                      {Math.round(consumed.calories)}<span className="text-sm text-muted-foreground mx-0.5">/</span>{Math.round(plan.calorieTarget)}<span className="text-sm text-muted-foreground ml-1">kcal</span>
-                    </span>
-                    <span className={`text-sm font-semibold ${consumed.calories - plan.calorieTarget > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                      {consumed.calories - plan.calorieTarget >= 0 ? '+' : ''}{Math.round(consumed.calories - plan.calorieTarget)} kcal
-                    </span>
+              <button
+                onClick={() => setCollapsedNutrition(!collapsedNutrition)}
+                className="w-full flex items-center justify-between p-0"
+              >
+                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Nutrition</p>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedNutrition ? "rotate-180" : ""}`} />
+              </button>
+              {!collapsedNutrition && (
+                <Card className="p-5 bg-[#1A1A1A] border-none space-y-6">
+                  {/* Calories */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-primary">
+                        {Math.round(consumed.calories)}<span className="text-sm text-muted-foreground mx-0.5">/</span>{Math.round(plan.calorieTarget)}<span className="text-sm text-muted-foreground ml-1">kcal</span>
+                      </span>
+                      <span className={`text-sm font-semibold ${consumed.calories - plan.calorieTarget > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                        {consumed.calories - plan.calorieTarget >= 0 ? '+' : ''}{Math.round(consumed.calories - plan.calorieTarget)} kcal
+                      </span>
+                    </div>
+                    <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (consumed.calories / plan.calorieTarget) * 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-3 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (consumed.calories / plan.calorieTarget) * 100)}%` }}
-                    />
-                  </div>
-                </div>
 
-                {/* Protein */}
-                <CompactMacroBar label="Protein" consumed={consumed.protein_g} planned={planned.protein_g || plan.proteinG} color="#3B82F6" unit="g" />
+                  {/* Protein */}
+                  <CompactMacroBar label="Protein" consumed={consumed.protein_g} planned={planned.protein_g || plan.proteinG} color="#3B82F6" unit="g" />
 
-                {/* Carbs */}
-                <CompactMacroBar label="Carbs" consumed={consumed.carbs_g} planned={planned.carbs_g || plan.carbsG} color="#F59E0B" unit="g" />
+                  {/* Carbs */}
+                  <CompactMacroBar label="Carbs" consumed={consumed.carbs_g} planned={planned.carbs_g || plan.carbsG} color="#F59E0B" unit="g" />
 
-                {/* Fat */}
-                <CompactMacroBar label="Fat" consumed={consumed.fat_g} planned={planned.fat_g || plan.fatG} color="#EAB308" unit="g" />
-              </Card>
+                  {/* Fat */}
+                  <CompactMacroBar label="Fat" consumed={consumed.fat_g} planned={planned.fat_g || plan.fatG} color="#EAB308" unit="g" />
+                </Card>
+              )}
             </section>
 
             {/* Daily Workout Burn */}
@@ -325,13 +336,74 @@ export default function Dashboard() {
 
             {/* Weight & Timeline */}
             <section className="space-y-3">
-              <div className="flex gap-3">
-                <Card className="flex-1 p-5 border-border">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Current</div>
-                  <div className="text-2xl font-semibold">{plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
+              <div className="space-y-3">
+                <Card className="p-5 border-border">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Started Weight</div>
+                  <div className="text-2xl font-semibold">{plan.initialWeightKg || plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
+                  <p className="text-xs text-muted-foreground mt-2">Read-only</p>
                 </Card>
-                <Card className="flex-1 p-5 border-border">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Target</div>
+                <Card className="p-5 border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Current Weight</div>
+                    {!editingWeight && (
+                      <button
+                        onClick={() => {
+                          setEditingWeight(true);
+                          setEditWeight(String(plan.weightKg));
+                        }}
+                        className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3 h-3" /> Edit
+                      </button>
+                    )}
+                  </div>
+                  {!editingWeight ? (
+                    <div className="text-2xl font-semibold">{plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
+                  ) : (
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={editWeight}
+                          onChange={(e) => setEditWeight(e.target.value)}
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                          placeholder="Weight in kg"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await customFetch(`${BASE}/profile`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ weight_kg: parseFloat(editWeight) }),
+                            });
+                            setEditingWeight(false);
+                            setEditWeight("");
+                            // Refetch plan to update weight
+                          } catch (error) {
+                            console.error("Failed to update weight:", error);
+                          }
+                        }}
+                        className="p-2 bg-primary hover:bg-primary/90 rounded-lg text-primary-foreground transition"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingWeight(false);
+                          setEditWeight("");
+                        }}
+                        className="p-2 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground transition"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </Card>
+                <Card className="p-5 border-border">
+                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Target Weight</div>
                   <div className="text-2xl font-semibold">{plan.targetWeightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
                 </Card>
               </div>

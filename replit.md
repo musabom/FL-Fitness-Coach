@@ -134,7 +134,7 @@ Macro calculation for portions:
 - `/login` - Login form
 - `/signup` - Registration form
 - `/onboarding` - 11-step questionnaire (height, weight, target weight, age, gender, goal, activity, training days, location, dietary prefs, injuries)
-- `/dashboard` - Daily/Weekly toggle view; Daily: calorie target, calorie balance (consumed/burned/net), today's nutrition (consumed/planned bars), today's training (planned/burned/remaining), weight/timeline; Weekly: calorie balance, total week nutrition, total week training, day-by-day chart
+- `/dashboard` - Daily/Weekly toggle view; Daily: calorie target, calorie balance (consumed/burned/net), collapsible today's nutrition (calories/macros bars), today's training (planned/burned/remaining), weight tracking (started/current editable with history/target), timeline; Weekly: calorie balance, total week nutrition, total week training, day-by-day chart
 - `/profile/edit` - Edit profile metrics (triggers plan recalculation)
 - `/nutrition/meals` - Meal Builder: create meals, add food portions, schedule by day, track daily progress; Shopping List with stock tracking
 - `/training/builder` - Exercise Builder: create workout templates, add exercises (library or custom), schedule by day, track daily calorie burn; Custom Exercise creation form with strength/cardio-specific fields
