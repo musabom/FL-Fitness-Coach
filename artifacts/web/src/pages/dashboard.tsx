@@ -111,6 +111,8 @@ function MiniStatPill({ label, value, unit, color }: { label: string; value: num
 export default function Dashboard() {
   const [view, setView] = useState<"daily" | "weekly">("daily");
   const [collapsedNutrition, setCollapsedNutrition] = useState(false);
+  const [collapsedTraining, setCollapsedTraining] = useState(false);
+  const [collapsedWeight, setCollapsedWeight] = useState(false);
   const [editingWeight, setEditingWeight] = useState(false);
   const [editWeight, setEditWeight] = useState<string>("");
   const { plan, isLoading: planLoading } = usePlan();
@@ -299,114 +301,133 @@ export default function Dashboard() {
 
             {/* Daily Workout Burn */}
             <section className="space-y-3">
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Training</p>
-              <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
-                <div className="flex gap-3">
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <Zap className="w-4 h-4 text-muted-foreground mb-0.5" />
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Planned</span>
-                    <span className="text-2xl font-bold text-foreground">{Math.round(training.planned_calories)}</span>
-                    <span className="text-xs text-muted-foreground">kcal</span>
+              <button
+                onClick={() => setCollapsedTraining(!collapsedTraining)}
+                className="w-full flex items-center justify-between p-0"
+              >
+                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Training</p>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedTraining ? "rotate-180" : ""}`} />
+              </button>
+              {!collapsedTraining && (
+                <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <Zap className="w-4 h-4 text-muted-foreground mb-0.5" />
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Planned</span>
+                      <span className="text-2xl font-bold text-foreground">{Math.round(training.planned_calories)}</span>
+                      <span className="text-xs text-muted-foreground">kcal</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                      <span className="text-2xl font-bold text-orange-400">{Math.round(training.burned_calories)}</span>
+                      <span className="text-xs text-muted-foreground">kcal</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Remaining</span>
+                      <span className={`text-2xl font-bold ${training.planned_calories - training.burned_calories > 0 ? "text-primary" : "text-red-400"}`}>
+                        {Math.round(Math.max(0, training.planned_calories - training.burned_calories))}
+                      </span>
+                      <span className="text-xs text-muted-foreground">kcal</span>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
-                    <span className="text-2xl font-bold text-orange-400">{Math.round(training.burned_calories)}</span>
-                    <span className="text-xs text-muted-foreground">kcal</span>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Remaining</span>
-                    <span className={`text-2xl font-bold ${training.planned_calories - training.burned_calories > 0 ? "text-primary" : "text-red-400"}`}>
-                      {Math.round(Math.max(0, training.planned_calories - training.burned_calories))}
-                    </span>
-                    <span className="text-xs text-muted-foreground">kcal</span>
-                  </div>
-                </div>
 
-                {training.planned_calories > 0 && (
-                  <CalBar
-                    label="Burn Progress"
-                    value={training.burned_calories}
-                    target={training.planned_calories}
-                    color="#F97316"
-                  />
-                )}
-              </Card>
+                  {training.planned_calories > 0 && (
+                    <CalBar
+                      label="Burn Progress"
+                      value={training.burned_calories}
+                      target={training.planned_calories}
+                      color="#F97316"
+                    />
+                  )}
+                </Card>
+              )}
             </section>
 
             {/* Weight & Timeline */}
             <section className="space-y-3">
-              <div className="space-y-3">
-                <Card className="p-5 border-border">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Started Weight</div>
-                  <div className="text-2xl font-semibold">{plan.initialWeightKg || plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
-                  <p className="text-xs text-muted-foreground mt-2">Read-only</p>
-                </Card>
-                <Card className="p-5 border-border">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Current Weight</div>
-                    {!editingWeight && (
-                      <button
-                        onClick={() => {
-                          setEditingWeight(true);
-                          setEditWeight(String(plan.weightKg));
-                        }}
-                        className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
-                      >
-                        <Edit2 className="w-3 h-3" /> Edit
-                      </button>
-                    )}
-                  </div>
-                  {!editingWeight ? (
-                    <div className="text-2xl font-semibold">{plan.weightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
-                  ) : (
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editWeight}
-                          onChange={(e) => setEditWeight(e.target.value)}
-                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                          placeholder="Weight in kg"
-                        />
-                      </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await customFetch(`${BASE}/profile`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ weight_kg: parseFloat(editWeight) }),
-                            });
-                            setEditingWeight(false);
-                            setEditWeight("");
-                            // Refetch plan to update weight
-                          } catch (error) {
-                            console.error("Failed to update weight:", error);
-                          }
-                        }}
-                        className="p-2 bg-primary hover:bg-primary/90 rounded-lg text-primary-foreground transition"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingWeight(false);
-                          setEditWeight("");
-                        }}
-                        className="p-2 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground transition"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+              <button
+                onClick={() => setCollapsedWeight(!collapsedWeight)}
+                className="w-full flex items-center justify-between p-0"
+              >
+                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Weight</p>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedWeight ? "rotate-180" : ""}`} />
+              </button>
+              {!collapsedWeight && (
+                <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Started</span>
+                      <span className="text-2xl font-bold text-foreground">{plan.initialWeightKg || plan.weightKg}</span>
+                      <span className="text-xs text-muted-foreground">kg</span>
+                      <p className="text-[10px] text-muted-foreground mt-1">Read-only</p>
                     </div>
-                  )}
+                    <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Current</span>
+                      {!editingWeight ? (
+                        <>
+                          <span className="text-2xl font-bold text-foreground">{plan.weightKg}</span>
+                          <span className="text-xs text-muted-foreground">kg</span>
+                          <button
+                            onClick={() => {
+                              setEditingWeight(true);
+                              setEditWeight(String(plan.weightKg));
+                            }}
+                            className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"
+                          >
+                            <Edit2 className="w-3 h-3" /> Edit
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-2 w-full">
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={editWeight}
+                            onChange={(e) => setEditWeight(e.target.value)}
+                            className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary text-center"
+                            placeholder="kg"
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await customFetch(`${BASE}/profile`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ weight_kg: parseFloat(editWeight) }),
+                                  });
+                                  setEditingWeight(false);
+                                  setEditWeight("");
+                                } catch (error) {
+                                  console.error("Failed to update weight:", error);
+                                }
+                              }}
+                              className="flex-1 p-1 bg-primary hover:bg-primary/90 rounded text-primary-foreground transition text-xs"
+                            >
+                              <Check className="w-3 h-3 mx-auto" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingWeight(false);
+                                setEditWeight("");
+                              }}
+                              className="flex-1 p-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground transition text-xs"
+                            >
+                              <X className="w-3 h-3 mx-auto" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Target</span>
+                      <span className="text-2xl font-bold text-foreground">{plan.targetWeightKg}</span>
+                      <span className="text-xs text-muted-foreground">kg</span>
+                    </div>
+                  </div>
                 </Card>
-                <Card className="p-5 border-border">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Target Weight</div>
-                  <div className="text-2xl font-semibold">{plan.targetWeightKg} <span className="text-sm font-normal text-muted-foreground">kg</span></div>
-                </Card>
-              </div>
+              )}
 
               <Card className="p-6 border-border">
                 <div className="flex justify-between items-start mb-4">
