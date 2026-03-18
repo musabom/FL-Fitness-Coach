@@ -343,10 +343,14 @@ export default function WorkoutPlan() {
       customFetch(`${BASE}/workout-plan`, {
         method: "POST",
         body: JSON.stringify({ date, workout_id: workoutId }),
+        headers: { "Content-Type": "application/json" },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workout-plan", date] });
       setShowSheet(false);
+    },
+    onError: (error) => {
+      console.error("Failed to add workout:", error);
     },
   });
 

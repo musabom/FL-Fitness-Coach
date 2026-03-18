@@ -209,6 +209,53 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises(workout_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_schedule_user ON workout_schedule(user_id)`);
 
+  // ── Workout Plan Tables ──────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_plan_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      workout_id INTEGER REFERENCES user_workouts(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, date, workout_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_plan_completions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      workout_id INTEGER REFERENCES user_workouts(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      UNIQUE(user_id, workout_id, date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_plan_exclusions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      workout_id INTEGER REFERENCES user_workouts(id) ON DELETE CASCADE,
+      UNIQUE(user_id, date, workout_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_exercise_completions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      workout_id INTEGER REFERENCES user_workouts(id) ON DELETE CASCADE,
+      workout_exercise_id INTEGER REFERENCES workout_exercises(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      UNIQUE(user_id, workout_id, workout_exercise_id, date)
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_plan_entries_user_date ON workout_plan_entries(user_id, date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_plan_completions_user_date ON workout_plan_completions(user_id, date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_exercise_completions_user_date ON workout_exercise_completions(user_id, date)`);
+
   // ── Food & Meal Tables ───────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS foods (

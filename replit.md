@@ -54,15 +54,20 @@ artifacts-monorepo/
 ## Database Tables
 
 Phase 1 (Drizzle ORM): users, user_profiles, plans
-Phase 1 (raw SQL — Meal Builder): foods (118 USDA rows), user_meals, meal_portions, meal_schedule
+Phase 1 (raw SQL — Meal Builder): foods (113 USDA rows), user_meals, meal_portions, meal_schedule, meal_plan_entries, meal_plan_completions, meal_plan_exclusions, meal_portion_completions
 Phase 1 (raw SQL — Exercise Builder): exercises (45 library + custom), user_workouts, workout_exercises, workout_schedule, food_stock
+Phase 1 (raw SQL — Workout Plan): workout_plan_entries, workout_plan_completions, workout_plan_exclusions, workout_exercise_completions
 Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment_logs
 
 ### Meal Builder tables (raw SQL, not in Drizzle schema)
-- `foods` — USDA food items; serving_unit is "per_100g" or "per_piece"
+- `foods` — USDA food items; serving_unit is "per_100g" or "per_piece"; includes columns: fdc_id, sugar_g, sodium_mg, gi_index, weigh_when, notes, dietary_tags, active
 - `user_meals` — user-named meal containers (belongs to user)
 - `meal_portions` — food + quantity_g entries inside a meal
 - `meal_schedule` — maps meals to days-of-week (monday..sunday)
+- `meal_plan_entries` — user-explicitly added meals to a specific date
+- `meal_plan_completions` — tracks completed meals by date
+- `meal_plan_exclusions` — excludes scheduled meals from specific dates
+- `meal_portion_completions` — tracks completed meal portions by date
 
 ### Exercise Builder tables (raw SQL)
 - `exercises` — 45 library exercises + custom exercises; fields: id, exercise_name, muscle_primary, exercise_type (strength/cardio), equipment, injury_contraindications (ARRAY), met_value (numeric), met_values (JSONB for cardio {light/moderate/vigorous}), form_cue (TEXT), is_custom (boolean), user_id (for custom exercises), active (boolean)
@@ -70,6 +75,10 @@ Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment
 - `workout_exercises` — exercise entries in a workout (sets, reps_min, reps_max, weight_kg, rest_seconds, duration_mins, speed_kmh, effort_level, estimated_calories)
 - `workout_schedule` — maps workouts to days-of-week (monday..sunday)
 - `food_stock` — shopping list tracking (food_id, user_id, weekly_quantity, notes)
+- `workout_plan_entries` — user-explicitly added workouts to a specific date
+- `workout_plan_completions` — tracks completed workouts by date
+- `workout_plan_exclusions` — excludes scheduled workouts from specific dates
+- `workout_exercise_completions` — tracks completed exercises within a workout by date
 
 Macro calculation for portions:
 - per_piece: multiplier = quantity_g / serving_weight_g
