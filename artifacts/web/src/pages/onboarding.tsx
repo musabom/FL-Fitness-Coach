@@ -15,8 +15,6 @@ interface OnboardingFormData {
   gender: string;
   goalMode: string;
   activityLevel: string;
-  trainingDays: string;
-  trainingLocation: string;
 }
 
 interface GoalOption {
@@ -30,7 +28,7 @@ export default function Onboarding() {
   const getGoalsMutation = useGetAvailableGoals();
   
   const [step, setStep] = useState(1);
-  const totalSteps = 5;
+  const totalSteps = 3;
 
   const [formData, setFormData] = useState<OnboardingFormData>({
     heightCm: "",
@@ -40,8 +38,6 @@ export default function Onboarding() {
     gender: "",
     goalMode: "",
     activityLevel: "",
-    trainingDays: "",
-    trainingLocation: "",
   });
 
   const [availableGoals, setAvailableGoals] = useState<GoalOption[]>([]);
@@ -82,8 +78,8 @@ export default function Onboarding() {
       gender: formData.gender as "male" | "female" | "prefer_not_to_say",
       goalMode: formData.goalMode as "cut" | "recomposition" | "lean_bulk" | "maintenance",
       activityLevel: formData.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
-      trainingDays: Number(formData.trainingDays) as 3 | 4 | 5 | 6,
-      trainingLocation: formData.trainingLocation as "gym" | "home" | "both",
+      trainingDays: 4,
+      trainingLocation: "gym",
       dietaryPreferences: [],
       injuryFlags: [],
     } });
@@ -101,10 +97,6 @@ export default function Onboarding() {
         return formData.goalMode !== "";
       case 3: 
         return formData.activityLevel !== "";
-      case 4:
-        return formData.trainingDays !== "";
-      case 5:
-        return formData.trainingLocation !== "";
       default: 
         return false;
     }
@@ -240,53 +232,6 @@ export default function Onboarding() {
                   description={opt.desc}
                   selected={formData.activityLevel === opt.id}
                   onClick={() => setFormData({ ...formData, activityLevel: opt.id })}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 4:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight">How many days per week do you train?</h2>
-            <p className="text-muted-foreground">Your typical workout frequency.</p>
-            <div className="space-y-3">
-              {[
-                { id: "3", label: "3 Days", desc: "Upper/Lower or Push/Pull/Legs" },
-                { id: "4", label: "4 Days", desc: "Upper/Lower x2 or PPL variant" },
-                { id: "5", label: "5 Days", desc: "Push/Pull/Legs or Body Part Split" },
-                { id: "6", label: "6 Days", desc: "Intensive Push/Pull/Legs" }
-              ].map(opt => (
-                <OptionCard 
-                  key={opt.id}
-                  title={opt.label}
-                  description={opt.desc}
-                  selected={formData.trainingDays === opt.id}
-                  onClick={() => setFormData({ ...formData, trainingDays: opt.id })}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 5:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight">Where do you train?</h2>
-            <p className="text-muted-foreground">Your workout location.</p>
-            <div className="space-y-3">
-              {[
-                { id: "gym", label: "Gym", desc: "Full equipment access" },
-                { id: "home", label: "Home", desc: "Limited or no equipment" },
-                { id: "both", label: "Both", desc: "Mix of gym and home workouts" }
-              ].map(opt => (
-                <OptionCard 
-                  key={opt.id}
-                  title={opt.label}
-                  description={opt.desc}
-                  selected={formData.trainingLocation === opt.id}
-                  onClick={() => setFormData({ ...formData, trainingLocation: opt.id })}
                 />
               ))}
             </div>
