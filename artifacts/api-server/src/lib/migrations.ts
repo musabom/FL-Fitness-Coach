@@ -209,8 +209,67 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises(workout_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_schedule_user ON workout_schedule(user_id)`);
 
-  // Note: Meal-related tables (meal_portions, user_meals, etc.) are deferred for Phase 2
-  // For now, we focus on the core features: profile, plans, exercises, and workouts
+  // ── Food & Meal Tables ───────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS foods (
+      id SERIAL PRIMARY KEY,
+      food_name VARCHAR(100) NOT NULL,
+      food_group VARCHAR(50),
+      serving_unit VARCHAR(20) DEFAULT 'per_100g',
+      serving_weight_g REAL,
+      calories REAL NOT NULL,
+      protein_g REAL,
+      carbs_g REAL,
+      fat_g REAL,
+      fibre_g REAL,
+      leucine_g REAL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 
-  // Note: Workout plan completion tables are deferred for Phase 2 (full workout tracking)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_foods (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      food_name VARCHAR(100) NOT NULL,
+      food_group VARCHAR(50),
+      serving_unit VARCHAR(20) DEFAULT 'per_100g',
+      serving_weight_g REAL,
+      calories REAL NOT NULL,
+      protein_g REAL,
+      carbs_g REAL,
+      fat_g REAL,
+      fibre_g REAL,
+      leucine_g REAL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_meals (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      meal_name VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_portions (
+      id SERIAL PRIMARY KEY,
+      meal_id INTEGER REFERENCES user_meals(id) ON DELETE CASCADE,
+      food_id INTEGER,
+      food_source VARCHAR(20) DEFAULT 'database',
+      quantity_g REAL NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_foods_name ON foods(food_name)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_foods_user ON user_foods(user_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_meals_user ON user_meals(user_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_portions_meal ON meal_portions(meal_id)`);
+
+  // Note: Workout plan completion & meal logging tables are deferred for Phase 2 (full tracking)
 }
