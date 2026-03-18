@@ -272,9 +272,9 @@ export default function Dashboard() {
                     <span className="text-xs text-muted-foreground">kcal</span>
                   </div>
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Net</span>
-                    <span className={`text-2xl font-bold ${training.burned_calories > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                      {Math.round(training.burned_calories > 0 ? plan.calorieTarget + training.burned_calories : plan.calorieTarget)}
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Remaining</span>
+                    <span className={`text-2xl font-bold ${training.planned_calories - training.burned_calories > 0 ? "text-primary" : "text-red-400"}`}>
+                      {Math.round(Math.max(0, training.planned_calories - training.burned_calories))}
                     </span>
                     <span className="text-xs text-muted-foreground">kcal</span>
                   </div>
@@ -291,36 +291,6 @@ export default function Dashboard() {
               </Card>
             </section>
 
-            {/* Macro Target Cards */}
-            <section className="space-y-3">
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Macro Targets</p>
-              <div className="grid grid-cols-3 gap-3">
-                <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Protein</div>
-                  <div className="text-2xl font-semibold">{plan.proteinG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
-                  <div className="w-full h-1 bg-[#3B82F6]/20 mt-3 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#3B82F6] w-[100%]" />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Builds & repairs muscle</p>
-                </Card>
-                <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Carbs</div>
-                  <div className="text-2xl font-semibold">{plan.carbsG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
-                  <div className="w-full h-1 bg-[#F59E0B]/20 mt-3 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#F59E0B] w-[100%]" />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Fuels training & recovery</p>
-                </Card>
-                <Card className="p-4 flex flex-col items-center justify-center border-none bg-[#1A1A1A]">
-                  <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Fat</div>
-                  <div className="text-2xl font-semibold">{plan.fatG}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></div>
-                  <div className="w-full h-1 bg-[#EAB308]/20 mt-3 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#EAB308] w-[100%]" />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">Supports hormones & health</p>
-                </Card>
-              </div>
-            </section>
 
             {/* Weight & Timeline */}
             <section className="space-y-3">
