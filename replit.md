@@ -134,10 +134,17 @@ Macro calculation for portions:
 - `/login` - Login form
 - `/signup` - Registration form
 - `/onboarding` - 11-step questionnaire (height, weight, target weight, age, gender, goal, activity, training days, location, dietary prefs, injuries)
-- `/dashboard` - Calorie target, macros grid, weight info, timeline estimate, plan summary; links to Nutrition (Meal Builder) and Training (Exercise Builder)
+- `/dashboard` - Daily/Weekly toggle view; Daily: calorie target, today's nutrition (consumed/planned bars), today's training (planned/burned/net), macro targets grid, weight/timeline; Weekly: total week nutrition, total week training, day-by-day chart
 - `/profile/edit` - Edit profile metrics (triggers plan recalculation)
 - `/nutrition/meals` - Meal Builder: create meals, add food portions, schedule by day, track daily progress; Shopping List with stock tracking
 - `/training/builder` - Exercise Builder: create workout templates, add exercises (library or custom), schedule by day, track daily calorie burn; Custom Exercise creation form with strength/cardio-specific fields
+
+## Dashboard Data Sync
+
+- Dashboard refetches every 30 seconds (staleTime: 5s) to keep nutrition and training data in sync with meal plan and workout plan changes
+- Data sources: `/api/dashboard/today?date=YYYY-MM-DD` and `/api/dashboard/weekly?week_start=YYYY-MM-DD`
+- Nutrition data returns: consumed (from `meal_portion_completions`) and planned (from `meal_plan_entries`)
+- Training data returns: planned (from schedule or plan entries) and burned (from completion records)
 
 ## Development
 

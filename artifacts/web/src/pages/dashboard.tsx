@@ -108,11 +108,13 @@ export default function Dashboard() {
   const { logout } = useAuth();
   const today = todayStr();
 
-  const { data: todayData } = useQuery<TodayData>({
+  const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
     queryKey: ["dashboard-today", today],
     queryFn: () => customFetch<TodayData>(`${BASE}/dashboard/today?date=${today}`),
     enabled: !!plan,
     refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 
   const mondayStr = getMondayStr();
@@ -121,6 +123,8 @@ export default function Dashboard() {
     queryFn: () => customFetch<WeeklyData>(`${BASE}/dashboard/weekly?week_start=${mondayStr}`),
     enabled: view === "weekly" && !!plan,
     refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 
   const consumed = todayData?.nutrition.consumed ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
@@ -168,8 +172,11 @@ export default function Dashboard() {
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-12">
       {/* Header */}
-      <header className="px-6 py-6 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50">
-        <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
+      <header className="px-6 py-4 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+        </div>
         <div className="flex items-center gap-3">
           <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
             <Settings className="w-5 h-5 text-foreground" />
@@ -387,16 +394,21 @@ export default function Dashboard() {
                       />
                     </div>
 
-                    <div className="space-y-3 pt-1">
-                      <MacroBar label="Protein" consumed={weeklyData.totals.protein_g} target={plan.proteinG * 7} color="#3B82F6" />
-                      <MacroBar label="Carbs" consumed={weeklyData.totals.carbs_g} target={plan.carbsG * 7} color="#F59E0B" />
-                      <MacroBar label="Fat" consumed={weeklyData.totals.fat_g} target={plan.fatG * 7} color="#EAB308" />
-                    </div>
-
-                    <div className="flex gap-2 pt-1">
-                      <MiniStatPill label="Protein" value={weeklyData.totals.protein_g} unit={`/ ${plan.proteinG * 7}g`} color="#3B82F6" />
-                      <MiniStatPill label="Carbs" value={weeklyData.totals.carbs_g} unit={`/ ${plan.carbsG * 7}g`} color="#F59E0B" />
-                      <MiniStatPill label="Fat" value={weeklyData.totals.fat_g} unit={`/ ${plan.fatG * 7}g`} color="#EAB308" />
+                    <div className="space-y-3 pt-2">
+                      <div className="text-xs text-muted-foreground grid grid-cols-3 gap-2">
+                        <div className="text-center">
+                          <div className="font-semibold text-foreground text-sm">{Math.round(weeklyData.totals.protein_g)}g</div>
+                          <div className="text-[10px]">Protein</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-semibold text-foreground text-sm">{Math.round(weeklyData.totals.carbs_g)}g</div>
+                          <div className="text-[10px]">Carbs</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-semibold text-foreground text-sm">{Math.round(weeklyData.totals.fat_g)}g</div>
+                          <div className="text-[10px]">Fat</div>
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 </section>
