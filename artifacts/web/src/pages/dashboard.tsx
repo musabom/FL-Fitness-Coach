@@ -195,7 +195,7 @@ export default function Dashboard() {
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
           </Link>
-          <Link href="/training/workout-plan">
+          <Link href="/training/plan">
             <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <ClipboardList className="w-5 h-5 text-primary" />

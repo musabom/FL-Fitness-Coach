@@ -101,7 +101,7 @@ function Router() {
         <Route path="/nutrition/meal-plan" component={MealPlan} />
         <Route path="/nutrition/shopping-list" component={ShoppingList} />
         <Route path="/training/builder" component={TrainingBuilder} />
-        <Route path="/training/workout-plan" component={WorkoutPlan} />
+        <Route path="/training/plan" component={WorkoutPlan} />
         {/* Explicit root catch to fall back to AuthGuard logic */}
         <Route path="/">
           <div /> 

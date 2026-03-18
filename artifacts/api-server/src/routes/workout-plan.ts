@@ -48,7 +48,6 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   const profileRes = await pool.query(`SELECT weight_kg FROM user_profiles WHERE user_id = $1`, [userId]);
   const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
 
-  // Fetch workouts scheduled for this day of week
   const workoutsRes = await pool.query(
     `SELECT DISTINCT uw.id, uw.workout_name, uw.created_at, uw.updated_at
      FROM user_workouts uw
@@ -66,7 +65,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   const workoutIds = workoutsRes.rows.map((r: any) => r.id);
 
   const exercisesRes = await pool.query(
-    `SELECT we.*, e.exercise_name, e.name_arabic, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
+    `SELECT we.*, e.exercise_name, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
      FROM workout_exercises we
      JOIN exercises e ON we.exercise_id = e.id
      WHERE we.workout_id = ANY($1)
@@ -74,21 +73,19 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     [workoutIds]
   );
 
-  // Fetch workout-level completions
   const workoutCompletionsRes = await pool.query(
-    `SELECT workout_id, completed_at FROM workout_plan_completions
+    `SELECT workout_id FROM workout_plan_completions
      WHERE user_id = $1 AND date = $2 AND workout_id = ANY($3)`,
     [userId, dateStr, workoutIds]
   );
-  const completedWorkouts = new Set<number>(workoutCompletionsRes.rows.map((r: any) => r.workout_id));
+  const completedWorkouts = new Set<number>(workoutCompletionsRes.rows.map((r: any) => Number(r.workout_id)));
 
-  // Fetch exercise-level completions
   const exerciseCompletionsRes = await pool.query(
-    `SELECT workout_exercise_id, completed_at FROM workout_exercise_completions
+    `SELECT workout_exercise_id FROM workout_exercise_completions
      WHERE user_id = $1 AND date = $2 AND workout_id = ANY($3)`,
     [userId, dateStr, workoutIds]
   );
-  const completedExercises = new Set<number>(exerciseCompletionsRes.rows.map((r: any) => r.workout_exercise_id));
+  const completedExercises = new Set<number>(exerciseCompletionsRes.rows.map((r: any) => Number(r.workout_exercise_id)));
 
   const exercisesByWorkout: Record<number, any[]> = {};
   for (const e of exercisesRes.rows) {
@@ -107,24 +104,21 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
       workout_id: e.workout_id,
       exercise_id: e.exercise_id,
       exercise_name: e.exercise_name,
-      name_arabic: e.name_arabic,
       muscle_primary: e.muscle_primary,
       exercise_type: e.exercise_type,
       equipment: e.equipment,
-      met_value: e.met_value ? Number(e.met_value) : null,
       sets: Number(e.sets),
       reps_min: Number(e.reps_min),
       reps_max: Number(e.reps_max),
       weight_kg: e.weight_kg ? Number(e.weight_kg) : null,
       rest_seconds: Number(e.rest_seconds),
       duration_mins: e.duration_mins ? Number(e.duration_mins) : null,
-      speed_kmh: e.speed_kmh ? Number(e.speed_kmh) : null,
       effort_level: e.effort_level ?? null,
       order_index: Number(e.order_index),
       notes: e.notes ?? null,
       estimated_calories,
       duration_mins_computed,
-      completed: completedExercises.has(e.id),
+      completed: completedExercises.has(Number(e.id)),
     });
   }
 
@@ -143,7 +137,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
       workout_name: w.workout_name,
       exercises,
       total_calories,
-      completed: completedWorkouts.has(w.id),
+      completed: completedWorkouts.has(Number(w.id)),
     };
   });
 
@@ -151,6 +145,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
 });
 
 // ── POST /workout-plan/:workoutId/complete ────────────────────────────────────
+// Marks a workout done AND bulk-inserts all its exercise completions.
 
 router.post("/workout-plan/:workoutId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -180,20 +175,35 @@ router.post("/workout-plan/:workoutId/complete", async (req, res): Promise<void>
     [userId, workoutId, date]
   );
 
+  // Bulk-mark all exercises in this workout as complete
+  const weRes = await pool.query(
+    `SELECT id FROM workout_exercises WHERE workout_id = $1`,
+    [workoutId]
+  );
+  for (const we of weRes.rows) {
+    await pool.query(
+      `INSERT INTO workout_exercise_completions (user_id, workout_id, workout_exercise_id, date)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, workout_id, workout_exercise_id, date) DO NOTHING`,
+      [userId, workoutId, we.id, date]
+    );
+  }
+
   res.json({ workout_id: workoutId, date, completed: true });
 });
 
 // ── DELETE /workout-plan/:workoutId/complete ──────────────────────────────────
+// Unmarks a workout AND removes all its exercise completions.
 
 router.delete("/workout-plan/:workoutId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;
 
   const workoutId = Number(req.params["workoutId"]);
-  const { date } = req.body as { date?: string };
+  const date = req.query["date"] as string | undefined;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    res.status(400).json({ error: "Valid date (YYYY-MM-DD) is required" });
+    res.status(400).json({ error: "Valid date query param (YYYY-MM-DD) is required" });
     return;
   }
 
@@ -202,10 +212,17 @@ router.delete("/workout-plan/:workoutId/complete", async (req, res): Promise<voi
     [userId, workoutId, date]
   );
 
+  // Also clear all exercise completions for this workout/date
+  await pool.query(
+    "DELETE FROM workout_exercise_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
+    [userId, workoutId, date]
+  );
+
   res.json({ workout_id: workoutId, date, completed: false });
 });
 
 // ── POST /workout-plan/:workoutId/exercises/:weId/complete ────────────────────
+// Marks one exercise done. If all exercises are now done, auto-completes workout.
 
 router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -220,9 +237,12 @@ router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res
     return;
   }
 
+  // Ownership: exercise must belong to workout which belongs to user
   const check = await pool.query(
-    "SELECT id FROM workout_exercises WHERE id = $1 AND workout_id = $2",
-    [weId, workoutId]
+    `SELECT we.id FROM workout_exercises we
+     JOIN user_workouts uw ON uw.id = we.workout_id
+     WHERE we.id = $1 AND we.workout_id = $2 AND uw.user_id = $3`,
+    [weId, workoutId, userId]
   );
   if (!check.rows.length) {
     res.status(404).json({ error: "Exercise not found in workout" });
@@ -236,10 +256,34 @@ router.post("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res
     [userId, workoutId, weId, date]
   );
 
-  res.json({ workout_exercise_id: weId, date, completed: true });
+  // Check if all exercises in this workout are now complete
+  const totalRes = await pool.query(
+    `SELECT COUNT(*) AS total FROM workout_exercises WHERE workout_id = $1`,
+    [workoutId]
+  );
+  const completedRes = await pool.query(
+    `SELECT COUNT(*) AS done FROM workout_exercise_completions
+     WHERE user_id = $1 AND workout_id = $2 AND date = $3`,
+    [userId, workoutId, date]
+  );
+  const total = Number(totalRes.rows[0].total);
+  const done = Number(completedRes.rows[0].done);
+  const workoutAutoCompleted = total > 0 && done >= total;
+
+  if (workoutAutoCompleted) {
+    await pool.query(
+      `INSERT INTO workout_plan_completions (user_id, workout_id, date)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, workout_id, date) DO NOTHING`,
+      [userId, workoutId, date]
+    );
+  }
+
+  res.json({ workout_exercise_id: weId, date, completed: true, workout_completed: workoutAutoCompleted });
 });
 
 // ── DELETE /workout-plan/:workoutId/exercises/:weId/complete ──────────────────
+// Unmarks one exercise. Also removes workout-level completion if set.
 
 router.delete("/workout-plan/:workoutId/exercises/:weId/complete", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -247,16 +291,22 @@ router.delete("/workout-plan/:workoutId/exercises/:weId/complete", async (req, r
 
   const workoutId = Number(req.params["workoutId"]);
   const weId = Number(req.params["weId"]);
-  const { date } = req.body as { date?: string };
+  const date = req.query["date"] as string | undefined;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    res.status(400).json({ error: "Valid date (YYYY-MM-DD) is required" });
+    res.status(400).json({ error: "Valid date query param (YYYY-MM-DD) is required" });
     return;
   }
 
   await pool.query(
     "DELETE FROM workout_exercise_completions WHERE user_id = $1 AND workout_id = $2 AND workout_exercise_id = $3 AND date = $4",
     [userId, workoutId, weId, date]
+  );
+
+  // Un-complete the workout if it was marked complete
+  await pool.query(
+    "DELETE FROM workout_plan_completions WHERE user_id = $1 AND workout_id = $2 AND date = $3",
+    [userId, workoutId, date]
   );
 
   res.json({ workout_exercise_id: weId, date, completed: false });

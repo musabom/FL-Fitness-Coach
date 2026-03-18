@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Circle, Loader2,
-  Dumbbell, Flame, CalendarDays, X, Timer,
+  Dumbbell, Flame, CalendarDays,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
@@ -64,7 +64,6 @@ interface PlanExercise {
   weight_kg: number | null;
   rest_seconds: number;
   duration_mins: number | null;
-  speed_kmh: number | null;
   effort_level: string | null;
   order_index: number;
   notes: string | null;
@@ -173,18 +172,15 @@ function CalendarPicker({ selectedDate, onSelectDate, onClose }: {
 
 // ── Exercise row ──────────────────────────────────────────────────────────────
 
-function ExerciseRow({ exercise, date, onToggle }: {
+function ExerciseRow({ exercise, onToggle }: {
   exercise: PlanExercise;
-  date: string;
   onToggle: () => void;
 }) {
   const equipIcon = EQUIPMENT_ICONS[exercise.equipment] ?? "";
   const isCardio = exercise.exercise_type === "cardio";
 
   return (
-    <div
-      className={`flex items-center gap-3 py-2.5 transition-opacity ${exercise.completed ? "opacity-50" : ""}`}
-    >
+    <div className={`flex items-center gap-3 py-2.5 transition-opacity ${exercise.completed ? "opacity-50" : ""}`}>
       <button
         onClick={onToggle}
         className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
@@ -196,7 +192,7 @@ function ExerciseRow({ exercise, date, onToggle }: {
       </button>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`text-sm font-medium break-words ${exercise.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
             {exercise.exercise_name}
           </span>
@@ -219,19 +215,18 @@ function ExerciseRow({ exercise, date, onToggle }: {
 
 // ── Workout card ──────────────────────────────────────────────────────────────
 
-function WorkoutCard({ workout, date, onToggleWorkout, onToggleExercise }: {
+function WorkoutCard({ workout, onToggleWorkout, onToggleExercise }: {
   workout: PlanWorkout;
-  date: string;
   onToggleWorkout: () => void;
   onToggleExercise: (weId: number) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const completedCount = workout.exercises.filter(e => e.completed).length;
   const total = workout.exercises.length;
   const allDone = total > 0 && completedCount === total;
 
   return (
-    <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden transition-all ${workout.completed ? "opacity-70" : ""}`}>
+    <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden transition-all ${workout.completed ? "border-primary/30" : ""}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button
@@ -248,9 +243,16 @@ function WorkoutCard({ workout, date, onToggleWorkout, onToggleExercise }: {
           onClick={() => setExpanded(v => !v)}
           className="flex-1 text-left min-w-0"
         >
-          <p className={`font-semibold text-sm ${workout.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-            {workout.workout_name}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className={`font-semibold text-sm ${workout.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+              {workout.workout_name}
+            </p>
+            {workout.completed && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/20 text-primary shrink-0">
+                Done
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Flame className="w-3 h-3" />
@@ -268,7 +270,7 @@ function WorkoutCard({ workout, date, onToggleWorkout, onToggleExercise }: {
           className="shrink-0 text-muted-foreground"
         >
           {expanded
-            ? <ChevronLeft className="w-4 h-4 rotate-90" />
+            ? <ChevronLeft className="w-4 h-4 -rotate-90" />
             : <ChevronRight className="w-4 h-4 rotate-90" />}
         </button>
       </div>
@@ -285,14 +287,13 @@ function WorkoutCard({ workout, date, onToggleWorkout, onToggleExercise }: {
         </div>
       )}
 
-      {/* Exercises list */}
+      {/* Exercises list (collapsed by default) */}
       {expanded && workout.exercises.length > 0 && (
         <div className="border-t border-border/30 px-4 divide-y divide-border/20">
           {workout.exercises.map(ex => (
             <ExerciseRow
               key={ex.id}
               exercise={ex}
-              date={date}
               onToggle={() => onToggleExercise(ex.id)}
             />
           ))}
@@ -305,18 +306,20 @@ function WorkoutCard({ workout, date, onToggleWorkout, onToggleExercise }: {
         </div>
       )}
 
-      {/* Mark all done button */}
-      {expanded && workout.exercises.length > 0 && !workout.completed && (
+      {/* Mark workout complete button — shown when expanded */}
+      {expanded && workout.exercises.length > 0 && (
         <div className="px-4 pb-3 pt-2">
           <button
             onClick={onToggleWorkout}
             className={`w-full text-center rounded-xl py-2.5 text-xs font-semibold transition-all ${
-              allDone
+              workout.completed
+                ? "bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30"
+                : allDone
                 ? "bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30"
                 : "bg-muted text-muted-foreground border border-border/30 hover:bg-muted/80"
             }`}
           >
-            {allDone ? "Mark Workout Complete" : `Complete All (${total - completedCount} remaining)`}
+            {workout.completed ? "Completed — tap to undo" : allDone ? "Mark Workout Complete" : `Mark Complete (${total - completedCount} remaining)`}
           </button>
         </div>
       )}
@@ -340,8 +343,15 @@ export default function WorkoutPlan() {
   // Toggle entire workout complete/incomplete
   const workoutCompleteMutation = useMutation({
     mutationFn: async ({ workoutId, completed }: { workoutId: number; completed: boolean }) => {
+      if (completed) {
+        // DELETE — pass date as query param
+        return customFetch(`${BASE}/workout-plan/${workoutId}/complete?date=${date}`, {
+          method: "DELETE",
+        });
+      }
+      // POST — pass date in body
       return customFetch(`${BASE}/workout-plan/${workoutId}/complete`, {
-        method: completed ? "DELETE" : "POST",
+        method: "POST",
         body: JSON.stringify({ date }),
       });
     },
@@ -351,9 +361,18 @@ export default function WorkoutPlan() {
       if (prev) {
         queryClient.setQueryData<DayWorkoutPlan>(["workout-plan", date], {
           ...prev,
-          workouts: prev.workouts.map(w =>
-            w.id === workoutId ? { ...w, completed: !completed } : w
-          ),
+          workouts: prev.workouts.map(w => {
+            if (w.id !== workoutId) return w;
+            const nowComplete = !completed;
+            return {
+              ...w,
+              completed: nowComplete,
+              // When marking complete, also optimistically complete all exercises
+              exercises: nowComplete
+                ? w.exercises.map(e => ({ ...e, completed: true }))
+                : w.exercises.map(e => ({ ...e, completed: false })),
+            };
+          }),
         });
       }
       return { prev };
@@ -367,8 +386,15 @@ export default function WorkoutPlan() {
   // Toggle individual exercise complete/incomplete
   const exerciseCompleteMutation = useMutation({
     mutationFn: async ({ workoutId, weId, completed }: { workoutId: number; weId: number; completed: boolean }) => {
-      return customFetch(`${BASE}/workout-plan/${workoutId}/exercises/${weId}/complete`, {
-        method: completed ? "DELETE" : "POST",
+      if (completed) {
+        // DELETE — pass date as query param
+        return customFetch(`${BASE}/workout-plan/${workoutId}/exercises/${weId}/complete?date=${date}`, {
+          method: "DELETE",
+        });
+      }
+      // POST — pass date in body
+      return customFetch<{ workout_completed?: boolean }>(`${BASE}/workout-plan/${workoutId}/exercises/${weId}/complete`, {
+        method: "POST",
         body: JSON.stringify({ date }),
       });
     },
@@ -378,16 +404,19 @@ export default function WorkoutPlan() {
       if (prev) {
         queryClient.setQueryData<DayWorkoutPlan>(["workout-plan", date], {
           ...prev,
-          workouts: prev.workouts.map(w =>
-            w.id === workoutId
-              ? {
-                  ...w,
-                  exercises: w.exercises.map(e =>
-                    e.id === weId ? { ...e, completed: !completed } : e
-                  ),
-                }
-              : w
-          ),
+          workouts: prev.workouts.map(w => {
+            if (w.id !== workoutId) return w;
+            const updatedExercises = w.exercises.map(e =>
+              e.id === weId ? { ...e, completed: !completed } : e
+            );
+            const allDone = updatedExercises.length > 0 && updatedExercises.every(e => e.completed);
+            return {
+              ...w,
+              exercises: updatedExercises,
+              // Auto-complete workout optimistically if all exercises are now done
+              completed: !completed ? (allDone ? true : w.completed) : false,
+            };
+          }),
         });
       }
       return { prev };
@@ -497,7 +526,9 @@ export default function WorkoutPlan() {
                 <div className="text-base font-bold tabular-nums text-foreground">
                   {workouts.length}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">Workout{workouts.length !== 1 ? "s" : ""}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  Workout{workouts.length !== 1 ? "s" : ""}
+                </div>
               </div>
               <div className="bg-primary/15 border border-primary/30 rounded-xl px-3 py-2.5 text-center">
                 <div className="text-base font-bold tabular-nums text-primary">
@@ -519,7 +550,6 @@ export default function WorkoutPlan() {
                 <WorkoutCard
                   key={workout.id}
                   workout={workout}
-                  date={date}
                   onToggleWorkout={() =>
                     workoutCompleteMutation.mutate({ workoutId: workout.id, completed: workout.completed })
                   }
