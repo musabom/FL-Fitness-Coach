@@ -48,12 +48,17 @@ interface WeeklyData {
 
 function CompactMacroBar({ label, consumed, planned, color, unit }: { label: string; consumed: number; planned: number; color: string; unit: string }) {
   const pct = planned > 0 ? Math.min(100, (consumed / planned) * 100) : 0;
-  const remaining = Math.max(0, planned - consumed);
+  const net = consumed - planned;
+  const netColor = net > 0 ? color : "text-muted-foreground";
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <span className="text-sm font-semibold text-foreground">{Math.round(consumed)}<span className="text-xs text-muted-foreground ml-0.5">{unit}</span></span>
-        <span className="text-xs text-muted-foreground">{Math.round(remaining)} left</span>
+        <span className="text-sm font-semibold text-foreground">
+          {Math.round(consumed)}<span className="text-xs text-muted-foreground ml-0.5">/</span>{Math.round(planned)}<span className="text-xs text-muted-foreground ml-0.5">{unit}</span>
+        </span>
+        <span className={`text-xs font-semibold ${netColor}`}>
+          {net >= 0 ? '+' : ''}{Math.round(net)}{unit}
+        </span>
       </div>
       <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
         <div
@@ -61,7 +66,7 @@ function CompactMacroBar({ label, consumed, planned, color, unit }: { label: str
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <div className="text-xs text-muted-foreground text-right">{label} • {Math.round(planned)}{unit} target</div>
+      <div className="text-xs text-muted-foreground text-right">{label}</div>
     </div>
   );
 }
@@ -216,8 +221,12 @@ export default function Dashboard() {
                 {/* Calories */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-primary">{Math.round(consumed.calories)}<span className="text-sm text-muted-foreground ml-1">kcal</span></span>
-                    <span className="text-xs text-muted-foreground">{Math.round(Math.max(0, plan.calorieTarget - consumed.calories))} left</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {Math.round(consumed.calories)}<span className="text-sm text-muted-foreground mx-0.5">/</span>{Math.round(plan.calorieTarget)}<span className="text-sm text-muted-foreground ml-1">kcal</span>
+                    </span>
+                    <span className={`text-sm font-semibold ${consumed.calories - plan.calorieTarget > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                      {consumed.calories - plan.calorieTarget >= 0 ? '+' : ''}{Math.round(consumed.calories - plan.calorieTarget)} kcal
+                    </span>
                   </div>
                   <div className="h-3 bg-white/10 rounded-full overflow-hidden">
                     <div
@@ -225,7 +234,6 @@ export default function Dashboard() {
                       style={{ width: `${Math.min(100, (consumed.calories / plan.calorieTarget) * 100)}%` }}
                     />
                   </div>
-                  <div className="text-xs text-muted-foreground text-right">Target • {plan.calorieTarget} kcal</div>
                 </div>
 
                 {/* Protein */}
