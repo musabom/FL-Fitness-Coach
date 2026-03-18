@@ -1,6 +1,14 @@
 import { pool } from "@workspace/db";
 
 export async function runMigrations(): Promise<void> {
+  try {
+    await runMigrationsInternal();
+  } catch (err) {
+    console.error("Migration encountered an error, continuing startup:", err);
+  }
+}
+
+async function runMigrationsInternal(): Promise<void> {
   // ── Exercise Library ────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS exercises (
@@ -135,15 +143,21 @@ export async function runMigrations(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises(workout_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_workout_schedule_user ON workout_schedule(user_id)`);
 
-  await pool.query(`
-    ALTER TABLE meal_portions
-      DROP CONSTRAINT IF EXISTS meal_portions_food_id_fkey
-  `);
+  // Only run ALTER TABLE if the table exists
+  try {
+    await pool.query(`
+      ALTER TABLE IF EXISTS meal_portions
+        DROP CONSTRAINT IF EXISTS meal_portions_food_id_fkey
+    `);
 
-  await pool.query(`
-    ALTER TABLE meal_portions
-      ADD COLUMN IF NOT EXISTS notes TEXT
-  `);
+    await pool.query(`
+      ALTER TABLE IF EXISTS meal_portions
+        ADD COLUMN IF NOT EXISTS notes TEXT
+    `);
+  } catch (err) {
+    // Ignore errors if table doesn't exist yet
+    console.log("Skipping meal_portions alterations - table may not exist yet");
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meal_plan_entries (
