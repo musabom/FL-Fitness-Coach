@@ -189,4 +189,31 @@ export async function runMigrations(): Promise<void> {
       UNIQUE (user_id, food_id, food_source)
     )
   `);
+
+  // ── Workout Plan Tables ──────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_plan_completions (
+      id           SERIAL PRIMARY KEY,
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workout_id   INTEGER NOT NULL REFERENCES user_workouts(id) ON DELETE CASCADE,
+      date         DATE    NOT NULL,
+      completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, workout_id, date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_exercise_completions (
+      id                  SERIAL PRIMARY KEY,
+      user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workout_id          INTEGER NOT NULL REFERENCES user_workouts(id) ON DELETE CASCADE,
+      workout_exercise_id INTEGER NOT NULL REFERENCES workout_exercises(id) ON DELETE CASCADE,
+      date                DATE    NOT NULL,
+      completed_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, workout_id, workout_exercise_id, date)
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_wpc_user_date ON workout_plan_completions(user_id, date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_wec_user_date ON workout_exercise_completions(user_id, date)`);
 }
