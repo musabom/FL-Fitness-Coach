@@ -1,7 +1,9 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import session from "express-session";
+import FileStore from "session-file-store";
 import router from "./routes";
+import path from "path";
 
 const app: Express = express();
 
@@ -25,8 +27,15 @@ if (isProduction && !sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required in production");
 }
 
+const FileStoreSession = FileStore(session);
+const sessionStore = new FileStoreSession({
+  dir: path.join(process.cwd(), ".sessions"),
+  ttl: 7 * 24 * 60 * 60,
+});
+
 app.use(
   session({
+    store: sessionStore,
     secret: sessionSecret || "dev-only-session-secret-not-for-production",
     resave: false,
     saveUninitialized: false,
