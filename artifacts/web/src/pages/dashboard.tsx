@@ -359,7 +359,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                       <span className="text-xs text-muted-foreground uppercase tracking-wider">Started</span>
-                      <span className="text-2xl font-bold text-foreground">{Math.round((plan.snapshotWeightKg || plan.weightKg) * 10) / 10}</span>
+                      <span className="text-2xl font-bold text-foreground">{Math.round((plan.startedWeightKg ?? plan.weightKg) * 10) / 10}</span>
                       <span className="text-xs text-muted-foreground">kg</span>
                       <p className="text-[10px] text-muted-foreground mt-1">Read-only</p>
                     </div>

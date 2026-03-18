@@ -282,6 +282,7 @@ export interface PlanResponse {
   bfSource: string;
   goalMode: string;
   weightKg: number;
+  startedWeightKg: number;
   targetWeightKg: number;
   weeklyExpectedChangeKg: number;
   /** @nullable */

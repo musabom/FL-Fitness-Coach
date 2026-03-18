@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db, plansTable, userProfilesTable } from "@workspace/db";
 
 declare module "express-session" {
@@ -32,6 +32,17 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     .from(userProfilesTable)
     .where(eq(userProfilesTable.userId, userId));
 
+  // Fetch the first plan ever created (from onboarding) to get the immutable "started weight"
+  const [firstPlan] = await db.select({ snapshotWeightKg: plansTable.snapshotWeightKg })
+    .from(plansTable)
+    .where(eq(plansTable.userId, userId))
+    .orderBy(asc(plansTable.version))
+    .limit(1);
+
+  const currentWeightKg = profile?.weightKg ?? plan.snapshotWeightKg;
+  const startedWeightKg = firstPlan?.snapshotWeightKg ?? plan.snapshotWeightKg;
+  const currentTargetKg = profile?.targetWeightKg ?? plan.snapshotTargetWeightKg;
+
   res.json({
     id: plan.id,
     version: plan.version,
@@ -49,8 +60,9 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     weeksEstimateHigh: plan.weeksEstimateHigh,
     summaryText: plan.summaryText,
     goalMode: plan.snapshotGoalMode,
-    weightKg: plan.snapshotWeightKg,
-    targetWeightKg: plan.snapshotTargetWeightKg,
+    weightKg: currentWeightKg,
+    startedWeightKg,
+    targetWeightKg: currentTargetKg,
     trigger: plan.trigger,
     active: plan.active,
     createdAt: plan.createdAt.toISOString(),
