@@ -9,6 +9,68 @@ export async function runMigrations(): Promise<void> {
 }
 
 async function runMigrationsInternal(): Promise<void> {
+  // ── User Tables ─────────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      provider VARCHAR(50) NOT NULL,
+      provider_id VARCHAR(255) NOT NULL UNIQUE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      height_cm INTEGER NOT NULL,
+      weight_kg REAL NOT NULL,
+      target_weight_kg REAL NOT NULL,
+      age INTEGER NOT NULL,
+      gender VARCHAR(20) NOT NULL,
+      goal_mode VARCHAR(20) NOT NULL,
+      activity_level VARCHAR(20) NOT NULL,
+      training_days INTEGER NOT NULL,
+      training_location VARCHAR(20) NOT NULL,
+      dietary_preferences JSONB DEFAULT '[]',
+      injury_flags JSONB DEFAULT '[]',
+      goal_override BOOLEAN DEFAULT FALSE,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)`);
+
+  // ── Plans Table ──────────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS plans (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      version INTEGER NOT NULL,
+      phase VARCHAR(50),
+      snapshot_goal_mode VARCHAR(20),
+      snapshot_weight_kg REAL,
+      snapshot_target_weight_kg REAL,
+      calorie_target INTEGER,
+      protein_g REAL,
+      carbs_g REAL,
+      fat_g REAL,
+      tdee_estimated INTEGER,
+      deficit_surplus_kcal INTEGER,
+      bf_estimate_pct REAL,
+      bf_source VARCHAR(50),
+      weekly_expected_change_kg REAL,
+      weeks_estimate_low INTEGER,
+      weeks_estimate_high INTEGER,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, version)
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_plans_user_version ON plans(user_id, version)`);
+
   // ── Exercise Library ────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS exercises (
