@@ -1,0 +1,119 @@
+This is part of an existing project. Do not change anything already working. Only build what is described in this message.
+
+Custom Goal Mode
+Add a Custom option to the goal mode selector in onboarding and profile edit. When selected the user sets their own nutrition parameters instead of using system-calculated values.
+
+Database changes
+sqlALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_protein_per_kg DECIMAL(4,2);
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_fat_per_kg DECIMAL(4,2);
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_deficit_kcal INTEGER;
+
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_custom_goal BOOLEAN DEFAULT FALSE;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_protein_rate DECIMAL(4,2);
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_fat_rate DECIMAL(4,2);
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_deficit_kcal INTEGER;
+```
+
+---
+
+### Safe range constants — warn if outside these
+
+Based on ACSM and BDA guidelines:
+```
+PROTEIN_MIN   = 1.2 g/kg  (below this risks muscle loss per BDA)
+PROTEIN_MAX   = 3.1 g/kg  (above this no additional benefit per ACSM)
+FAT_MIN       = 0.5 g/kg  (below this risks hormonal disruption)
+FAT_MAX       = 2.0 g/kg
+DEFICIT_MIN   = 100 kcal  (below this is effectively maintenance)
+DEFICIT_MAX   = 1000 kcal (above this risks muscle loss and metabolic adaptation)
+SURPLUS_MAX   = 500 kcal  (above this excessive fat gain per evidence)
+```
+
+---
+
+### Onboarding and profile edit changes
+
+Add **Custom** as a fifth option in the goal mode selector after Maintenance.
+
+When Custom is selected show three additional input fields:
+
+**Protein per kg** (number input, one decimal)
+- Placeholder: 2.2
+- Unit label: g per kg of bodyweight
+- Safe range hint below field: *Recommended 1.2 – 2.4 g/kg*
+
+**Fat per kg** (number input, one decimal)
+- Placeholder: 0.8
+- Unit label: g per kg of bodyweight
+- Safe range hint below field: *Recommended 0.5 – 1.5 g/kg*
+
+**Daily calorie deficit or surplus** (number input, integer)
+- Placeholder: 350
+- Label: Deficit (−) or Surplus (+)
+- Allow negative for deficit, positive for surplus, zero for maintenance
+- Safe range hint: *Recommended −100 to −1000 for fat loss, +100 to +500 for muscle gain*
+
+**Live preview** — as the user types show a real-time calculation below the inputs:
+```
+Based on your current weight of Xkg:
+Protein: Yg/day
+Fat: Zg/day
+Calories: [TDEE − deficit] kcal/day
+Carbs: [remainder]g/day
+```
+
+---
+
+### Warning system — warn but always allow saving
+
+Check each input against safe ranges on blur and on submit. If any value is outside the safe range show a yellow warning banner above the save button:
+```
+⚠ Your protein target of 0.8g/kg is below the recommended minimum of 1.2g/kg. 
+  This may reduce muscle preservation. You can still save this plan.
+```
+```
+⚠ Your calorie deficit of 1200 kcal/day is aggressive. 
+  Deficits above 1000 kcal increase the risk of muscle loss and metabolic adaptation. 
+  You can still save this plan.
+Multiple warnings stack. Never block saving — always show a grey Save anyway button alongside a teal Adjust values button that returns focus to the out-of-range field.
+
+Plan calculation engine changes
+In plan-calculator.ts add a custom goal branch:
+typescriptif (goalMode === 'custom' && customParams) {
+  // Protein: user-defined rate × current weight
+  proteinG = Math.round(weightKg * customParams.proteinPerKg);
+
+  // Fat: user-defined rate × current weight, with absolute floor
+  const fatFromRate = weightKg * customParams.fatPerKg;
+  const fatFromCalories = (calorieTarget * 0.20) / 9;
+  fatG = Math.round(Math.max(fatFromRate, fatFromCalories));
+
+  // Calorie target: TDEE minus user-defined deficit
+  calorieTarget = Math.round(tdee - customParams.deficitKcal);
+
+  // Carbs: remainder
+  carbsG = Math.round((calorieTarget - (proteinG * 4) - (fatG * 9)) / 4);
+
+  // Guard: if carbsG < 50 flag for review
+  if (carbsG < 50) {
+    flags.push('carbs_too_low');
+  }
+}
+Adaptive recalculation: The custom rates (protein per kg, fat per kg) are stored on the plan. When weight changes and a new plan is created these rates are carried forward and applied to the new weight automatically. The user never needs to re-enter their custom parameters after the initial setup — they adapt automatically exactly like the auto goals.
+
+Profile edit — carry forward custom rates
+In profile.ts when recalculation is triggered for a custom goal user, read custom_protein_per_kg, custom_fat_per_kg, and custom_deficit_kcal from user_profiles and pass them into the plan calculator. The user only sees their updated macros in grams — they do not need to re-enter rates.
+
+Dashboard label
+When goal mode is custom, replace the goal badge label from "Lose fat & preserve muscle" with "Custom Plan" in teal.
+
+Acceptance test
+
+User selects Custom in onboarding — three parameter inputs appear
+User enters protein 1.0g/kg — yellow warning appears, save button still available
+User saves — plan created with correct macros based on custom rates and current weight
+Dashboard shows Custom Plan badge and correct calorie/macro targets
+User updates weight from 84kg to 80kg — protein recalculates from stored 1.0g/kg rate automatically without user re-entering anything
+User enters deficit of 1200 kcal — warning appears, save still works
+User enters protein 5.0g/kg — warning appears, save still works
+All three warnings stack correctly when multiple values are out of range
