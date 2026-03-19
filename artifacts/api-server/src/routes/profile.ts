@@ -286,14 +286,17 @@ router.patch("/profile", async (req, res): Promise<void> => {
     return;
   }
 
-  if (mergedGoal === "custom" && d.customProteinPerKg !== undefined) {
-    updateData.customProteinPerKg = d.customProteinPerKg;
-  }
-  if (mergedGoal === "custom" && d.customFatPerKg !== undefined) {
-    updateData.customFatPerKg = d.customFatPerKg;
-  }
-  if (mergedGoal === "custom" && d.customDeficitKcal !== undefined) {
-    updateData.customDeficitKcal = d.customDeficitKcal;
+  if (mergedGoal === "custom") {
+    if (d.customProteinPerKg !== undefined) updateData.customProteinPerKg = d.customProteinPerKg;
+    if (d.customFatPerKg !== undefined) updateData.customFatPerKg = d.customFatPerKg;
+    if (d.customDeficitKcal !== undefined) updateData.customDeficitKcal = d.customDeficitKcal;
+
+    const resolvedProtein = d.customProteinPerKg ?? existingProfile.customProteinPerKg;
+    const resolvedFat = d.customFatPerKg ?? existingProfile.customFatPerKg;
+    if (!resolvedProtein || !resolvedFat) {
+      res.status(400).json({ error: "Custom goal mode requires customProteinPerKg and customFatPerKg" });
+      return;
+    }
   }
 
   const result = await db.transaction(async (tx) => {

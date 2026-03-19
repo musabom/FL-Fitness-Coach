@@ -14,4 +14,5 @@ export const OnboardingBodyGoalMode = {
   cut: "cut",
   lean_bulk: "lean_bulk",
   maintenance: "maintenance",
+  custom: "custom",
 } as const;

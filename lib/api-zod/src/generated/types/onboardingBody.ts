@@ -42,4 +42,19 @@ export interface OnboardingBody {
   dietaryPreferences: OnboardingBodyDietaryPreferencesItem[];
   injuryFlags: OnboardingBodyInjuryFlagsItem[];
   goalOverride?: boolean;
+  /**
+   * @minimum 0.5
+   * @maximum 5
+   */
+  customProteinPerKg?: number;
+  /**
+   * @minimum 0.1
+   * @maximum 5
+   */
+  customFatPerKg?: number;
+  /**
+   * @minimum -1500
+   * @maximum 1500
+   */
+  customDeficitKcal?: number;
 }
