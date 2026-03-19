@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, asc } from "drizzle-orm";
-import { db, plansTable, userProfilesTable } from "@workspace/db";
+import { db, plansTable, userProfilesTable, pool } from "@workspace/db";
 
 declare module "express-session" {
   interface SessionData {
@@ -9,6 +9,73 @@ declare module "express-session" {
 }
 
 const router: IRouter = Router();
+
+async function getAvgDailyPlannedBurn(userId: number): Promise<number> {
+  // Query average daily planned training burn from scheduled workouts
+  const res = await pool.query(
+    `SELECT COALESCE(AVG(daily_total), 0) as avg_burn
+     FROM (
+       SELECT ws.day_of_week, COALESCE(SUM(we.calories_per_rep * we.reps * we.sets), 0) as daily_total
+       FROM workout_schedule ws
+       LEFT JOIN user_workouts uw ON ws.workout_id = uw.id AND uw.user_id = $1
+       LEFT JOIN workout_exercises we ON uw.id = we.workout_id
+       WHERE ws.user_id = $1
+       GROUP BY ws.day_of_week
+     ) daily_sums`,
+    [userId]
+  );
+  return Number(res.rows[0]?.avg_burn ?? 0);
+}
+
+function recalculateTimeline(
+  plan: any,
+  currentWeightKg: number,
+  targetWeightKg: number,
+  avgDailyPlannedBurn: number
+): { weeksEstimateLow: number | null; weeksEstimateHigh: number | null } {
+  let weeksEstimateLow: number | null = null;
+  let weeksEstimateHigh: number | null = null;
+
+  const goalMode = plan.snapshotGoalMode;
+  const weightGap = currentWeightKg - targetWeightKg;
+
+  if (goalMode === "cut" || goalMode === "recomposition") {
+    // Get food deficit from stored plan
+    const foodDeficit = plan.tdeeEstimated - plan.calorieTarget;
+    const totalAvgDailyDeficit = foodDeficit + avgDailyPlannedBurn;
+    const weeklyLossKg = (totalAvgDailyDeficit * 7) / 7700;
+    if (weightGap > 0 && weeklyLossKg > 0) {
+      const weeksEstimate = weightGap / weeklyLossKg;
+      weeksEstimateLow = Math.round(weeksEstimate * 0.8);
+      weeksEstimateHigh = Math.round(weeksEstimate * 1.2);
+    }
+  } else if (goalMode === "lean_bulk") {
+    // For lean bulk, training burn reduces the surplus
+    const surplusMinusBurn = Math.max(250 - avgDailyPlannedBurn, 0);
+    const weeklyGainKg = surplusMinusBurn > 0 ? (surplusMinusBurn * 7) / 7700 : 0;
+    if (weightGap < 0 && weeklyGainKg > 0) {
+      const weeksEstimate = Math.abs(weightGap) / weeklyGainKg;
+      weeksEstimateLow = Math.round(weeksEstimate * 0.8);
+      weeksEstimateHigh = Math.round(weeksEstimate * 1.2);
+    }
+  } else if (goalMode === "custom") {
+    // For custom goal, use stored deficit
+    const customDeficit = plan.customDeficitKcal ?? 350;
+    const totalAvgDailyDeficit = customDeficit + avgDailyPlannedBurn;
+    const weeklyChangeKg = (totalAvgDailyDeficit * 7) / 7700;
+    if (customDeficit > 0 && weightGap > 0 && weeklyChangeKg > 0) {
+      const weeksEst = weightGap / weeklyChangeKg;
+      weeksEstimateLow = Math.round(weeksEst * 0.8);
+      weeksEstimateHigh = Math.round(weeksEst * 1.2);
+    } else if (customDeficit < 0 && weightGap < 0 && weeklyChangeKg < 0) {
+      const weeksEst = Math.abs(weightGap) / Math.abs(weeklyChangeKg);
+      weeksEstimateLow = Math.round(weeksEst * 0.8);
+      weeksEstimateHigh = Math.round(weeksEst * 1.2);
+    }
+  }
+
+  return { weeksEstimateLow, weeksEstimateHigh };
+}
 
 router.get("/plan/active", async (req, res): Promise<void> => {
   if (!req.session.userId) {
@@ -43,6 +110,15 @@ router.get("/plan/active", async (req, res): Promise<void> => {
   const startedWeightKg = firstPlan?.snapshotWeightKg ?? plan.snapshotWeightKg;
   const currentTargetKg = profile?.targetWeightKg ?? plan.snapshotTargetWeightKg;
 
+  // Recalculate timeline based on current workout schedule
+  const avgDailyPlannedBurn = await getAvgDailyPlannedBurn(userId);
+  const { weeksEstimateLow, weeksEstimateHigh } = recalculateTimeline(
+    plan,
+    currentWeightKg,
+    currentTargetKg,
+    avgDailyPlannedBurn
+  );
+
   res.json({
     id: plan.id,
     version: plan.version,
@@ -56,8 +132,8 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     bfEstimatePct: plan.bfEstimatePct,
     bfSource: plan.bfSource,
     weeklyExpectedChangeKg: plan.weeklyExpectedChangeKg,
-    weeksEstimateLow: plan.weeksEstimateLow,
-    weeksEstimateHigh: plan.weeksEstimateHigh,
+    weeksEstimateLow,
+    weeksEstimateHigh,
     summaryText: plan.summaryText,
     goalMode: plan.snapshotGoalMode,
     weightKg: currentWeightKg,
