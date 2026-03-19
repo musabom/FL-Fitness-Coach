@@ -224,22 +224,11 @@ export default function Dashboard() {
         {/* ─── DAILY VIEW ─── */}
         {view === "daily" && (
           <>
-            {/* TDEE Baseline & Calorie Target */}
-            <section className="py-4">
-              <div className="grid grid-cols-2 gap-6">
-                {/* TDEE Baseline — Left */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-2">Maintenance Calories</div>
-                  <div className="text-5xl font-light tracking-tighter text-muted-foreground">{Math.round(plan.tdeeEstimated)}</div>
-                  <div className="text-xs text-muted-foreground mt-1">baseline</div>
-                </div>
-                {/* Daily Target — Right */}
-                <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold tracking-widest text-primary uppercase mb-2">Daily Target</div>
-                  <div className="text-5xl font-light tracking-tighter text-primary">{plan.calorieTarget}</div>
-                  <div className="text-xs text-muted-foreground mt-1">kcal</div>
-                </div>
-              </div>
+            {/* Daily Target */}
+            <section className="py-4 flex flex-col items-center">
+              <div className="text-xs font-semibold tracking-widest text-primary uppercase mb-2">Daily Target</div>
+              <div className="text-5xl font-light tracking-tighter text-primary">{plan.calorieTarget}</div>
+              <div className="text-xs text-muted-foreground mt-1">kcal</div>
               <div className="flex justify-center mt-4">
                 <div className={`px-4 py-1.5 rounded-full text-sm font-medium ${plan.goalMode === "custom" ? "bg-teal-500/15 border border-teal-500/30 text-teal-400" : "bg-primary/10 border border-primary/20 text-primary"}`}>
                   {goalLabels[plan.goalMode] || plan.goalMode}

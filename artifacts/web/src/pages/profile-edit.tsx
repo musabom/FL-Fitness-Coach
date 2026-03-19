@@ -222,6 +222,20 @@ export default function ProfileEdit() {
         <section className="space-y-4">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Metrics</h2>
           
+          {/* Maintenance Calories Display */}
+          {formData && (
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl text-center">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Maintenance Calories</p>
+              <p className="text-4xl font-light tracking-tighter text-primary">
+                {Math.round(
+                  calcBMR(formData.weightKg, formData.heightCm, formData.age, formData.gender) *
+                  (ACTIVITY_MULTIPLIERS[formData.activityLevel] || 1.55)
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">kcal/day</p>
+            </div>
+          )}
+          
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Height (cm)</label>
             <Input 
