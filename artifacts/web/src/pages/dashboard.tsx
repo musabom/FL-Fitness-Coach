@@ -126,6 +126,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const today = todayStr();
   const viewMode = activeClient?.mode ?? null;
+  const isCoachView = !!activeClient;
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
     queryKey: ["dashboard-today", today, activeClient?.id],
@@ -167,10 +168,27 @@ export default function Dashboard() {
     return (
       <div className="mobile-container flex flex-col items-center justify-center px-6 text-center">
         <h2 className="text-2xl font-bold mb-2">No active plan</h2>
-        <p className="text-muted-foreground mb-6">You need to complete onboarding to get your plan.</p>
-        <Link href="/onboarding" className="w-full">
-          <Button className="w-full">Start Onboarding</Button>
-        </Link>
+        <p className="text-muted-foreground mb-6">
+          {isCoachView 
+            ? "This user hasn't completed onboarding yet." 
+            : "You need to complete onboarding to get your plan."}
+        </p>
+        <div className="w-full space-y-3">
+          {isCoachView && (
+            <Button 
+              variant="outline"
+              className="w-full"
+              onClick={handleBackToManagement}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to {viewMode === "admin" ? "Admin" : "Clients"}
+            </Button>
+          )}
+          {!isCoachView && (
+            <Link href="/onboarding" className="w-full">
+              <Button className="w-full">Start Onboarding</Button>
+            </Link>
+          )}
+        </div>
       </div>
     );
   }
@@ -188,8 +206,6 @@ export default function Dashboard() {
     : plan.weightKg < plan.targetWeightKg
       ? `You want to gain ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} kg`
       : "You are at your target weight";
-
-  const isCoachView = !!activeClient;
 
   const handleBackToManagement = () => {
     const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
