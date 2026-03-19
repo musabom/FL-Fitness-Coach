@@ -333,6 +333,61 @@ export default function Dashboard() {
                   <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Target</div>
                   <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variance</div>
                 </div>
+
+                {/* TODAY'S DEFICIT Breakdown */}
+                <div className="mt-6 pt-4 border-t border-white/5 space-y-2.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Today's Deficit</h4>
+                  
+                  {/* Planned Deficit */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Planned deficit</span>
+                    <span className="font-bold text-foreground">{Math.round((plan.tdeeEstimated ?? 0) - plan.calorieTarget)} kcal</span>
+                  </div>
+
+                  {/* Food Variance */}
+                  {(() => {
+                    const foodVariance = plan.calorieTarget - consumed.calories;
+                    return (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Food variance</span>
+                        <span className={`font-bold ${foodVariance >= 0 ? "text-primary" : "text-amber-500"}`}>
+                          {foodVariance >= 0 ? "+" : ""}{Math.round(foodVariance)} kcal
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Training Burn */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Training burn</span>
+                    <span className={`font-bold ${training.burned_calories > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                      +{Math.round(training.burned_calories)} kcal
+                    </span>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="h-px bg-white/10 my-2" />
+
+                  {/* Total */}
+                  {(() => {
+                    const plannedDeficit = (plan.tdeeEstimated ?? 0) - plan.calorieTarget;
+                    const foodVariance = plan.calorieTarget - consumed.calories;
+                    const total = plannedDeficit + foodVariance + training.burned_calories;
+                    
+                    let totalColor = "text-primary"; // teal if positive
+                    if (total < 0 && total >= -200) totalColor = "text-amber-500"; // amber if -200 to 0
+                    if (total < -200) totalColor = "text-red-500"; // red if less than -200
+                    
+                    return (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-semibold text-foreground">Total</span>
+                        <span className={`text-lg font-bold ${totalColor}`}>
+                          {total >= 0 ? "+" : ""}{Math.round(total)} kcal
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
               </Card>
             </section>
 
