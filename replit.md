@@ -135,11 +135,14 @@ Macro calculation for portions:
 - Coach → `/coach/clients` (CoachClients) — also has access to member pages via client context
 - Member → `/dashboard`
 
-**Coach client context** (`context/coach-client-context.tsx`):
-- Stores `activeClient: { id, name, email } | null` in React state
+**Coach/Admin client context** (`context/coach-client-context.tsx`):
+- Stores `activeClient: { id, name, email, mode: "coach" | "admin" } | null` in React state
+- `mode` field tracks which management view to return to ("coach" → /coach/clients, "admin" → /admin)
 - All data fetch hooks call `useClientUrl()` which appends `?clientId=X` to API URLs
 - Backend global middleware (`routes/index.ts`) resolves `?clientId=` if caller is coach/admin with access
 - `res.locals.userId` used by all data routes instead of `req.session.userId` directly
+- Pages show blue "Viewing: [name]" banner with Back button on dashboard, meal-plan, workout-plan
+- Bottom nav changes to "Clients" or "Admin" depending on mode, clears on exit
 
 **Backend role middleware** (`middleware/role.ts`):
 - `requireAdmin(req, res, next)` — 403 unless role = admin

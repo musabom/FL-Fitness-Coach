@@ -4,8 +4,10 @@ import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp, Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp, Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCoachClient } from "@/context/coach-client-context";
+import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -78,6 +80,8 @@ function UsersTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const { setActiveClient } = useCoachClient();
+  const [, setLocation] = useLocation();
 
   const usersQuery = useQuery<AdminUser[]>({
     queryKey: ["admin", "users"],
@@ -171,6 +175,18 @@ function UsersTab() {
                     <UserCheck className="w-3 h-3 mr-1" /> Set Coach
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 px-2 text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+                  onClick={() => {
+                    setActiveClient({ id: user.id, name: user.full_name || user.email, email: user.email, mode: "admin" });
+                    setLocation("/dashboard");
+                  }}
+                  disabled={!user.is_active}
+                >
+                  <Eye className="w-3 h-3 mr-1" /> View
+                </Button>
                 {user.is_active && (
                   <Button
                     size="sm"

@@ -64,6 +64,7 @@ export default function CoachClients() {
       id: client.id,
       name: client.fullName || client.email,
       email: client.email,
+      mode: "coach",
     });
     setLocation("/dashboard");
   };

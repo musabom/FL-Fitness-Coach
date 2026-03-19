@@ -125,6 +125,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const today = todayStr();
+  const viewMode = activeClient?.mode ?? null;
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
     queryKey: ["dashboard-today", today, activeClient?.id],
@@ -190,9 +191,15 @@ export default function Dashboard() {
 
   const isCoachView = !!activeClient;
 
+  const handleBackToManagement = () => {
+    const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
+    setActiveClient(null);
+    setLocation(backPath);
+  };
+
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
-      {/* Coach viewing-client banner */}
+      {/* Coach/Admin viewing-client banner */}
       {isCoachView && (
         <div className="sticky top-0 z-20 bg-blue-600/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -200,7 +207,7 @@ export default function Dashboard() {
             <span className="text-sm font-semibold text-white">Viewing: {activeClient.name}</span>
           </div>
           <button
-            onClick={() => { setActiveClient(null); setLocation("/coach/clients"); }}
+            onClick={handleBackToManagement}
             className="flex items-center gap-1 text-xs text-white/80 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back

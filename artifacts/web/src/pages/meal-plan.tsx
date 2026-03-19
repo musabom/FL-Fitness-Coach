@@ -514,7 +514,11 @@ export default function MealPlan() {
             <span className="text-sm font-semibold text-white">Viewing: {activeClient.name}</span>
           </div>
           <button
-            onClick={() => { setActiveClient(null); setLocation("/coach/clients"); }}
+            onClick={() => { 
+              const backPath = activeClient.mode === "admin" ? "/admin" : "/coach/clients";
+              setActiveClient(null); 
+              setLocation(backPath);
+            }}
             className="flex items-center gap-1 text-xs text-white/80 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back

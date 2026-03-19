@@ -1,14 +1,15 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-interface CoachClient {
+interface ImpersonatedUser {
   id: number;
   name: string;
   email: string;
+  mode: "coach" | "admin"; // which management view to return to
 }
 
 interface CoachClientContextValue {
-  activeClient: CoachClient | null;
-  setActiveClient: (client: CoachClient | null) => void;
+  activeClient: ImpersonatedUser | null;
+  setActiveClient: (client: ImpersonatedUser | null) => void;
   clientId: number | null;
 }
 
@@ -19,7 +20,7 @@ const CoachClientContext = createContext<CoachClientContextValue>({
 });
 
 export function CoachClientProvider({ children }: { children: ReactNode }) {
-  const [activeClient, setActiveClient] = useState<CoachClient | null>(null);
+  const [activeClient, setActiveClient] = useState<ImpersonatedUser | null>(null);
 
   return (
     <CoachClientContext.Provider value={{
@@ -37,7 +38,7 @@ export function useCoachClient() {
 }
 
 /**
- * Appends ?clientId=X to a URL string when in coach mode.
+ * Appends ?clientId=X to a URL string when in coach/admin impersonation mode.
  */
 export function useClientUrl() {
   const { clientId } = useCoachClient();

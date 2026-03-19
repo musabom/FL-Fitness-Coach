@@ -20,15 +20,21 @@ export default function BottomNav() {
     return location === href || location.startsWith(href + "/");
   };
 
+  const handleBackToManagement = () => {
+    const backPath = activeClient?.mode === "admin" ? "/admin" : "/coach/clients";
+    setActiveClient(null);
+    window.location.href = backPath;
+  };
+
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#111111]/95 backdrop-blur-xl border-t border-border/40 flex z-50">
       {activeClient && (
         <button
-          onClick={() => { setActiveClient(null); window.location.href = "/coach/clients"; }}
+          onClick={handleBackToManagement}
           className="flex-1 flex flex-col items-center py-3 gap-1 transition-colors min-w-0 text-blue-400"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-[10px] font-medium tracking-wide truncate px-1">Clients</span>
+          <span className="text-[10px] font-medium tracking-wide truncate px-1">{activeClient.mode === "admin" ? "Admin" : "Clients"}</span>
         </button>
       )}
       {NAV_ITEMS.map(({ href, icon: Icon, label }) => (
