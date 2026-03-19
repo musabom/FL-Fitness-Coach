@@ -121,6 +121,7 @@ Macro calculation for portions:
 - `GET /api/shopping-list` - Get all food stock entries (shopping list)
 - `PATCH /api/shopping-list/:foodId` - Update stock entry (quantity, notes)
 - `DELETE /api/shopping-list/:foodId` - Remove stock entry
+- `GET /api/progress` - Get 30-day progress data (weight history, meal compliance, workout compliance, daily deficit vs maintenance)
 
 ## Auth Pattern
 
@@ -147,6 +148,7 @@ Macro calculation for portions:
 - `/profile/edit` - Edit profile metrics (triggers plan recalculation)
 - `/nutrition/meals` - Meal Builder: create meals, add food portions, schedule by day, track daily progress; Shopping List with stock tracking
 - `/training/builder` - Exercise Builder: create workout templates, add exercises (library or custom), schedule by day, track daily calorie burn; Custom Exercise creation form with strength/cardio-specific fields
+- `/progress` - 30-day progress tracking: Weight history chart, Meal Compliance (planned vs completed), Workout Compliance (planned vs completed), Daily Deficit vs Maintenance Calories
 
 ## Dashboard Data Sync
 
