@@ -242,9 +242,7 @@ export default function Dashboard() {
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.calories - plan.calorieTarget;
-                        if (variance <= 0) return "text-primary";
-                        const pct = Math.abs(variance) / plan.calorieTarget;
-                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                        return variance <= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
@@ -268,9 +266,7 @@ export default function Dashboard() {
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
-                        if (variance <= 0) return "text-primary";
-                        const pct = Math.abs(variance) / (planned.protein_g || plan.proteinG);
-                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                        return variance <= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
@@ -291,9 +287,7 @@ export default function Dashboard() {
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
-                        if (variance <= 0) return "text-primary";
-                        const pct = Math.abs(variance) / (planned.carbs_g || plan.carbsG);
-                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                        return variance <= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
@@ -314,9 +308,7 @@ export default function Dashboard() {
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
-                        if (variance <= 0) return "text-primary";
-                        const pct = Math.abs(variance) / (planned.fat_g || plan.fatG);
-                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                        return variance <= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
