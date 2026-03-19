@@ -233,51 +233,24 @@ export default function Dashboard() {
                 <div className="space-y-3">
                   {/* Row 1: Calories */}
                   <div className="grid grid-cols-3 gap-4">
-                    {/* Consumed */}
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-foreground">{Math.round(consumed.calories)} kcal</div>
-                      {training.burned_calories > 0 && (
-                        <div className="text-[10px] text-muted-foreground mt-0.5">−{Math.round(training.burned_calories)} trained</div>
-                      )}
-                      <div className={`text-lg font-bold mt-1 ${training.burned_calories > 0 ? "text-foreground" : "text-foreground"}`}>
-                        {Math.round(consumed.calories - training.burned_calories)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">net</div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(consumed.calories)} kcal</div>
                     </div>
-                    
-                    {/* Target */}
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-foreground">{Math.round(plan.calorieTarget)} kcal</div>
-                      {training.planned_calories > 0 && (
-                        <div className="text-[10px] text-muted-foreground mt-0.5">−{Math.round(training.planned_calories)} planned</div>
-                      )}
-                      <div className={`text-lg font-bold mt-1 ${training.planned_calories > 0 ? "text-foreground" : "text-foreground"}`}>
-                        {Math.round(plan.calorieTarget - training.planned_calories)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">net</div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(plan.calorieTarget)} kcal</div>
                     </div>
-                    
-                    {/* Variance */}
-                    <div className="text-center">
-                      <div className="h-1 bg-white/5 rounded-full my-2" />
-                      <div className={`text-lg font-bold ${
-                        (() => {
-                          const consumedNet = consumed.calories - training.burned_calories;
-                          const targetNet = plan.calorieTarget - training.planned_calories;
-                          const variance = consumedNet - targetNet;
-                          if (variance <= 0) return "text-primary";
-                          const pct = Math.abs(variance) / targetNet;
-                          return pct > 0.05 ? "text-red-500" : "text-amber-500";
-                        })()
-                      }`}>
-                        {(() => {
-                          const consumedNet = consumed.calories - training.burned_calories;
-                          const targetNet = plan.calorieTarget - training.planned_calories;
-                          const variance = consumedNet - targetNet;
-                          return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}`;
-                        })()}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">kcal</div>
+                    <div className={`text-center text-sm font-bold ${
+                      (() => {
+                        const variance = consumed.calories - plan.calorieTarget;
+                        if (variance <= 0) return "text-primary";
+                        const pct = Math.abs(variance) / plan.calorieTarget;
+                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                      })()
+                    }`}>
+                      {(() => {
+                        const variance = consumed.calories - plan.calorieTarget;
+                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}`;
+                      })()}
                     </div>
                   </div>
 
