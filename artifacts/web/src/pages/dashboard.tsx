@@ -364,11 +364,11 @@ export default function Dashboard() {
                     const tdee = plan.tdeeEstimated ?? 0;
                     const consumedCals = consumed.calories ?? 0;
                     const burned = training.burned_calories ?? 0;
-                    const dailyDeficit = tdee - consumedCals - burned;
+                    const dailyDeficit = consumedCals - burned - tdee;
                     
-                    let color = "text-primary"; // teal if positive
-                    if (dailyDeficit < 0 && dailyDeficit >= -200) color = "text-amber-500"; // amber if -200 to 0
-                    if (dailyDeficit < -200) color = "text-red-500"; // red if less than -200
+                    let color = "text-primary"; // teal if negative (deficit)
+                    if (dailyDeficit > -200 && dailyDeficit < 0) color = "text-amber-500"; // amber if -200 to 0
+                    if (dailyDeficit >= 0) color = "text-red-500"; // red if positive (surplus)
                     
                     return (
                       <div className="flex justify-between items-center text-sm">

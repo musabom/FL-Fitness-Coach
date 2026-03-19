@@ -255,12 +255,12 @@ router.get("/progress", async (req, res): Promise<void> => {
   }
 
   // Calculate daily deficit snapshot for each day
-  // Daily Deficit = TDEE - Consumed - Training Burn
-  // Positive = surplus (calories remaining), Negative = deficit (over target)
+  // Daily Deficit = Consumed - Training Burn - TDEE
+  // Negative = deficit (under maintenance), Positive = surplus (over maintenance)
   const dailyDeficit = dateRange.map((date) => {
     const consumed = consumedMap[date] ?? 0;
     const trainingBurn = trainingBurnMap[date] ?? 0;
-    const dailyDeficitSnapshot = tdee - consumed - trainingBurn;
+    const dailyDeficitSnapshot = consumed - trainingBurn - tdee;
     
     return { 
       date, 
