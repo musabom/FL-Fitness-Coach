@@ -1,15 +1,16 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2,
-  Circle, Loader2, UtensilsCrossed, X, CalendarDays,
+  Circle, Loader2, UtensilsCrossed, X, CalendarDays, ArrowLeft, UserCheck,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePlan } from "@/hooks/use-plan";
 import BottomNav from "@/components/bottom-nav";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -334,11 +335,14 @@ export default function MealPlan() {
   const [showSheet, setShowSheet] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const queryClient = useQueryClient();
+  const { activeClient, setActiveClient } = useCoachClient();
+  const buildUrl = useClientUrl();
+  const [, setLocation] = useLocation();
   const today = getTodayMuscat();
 
   const { data: dayPlan, isLoading } = useQuery<DayPlan>({
-    queryKey: ["meal-plan", date],
-    queryFn: () => customFetch<DayPlan>(`${BASE}/meal-plan?date=${date}`),
+    queryKey: ["meal-plan", date, activeClient?.id],
+    queryFn: () => customFetch<DayPlan>(buildUrl(`${BASE}/meal-plan?date=${date}`)),
   });
 
   const { plan } = usePlan();
@@ -347,12 +351,12 @@ export default function MealPlan() {
 
   const addMutation = useMutation({
     mutationFn: (mealId: number) =>
-      customFetch(`${BASE}/meal-plan`, {
+      customFetch(buildUrl(`${BASE}/meal-plan`), {
         method: "POST",
         body: JSON.stringify({ date, meal_id: mealId }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["meal-plan", date] });
+      queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] });
       setShowSheet(false);
     },
   });
@@ -362,12 +366,12 @@ export default function MealPlan() {
   const removeMutation = useMutation({
     mutationFn: async ({ entryId, mealId, isScheduled }: { entryId: number; mealId?: number; isScheduled?: boolean }) => {
       if (isScheduled === false && mealId) {
-        return customFetch(`${BASE}/meal-plan/${date}/exclude/${mealId}`, { method: "POST" });
+        return customFetch(buildUrl(`${BASE}/meal-plan/${date}/exclude/${mealId}`), { method: "POST" });
       }
-      return customFetch(`${BASE}/meal-plan/${entryId}`, { method: "DELETE" });
+      return customFetch(buildUrl(`${BASE}/meal-plan/${entryId}`), { method: "DELETE" });
     },
     onMutate: async ({ entryId, mealId, isScheduled }) => {
-      await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
+      await queryClient.cancelQueries({ queryKey: ["meal-plan", date, activeClient?.id] });
       const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
       if (prev) {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
@@ -383,7 +387,7 @@ export default function MealPlan() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["meal-plan", date], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] }),
   });
 
   // ── Toggle whole-meal complete ────────────────────────────────────────────
@@ -392,18 +396,18 @@ export default function MealPlan() {
     mutationFn: async ({ entryId, mealId, completed }: { entryId: number; mealId?: number; completed: boolean }) => {
       let actualEntryId = entryId;
       if (entryId === 0 && mealId) {
-        const addRes = await customFetch<{ entry_id: number }>(`${BASE}/meal-plan`, {
+        const addRes = await customFetch<{ entry_id: number }>(buildUrl(`${BASE}/meal-plan`), {
           method: "POST",
           body: JSON.stringify({ date, meal_id: mealId }),
         });
         actualEntryId = addRes.entry_id;
       }
-      return customFetch(`${BASE}/meal-plan/${actualEntryId}/complete`, {
+      return customFetch(buildUrl(`${BASE}/meal-plan/${actualEntryId}/complete`), {
         method: completed ? "DELETE" : "POST",
       });
     },
     onMutate: async ({ entryId, mealId, completed }) => {
-      await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
+      await queryClient.cancelQueries({ queryKey: ["meal-plan", date, activeClient?.id] });
       const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
       if (prev) {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
@@ -430,7 +434,7 @@ export default function MealPlan() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["meal-plan", date], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] }),
   });
 
   // ── Toggle individual portion ─────────────────────────────────────────────
@@ -438,15 +442,15 @@ export default function MealPlan() {
   const portionMutation = useMutation({
     mutationFn: async ({ mealId, portionId, completed }: { entryId: number; mealId: number; portionId: number; completed: boolean }) => {
       if (completed) {
-        return customFetch(`${BASE}/meal-plan/${mealId}/portions/${portionId}/complete?date=${date}`, { method: "DELETE" });
+        return customFetch(buildUrl(`${BASE}/meal-plan/${mealId}/portions/${portionId}/complete?date=${date}`), { method: "DELETE" });
       }
-      return customFetch<{ meal_completed?: boolean }>(`${BASE}/meal-plan/${mealId}/portions/${portionId}/complete`, {
+      return customFetch<{ meal_completed?: boolean }>(buildUrl(`${BASE}/meal-plan/${mealId}/portions/${portionId}/complete`), {
         method: "POST",
         body: JSON.stringify({ date }),
       });
     },
     onMutate: async ({ entryId, mealId, portionId, completed }) => {
-      await queryClient.cancelQueries({ queryKey: ["meal-plan", date] });
+      await queryClient.cancelQueries({ queryKey: ["meal-plan", date, activeClient?.id] });
       const prev = queryClient.getQueryData<DayPlan>(["meal-plan", date]);
       if (prev) {
         queryClient.setQueryData<DayPlan>(["meal-plan", date], {
@@ -476,7 +480,7 @@ export default function MealPlan() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["meal-plan", date], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] }),
   });
 
   // ── Derived state ─────────────────────────────────────────────────────────
@@ -502,8 +506,23 @@ export default function MealPlan() {
 
   return (
     <div className="mobile-container flex flex-col bg-background min-h-screen pb-24">
+      {/* Coach viewing banner */}
+      {activeClient && (
+        <div className="sticky top-0 z-30 bg-blue-600/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-white" />
+            <span className="text-sm font-semibold text-white">Viewing: {activeClient.name}</span>
+          </div>
+          <button
+            onClick={() => { setActiveClient(null); setLocation("/coach/clients"); }}
+            className="flex items-center gap-1 text-xs text-white/80 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </button>
+        </div>
+      )}
       {/* Header */}
-      <header className="px-5 pt-6 pb-4 flex items-center justify-between sticky top-0 bg-background/90 backdrop-blur-xl z-20 border-b border-border/40">
+      <header className="px-5 pt-6 pb-4 flex items-center justify-between sticky bg-background/90 backdrop-blur-xl z-20 border-b border-border/40" style={{ top: activeClient ? "44px" : "0" }}>
         <Link href="/dashboard">
           <button className="w-9 h-9 flex items-center justify-center rounded-full border border-border/40 hover:bg-muted transition-colors">
             <ChevronLeft className="w-4 h-4" />

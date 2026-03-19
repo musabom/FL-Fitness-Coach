@@ -7,13 +7,15 @@ import {
   ApiError,
 } from "@workspace/api-client-react";
 
-interface AuthUser {
+export interface AuthUser {
   id: number;
   email: string;
-  firstName: string | null;
-  lastName: string | null;
-  role: string;
+  fullName: string | null;
+  role: "member" | "coach" | "admin";
   hasProfile: boolean;
+  coachId: number | null;
+  coachName: string | null;
+  coachUpdatedAt: string | null;
 }
 
 const AUTH_KEY = ["auth", "me"];
@@ -60,7 +62,7 @@ export function useAuth() {
     retry: false,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    refetchOnMount: "stale",
+    refetchOnMount: true,
     refetchOnReconnect: false,
   });
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Body Composition Management System - Phase 1. A dark, mobile-first PWA (max 430px content width) for nutrition planning. Users sign up, complete a 3-page onboarding questionnaire, receive a server-side calculated daily nutrition plan (calories + macros), and use the Meal Builder to plan and track daily nutrition intake.
+Body Composition Management System - Phase 1. A dark, mobile-first PWA (max 430px content width) with a 3-role system: Members get a personalised nutrition/workout plan with coach integration; Coaches manage assigned clients and can view/edit their plans; Admins manage users, roles, coach-client assignments, and the food/exercise content library.
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
@@ -123,10 +123,43 @@ Macro calculation for portions:
 - `DELETE /api/shopping-list/:foodId` - Remove stock entry
 - `GET /api/progress` - Get 30-day progress data (weight history, meal compliance, workout compliance, daily deficit vs maintenance)
 
+## 3-Role System
+
+- `users.role` = 'member' | 'coach' | 'admin' (default: 'member')
+- `users.coach_id` = FK to users (nullable) — which coach is assigned to this member
+- `users.full_name` = TEXT — coach and admin full names
+- `plans.coach_updated_at` = TIMESTAMP — set when coach modifies a client's plan (drives member notification)
+
+**Role routing** (App.tsx AuthGuard):
+- Admin → `/admin` (AdminPanel)
+- Coach → `/coach/clients` (CoachClients) — also has access to member pages via client context
+- Member → `/dashboard`
+
+**Coach client context** (`context/coach-client-context.tsx`):
+- Stores `activeClient: { id, name, email } | null` in React state
+- All data fetch hooks call `useClientUrl()` which appends `?clientId=X` to API URLs
+- Backend global middleware (`routes/index.ts`) resolves `?clientId=` if caller is coach/admin with access
+- `res.locals.userId` used by all data routes instead of `req.session.userId` directly
+
+**Backend role middleware** (`middleware/role.ts`):
+- `requireAdmin(req, res, next)` — 403 unless role = admin
+- `requireCoachOrAdmin(req, res, next)` — 403 unless role = coach | admin
+- `resolveTargetUserId(req, res, next)` — sets `res.locals.userId` from `?clientId=` if authorized
+
+**Admin API routes** (`/api/admin/...`):
+- GET/PATCH `/users`, PUT `/users/:id/role`
+- GET `/coaches` (with client lists), GET `/members`
+- POST/DELETE `/coaches/:coachId/clients/:clientId`
+- GET/POST/PUT/DELETE `/foods`, GET/POST/PUT/DELETE `/exercises`
+
+**Coach API routes** (`/api/coach/...`):
+- GET `/coach/clients` — assigned clients with 30-day meal/workout compliance percentages
+
 ## Auth Pattern
 
 - Session-based auth using express-session with bcryptjs password hashing
 - Frontend uses custom `useAuth` hook with React Query (key: `["auth", "me"]`)
+- `/auth/me` returns: `id, email, fullName, role, hasProfile, coachId, coachName, coachUpdatedAt`
 - 401 errors return `null` user (not error state) to avoid infinite refetch loops
 - `credentials: "include"` added to customFetch for cookie support
 - Session secret required in production via `SESSION_SECRET` env var

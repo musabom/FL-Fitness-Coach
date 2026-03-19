@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
 import { useAuth } from "./hooks/use-auth";
+import { CoachClientProvider } from "./context/coach-client-context";
 import { Loader2 } from "lucide-react";
 
 // Pages
@@ -20,6 +21,8 @@ import ShoppingList from "./pages/shopping-list";
 import TrainingBuilder from "./pages/training-builder";
 import WorkoutPlan from "./pages/workout-plan";
 import Progress from "./pages/progress";
+import CoachClients from "./pages/coach-clients";
+import AdminPanel from "./pages/admin-panel";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -34,24 +37,21 @@ const queryClient = new QueryClient({
   },
 });
 
-// Suppress AbortError warnings (harmless cleanup when navigating away)
-queryClient.setDefaultOptions({
-  queries: {
-    ...queryClient.getDefaultOptions().queries,
-  },
-});
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
-    if (event.reason?.name === 'AbortError' || 
-        event.reason?.message?.includes('signal is aborted')) {
+if (typeof window !== "undefined") {
+  window.addEventListener("unhandledrejection", (event) => {
+    if (
+      event.reason?.name === "AbortError" ||
+      event.reason?.message?.includes("signal is aborted")
+    ) {
       event.preventDefault();
     }
   });
 }
 
+const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password"];
+
 function isPublicRoute(loc: string) {
-  return loc === "/login" || loc === "/signup" || loc === "/forgot-password" || loc.startsWith("/reset-password");
+  return PUBLIC_ROUTES.includes(loc) || loc.startsWith("/reset-password");
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -63,14 +63,44 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     if (!user && !isPublicRoute(location)) {
       setLocation("/login");
-    } else if (user && isPublicRoute(location)) {
-      setLocation("/dashboard");
-    } else if (user && !user.hasProfile && location !== "/onboarding") {
-      setLocation("/onboarding");
-    } else if (user && user.hasProfile && location === "/onboarding") {
-      setLocation("/dashboard");
-    } else if (user && user.hasProfile && location === "/") {
-      setLocation("/dashboard");
+      return;
+    }
+
+    if (user && isPublicRoute(location)) {
+      // Route to role-specific home
+      if (user.role === "admin") {
+        setLocation("/admin");
+      } else if (user.role === "coach") {
+        setLocation("/coach/clients");
+      } else {
+        setLocation("/dashboard");
+      }
+      return;
+    }
+
+    // Members must complete onboarding
+    if (user && user.role === "member") {
+      if (!user.hasProfile && location !== "/onboarding") {
+        setLocation("/onboarding");
+      } else if (user.hasProfile && location === "/onboarding") {
+        setLocation("/dashboard");
+      } else if (user.hasProfile && location === "/") {
+        setLocation("/dashboard");
+      }
+    }
+
+    // Coaches with no profile still need onboarding (they were members first)
+    if (user && user.role === "coach") {
+      if (!user.hasProfile && location !== "/onboarding") {
+        setLocation("/onboarding");
+      } else if (user.hasProfile && location === "/") {
+        setLocation("/coach/clients");
+      }
+    }
+
+    // Admins skip onboarding
+    if (user && user.role === "admin" && location === "/") {
+      setLocation("/admin");
     }
   }, [user, isLoading, location, setLocation]);
 
@@ -82,9 +112,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Prevent rendering protected content while redirecting
   if (!user && !isPublicRoute(location)) return null;
-  if (user && !user.hasProfile && location !== "/onboarding") return null;
+  if (user && user.role === "member" && !user.hasProfile && location !== "/onboarding") return null;
+  if (user && user.role === "coach" && !user.hasProfile && location !== "/onboarding") return null;
 
   return <>{children}</>;
 }
@@ -93,11 +123,22 @@ function Router() {
   return (
     <AuthGuard>
       <Switch>
+        {/* Public */}
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
+
+        {/* Onboarding */}
         <Route path="/onboarding" component={Onboarding} />
+
+        {/* Admin */}
+        <Route path="/admin" component={AdminPanel} />
+
+        {/* Coach */}
+        <Route path="/coach/clients" component={CoachClients} />
+
+        {/* Member + Coach client view */}
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/profile/edit" component={ProfileEdit} />
         <Route path="/nutrition/meals" component={NutritionMeals} />
@@ -106,9 +147,9 @@ function Router() {
         <Route path="/training/builder" component={TrainingBuilder} />
         <Route path="/training/plan" component={WorkoutPlan} />
         <Route path="/progress" component={Progress} />
-        {/* Explicit root catch to fall back to AuthGuard logic */}
+
         <Route path="/">
-          <div /> 
+          <div />
         </Route>
         <Route component={NotFound} />
       </Switch>
@@ -120,9 +161,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <CoachClientProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </CoachClientProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

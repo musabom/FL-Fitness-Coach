@@ -2,15 +2,17 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
-import { Link } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   Settings, LogOut, Loader2, ChevronRight, ChevronDown,
   UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap, Edit2, Check, X,
+  ArrowLeft, UserCheck, Bell,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { customFetch, getGetActivePlanQueryKey } from "@workspace/api-client-react";
 import BottomNav from "@/components/bottom-nav";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -117,27 +119,30 @@ export default function Dashboard() {
   const [editingWeight, setEditingWeight] = useState(false);
   const [editWeight, setEditWeight] = useState<string>("");
   const { plan, isLoading: planLoading } = usePlan();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { activeClient, setActiveClient } = useCoachClient();
+  const buildUrl = useClientUrl();
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const today = todayStr();
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
-    queryKey: ["dashboard-today", today],
-    queryFn: () => customFetch<TodayData>(`${BASE}/dashboard/today?date=${today}`),
+    queryKey: ["dashboard-today", today, activeClient?.id],
+    queryFn: () => customFetch<TodayData>(buildUrl(`${BASE}/dashboard/today?date=${today}`)),
     enabled: !!plan,
     refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 5000, // Consider data stale after 5 seconds
+    refetchInterval: 30000,
+    staleTime: 5000,
   });
 
   const mondayStr = getMondayStr();
   const { data: weeklyData } = useQuery<WeeklyData>({
-    queryKey: ["dashboard-weekly", mondayStr],
-    queryFn: () => customFetch<WeeklyData>(`${BASE}/dashboard/weekly?week_start=${mondayStr}`),
+    queryKey: ["dashboard-weekly", mondayStr, activeClient?.id],
+    queryFn: () => customFetch<WeeklyData>(buildUrl(`${BASE}/dashboard/weekly?week_start=${mondayStr}`)),
     enabled: view === "weekly" && !!plan,
     refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 5000, // Consider data stale after 5 seconds
+    refetchInterval: 30000,
+    staleTime: 5000,
   });
 
   const consumed = todayData?.nutrition.consumed ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
@@ -183,18 +188,38 @@ export default function Dashboard() {
       ? `You want to gain ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} kg`
       : "You are at your target weight";
 
+  const isCoachView = !!activeClient;
+
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
+      {/* Coach viewing-client banner */}
+      {isCoachView && (
+        <div className="sticky top-0 z-20 bg-blue-600/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-white" />
+            <span className="text-sm font-semibold text-white">Viewing: {activeClient.name}</span>
+          </div>
+          <button
+            onClick={() => { setActiveClient(null); setLocation("/coach/clients"); }}
+            className="flex items-center gap-1 text-xs text-white/80 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="px-6 py-4 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50">
+      <header className="px-6 py-4 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50" style={{ top: isCoachView ? "44px" : "0" }}>
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
-            <Settings className="w-5 h-5 text-foreground" />
-          </Link>
+          {!isCoachView && (
+            <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
+              <Settings className="w-5 h-5 text-foreground" />
+            </Link>
+          )}
           <button
             onClick={() => logout.mutate()}
             className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
@@ -204,6 +229,26 @@ export default function Dashboard() {
         </div>
       </header>
       <main className="px-6 pt-6 space-y-6">
+        {/* Member: coach assigned banner */}
+        {!isCoachView && user?.coachName && (
+          <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
+            <UserCheck className="w-4 h-4 text-primary flex-shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-primary">Your Coach</p>
+              <p className="text-sm text-foreground">{user.coachName}</p>
+            </div>
+          </div>
+        )}
+        {/* Member: coach updated plan banner */}
+        {!isCoachView && user?.coachUpdatedAt && (
+          <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl px-4 py-3">
+            <Bell className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-yellow-500">Plan Updated</p>
+              <p className="text-sm text-foreground">Your coach updated your plan. Check your Meal Plan and Workout Plan.</p>
+            </div>
+          </div>
+        )}
 
         {/* Toggle */}
         <div className="flex gap-1 p-1 bg-[#1A1A1A] rounded-2xl">

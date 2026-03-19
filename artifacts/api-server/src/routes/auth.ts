@@ -50,10 +50,12 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   res.status(201).json({
     id: user.id,
     email: user.email,
-    firstName: null,
-    lastName: null,
+    fullName: user.fullName,
     role: user.role,
     hasProfile: false,
+    coachId: null,
+    coachName: null,
+    coachUpdatedAt: null,
   });
 });
 
@@ -85,10 +87,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   res.json({
     id: user.id,
     email: user.email,
-    firstName: null,
-    lastName: null,
+    fullName: user.fullName,
     role: user.role,
     hasProfile: !!profile,
+    coachId: null,
+    coachName: null,
+    coachUpdatedAt: null,
   });
 });
 
@@ -114,13 +118,30 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
   const [profile] = await db.select({ id: userProfilesTable.id }).from(userProfilesTable).where(eq(userProfilesTable.userId, user.id));
 
+  // Fetch coach info and plan updated banner
+  const extraRes = await pool.query(`
+    SELECT
+      c.id AS coach_id, c.full_name AS coach_name,
+      p.coach_updated_at
+    FROM users u
+    LEFT JOIN users c ON c.id = u.coach_id
+    LEFT JOIN LATERAL (
+      SELECT coach_updated_at FROM plans WHERE user_id = u.id ORDER BY version DESC LIMIT 1
+    ) p ON TRUE
+    WHERE u.id = $1
+  `, [user.id]);
+
+  const extra = extraRes.rows[0];
+
   res.json({
     id: user.id,
     email: user.email,
-    firstName: null,
-    lastName: null,
+    fullName: user.fullName,
     role: user.role,
     hasProfile: !!profile,
+    coachId: extra?.coach_id ?? null,
+    coachName: extra?.coach_name ?? null,
+    coachUpdatedAt: extra?.coach_updated_at ?? null,
   });
 });
 

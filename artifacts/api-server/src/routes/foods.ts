@@ -14,7 +14,7 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
     res.status(401).json({ error: "Not authenticated" });
     return null;
   }
-  return req.session.userId;
+  return (res.locals["userId"] as number | undefined) ?? req.session.userId;
 }
 
 router.get("/foods/search", async (req, res): Promise<void> => {

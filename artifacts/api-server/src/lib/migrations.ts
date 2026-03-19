@@ -585,4 +585,15 @@ async function runMigrationsInternal(): Promise<void> {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id)`);
+
+  // ── Role System ──────────────────────────────────────────────────────────────
+  // coach_id: which coach is assigned to this user (member)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_coach_id ON users(coach_id)`);
+
+  // coach_updated_at: set when a coach modifies the client's plan
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS coach_updated_at TIMESTAMPTZ`);
+
+  // Ensure role column exists with correct default
+  await pool.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'member'`);
 }

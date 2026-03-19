@@ -1,0 +1,40 @@
+This is part of an existing project. Do not change anything already working. Add the three role system described below.
+
+Three Types of Users
+The app has three types of users — Member, Coach, and Admin. Every new user starts as a Member. Only the Admin can promote users to Coach. Only the Admin can assign clients to a Coach.
+
+What the Member experiences
+No change from what exists today. The member sees their own dashboard, meal plan, training plan, and progress. They cannot see any other user's data.
+One new thing — if a coach has been assigned to them they see a small line on their dashboard: "Your coach: [name]"
+When their coach updates their plan they see a banner at the top of their dashboard: "Your coach updated your plan."
+
+What the Coach experiences
+When a coach logs in they land on their client list — not their own personal dashboard.
+The client list shows one card per assigned client. Each card shows the client's name, current weight, today's meal compliance, today's workout compliance, and their current goal.
+Tapping a client opens that client's full dashboard — exactly what the client sees — with one addition: an Edit button in the top corner.
+When the coach taps Edit they can:
+
+Change the client's goal mode
+Adjust the client's calorie deficit
+Adjust the client's macro targets
+Build or edit meals in the client's meal plan
+Build or edit workouts in the client's training plan
+
+Any change the coach makes is saved immediately and the client sees the update banner on their dashboard.
+The coach also has access to their own personal dashboard by tapping My Dashboard in their navigation.
+
+What the Admin experiences
+When the admin logs in they land on the admin panel.
+The admin panel has three sections:
+Users
+A list of all users showing name, email, role, join date, and current goal. The admin can tap any user and promote them to Coach or demote them back to Member.
+Coaches
+A list of all coaches. The admin can tap any coach and assign clients to them from the full member list. The admin can also remove a client from a coach.
+Content
+The admin can add, edit, and delete foods from the food database. The admin can add, edit, and delete exercises from the exercise library.
+
+What happens when a member is promoted to Coach
+Their role updates immediately. The next time they log in they see the coach view instead of their personal dashboard. Their own personal plan and data is preserved — they can still access it from My Dashboard.
+
+Security
+A member can never see another member's data. A coach can only see clients assigned to them — not other coaches' clients and not unassigned members. The admin can see everything.

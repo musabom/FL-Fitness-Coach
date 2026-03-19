@@ -118,7 +118,7 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     return;
   }
 
-  const userId = req.session.userId;
+  const userId = (res.locals["userId"] as number | undefined) ?? req.session.userId;
 
   const [plan] = await db.select()
     .from(plansTable)
