@@ -13,6 +13,7 @@ interface PlanInput {
   goalMode: string;
   activityLevel: string;
   customParams?: CustomParams;
+  avgDailyPlannedBurn?: number;
 }
 
 interface PlanResult {
@@ -114,7 +115,7 @@ export function goalLabel(goalMode: string): string {
 }
 
 export function calculatePlan(input: PlanInput): PlanResult {
-  const { weightKg, targetWeightKg, heightCm, age, gender, goalMode, activityLevel, customParams } = input;
+  const { weightKg, targetWeightKg, heightCm, age, gender, goalMode, activityLevel, customParams, avgDailyPlannedBurn = 0 } = input;
 
   const bmr = calcBMR(weightKg, heightCm, age, gender);
   const tdee = calcTDEE(bmr, activityLevel);
@@ -128,15 +129,17 @@ export function calculatePlan(input: PlanInput): PlanResult {
     let carbsG = Math.round((calorieTarget - (proteinG * 4) - (fatG * 9)) / 4);
     if (carbsG < 0) carbsG = 0;
 
-    const weeklyChangeKg = (deficitKcal * 7) / 7700;
+    // Include planned training burn in total deficit
+    const totalAvgDailyDeficit = deficitKcal + avgDailyPlannedBurn;
+    const weeklyChangeKg = (totalAvgDailyDeficit * 7) / 7700;
     const weightGap = weightKg - targetWeightKg;
     let weeksEstimateLow: number | null = null;
     let weeksEstimateHigh: number | null = null;
-    if (deficitKcal > 0 && weightGap > 0 && weeklyChangeKg > 0) {
+    if (totalAvgDailyDeficit > 0 && weightGap > 0 && weeklyChangeKg > 0) {
       const weeksEst = weightGap / weeklyChangeKg;
       weeksEstimateLow = Math.round(weeksEst * 0.8);
       weeksEstimateHigh = Math.round(weeksEst * 1.2);
-    } else if (deficitKcal < 0 && weightGap < 0 && weeklyChangeKg < 0) {
+    } else if (totalAvgDailyDeficit < 0 && weightGap < 0 && weeklyChangeKg < 0) {
       const weeksEst = Math.abs(weightGap) / Math.abs(weeklyChangeKg);
       weeksEstimateLow = Math.round(weeksEst * 0.8);
       weeksEstimateHigh = Math.round(weeksEst * 1.2);
@@ -195,7 +198,9 @@ export function calculatePlan(input: PlanInput): PlanResult {
   let weeksEstimateHigh: number | null = null;
 
   if (goalMode === "cut" || goalMode === "recomposition") {
-    const weeklyLossKg = (deficitRaw * 7) / 7700;
+    // Include planned training burn in total deficit
+    const totalAvgDailyDeficit = deficitRaw + avgDailyPlannedBurn;
+    const weeklyLossKg = (totalAvgDailyDeficit * 7) / 7700;
     weeklyExpectedChangeKg = -weeklyLossKg;
     if (weightGap > 0 && weeklyLossKg > 0) {
       const weeksEstimate = weightGap / weeklyLossKg;
@@ -203,9 +208,11 @@ export function calculatePlan(input: PlanInput): PlanResult {
       weeksEstimateHigh = Math.round(weeksEstimate * 1.2);
     }
   } else if (goalMode === "lean_bulk") {
-    const weeklyGainKg = (250 * 7) / 7700;
+    // For lean bulk, training burn reduces the surplus
+    const surplusMinusBurn = Math.max(250 - avgDailyPlannedBurn, 0);
+    const weeklyGainKg = surplusMinusBurn > 0 ? (surplusMinusBurn * 7) / 7700 : 0;
     weeklyExpectedChangeKg = weeklyGainKg;
-    if (weightGap < 0) {
+    if (weightGap < 0 && weeklyGainKg > 0) {
       const weeksEstimate = Math.abs(weightGap) / weeklyGainKg;
       weeksEstimateLow = Math.round(weeksEstimate * 0.8);
       weeksEstimateHigh = Math.round(weeksEstimate * 1.2);

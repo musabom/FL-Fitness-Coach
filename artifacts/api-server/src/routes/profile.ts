@@ -36,6 +36,23 @@ function validateGoalMode(currentWeightKg: number, targetWeightKg: number, goalM
   return null;
 }
 
+async function getAvgDailyPlannedBurn(userId: number): Promise<number> {
+  // Query average daily planned training burn from scheduled workouts
+  const res = await pool.query(
+    `SELECT COALESCE(AVG(daily_total), 0) as avg_burn
+     FROM (
+       SELECT ws.day_of_week, COALESCE(SUM(we.calories_per_rep * we.reps * we.sets), 0) as daily_total
+       FROM workout_schedule ws
+       LEFT JOIN user_workouts uw ON ws.workout_id = uw.id AND uw.user_id = $1
+       LEFT JOIN workout_exercises we ON uw.id = we.workout_id
+       WHERE ws.user_id = $1
+       GROUP BY ws.day_of_week
+     ) daily_sums`,
+    [userId]
+  );
+  return Number(res.rows[0]?.avg_burn ?? 0);
+}
+
 function buildPlanInsertValues(
   userId: number,
   version: number,
@@ -49,7 +66,8 @@ function buildPlanInsertValues(
     activityLevel: string;
     customParams?: { proteinPerKg: number; fatPerKg: number; deficitKcal: number };
   },
-  trigger: "onboarding" | "manual_edit" | "weight_update" | "checkin_adjustment"
+  trigger: "onboarding" | "manual_edit" | "weight_update" | "checkin_adjustment",
+  avgDailyPlannedBurn: number = 0
 ) {
   const planResult = calculatePlan({
     weightKg: profileData.weightKg,
@@ -60,6 +78,7 @@ function buildPlanInsertValues(
     goalMode: profileData.goalMode,
     activityLevel: profileData.activityLevel,
     customParams: profileData.customParams,
+    avgDailyPlannedBurn,
   });
   return {
     planValues: {
@@ -149,6 +168,8 @@ router.post("/onboarding", async (req, res): Promise<void> => {
       ? { proteinPerKg: data.customProteinPerKg, fatPerKg: data.customFatPerKg, deficitKcal: data.customDeficitKcal }
       : undefined;
 
+    const avgDailyPlannedBurn = await getAvgDailyPlannedBurn(userId);
+
     const { planValues, planResult } = buildPlanInsertValues(
       userId, 1,
       {
@@ -161,7 +182,8 @@ router.post("/onboarding", async (req, res): Promise<void> => {
         activityLevel: data.activityLevel,
         customParams,
       },
-      "onboarding"
+      "onboarding",
+      avgDailyPlannedBurn
     );
 
     const [plan] = await db.insert(plansTable).values(planValues).returning();
@@ -330,6 +352,8 @@ router.patch("/profile", async (req, res): Promise<void> => {
       customParams = { proteinPerKg: storedProtein, fatPerKg: storedFat, deficitKcal: storedDeficit };
     }
 
+    const avgDailyPlannedBurn = await getAvgDailyPlannedBurn(userId);
+
     const { planValues } = buildPlanInsertValues(
       userId, newVersion,
       {
@@ -342,7 +366,8 @@ router.patch("/profile", async (req, res): Promise<void> => {
         activityLevel: updatedProfile.activityLevel,
         customParams,
       },
-      "manual_edit"
+      "manual_edit",
+      avgDailyPlannedBurn
     );
 
     const [newPlan] = await tx.insert(plansTable).values(planValues).returning();
