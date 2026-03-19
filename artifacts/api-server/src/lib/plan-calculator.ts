@@ -1,3 +1,9 @@
+interface CustomParams {
+  proteinPerKg: number;
+  fatPerKg: number;
+  deficitKcal: number;
+}
+
 interface PlanInput {
   weightKg: number;
   targetWeightKg: number;
@@ -6,6 +12,7 @@ interface PlanInput {
   gender: string;
   goalMode: string;
   activityLevel: string;
+  customParams?: CustomParams;
 }
 
 interface PlanResult {
@@ -21,6 +28,10 @@ interface PlanResult {
   weeksEstimateLow: number | null;
   weeksEstimateHigh: number | null;
   summaryText: string;
+  isCustomGoal: boolean;
+  customProteinRate: number | null;
+  customFatRate: number | null;
+  customDeficitKcal: number | null;
 }
 
 function calcBMR(weightKg: number, heightCm: number, age: number, gender: string): number {
@@ -90,22 +101,74 @@ function calcMacros(weightKg: number, age: number, goalMode: string, calorieTarg
   return { proteinG, fatG, carbsG };
 }
 
-function goalLabel(goalMode: string): string {
+export function goalLabel(goalMode: string): string {
   const labels: Record<string, string> = {
     cut: "Lose fat and preserve muscle",
     recomposition: "Lose fat and build muscle simultaneously",
     lean_bulk: "Build muscle with minimal fat gain",
     maintenance: "Maintain your current weight and composition",
+    custom: "Custom nutrition plan",
   };
   return labels[goalMode] ?? goalMode;
 }
 
 export function calculatePlan(input: PlanInput): PlanResult {
-  const { weightKg, targetWeightKg, heightCm, age, gender, goalMode, activityLevel } = input;
+  const { weightKg, targetWeightKg, heightCm, age, gender, goalMode, activityLevel, customParams } = input;
 
   const bmr = calcBMR(weightKg, heightCm, age, gender);
   const tdee = calcTDEE(bmr, activityLevel);
   const bfPct = calcBFProxy(weightKg, heightCm, age, gender);
+
+  if (goalMode === "custom" && customParams) {
+    const { proteinPerKg, fatPerKg, deficitKcal } = customParams;
+    const calorieTarget = Math.max(Math.round(tdee - deficitKcal), 1200);
+    const proteinG = Math.round(proteinPerKg * weightKg);
+    const fatG = Math.round(Math.max(fatPerKg * weightKg, (calorieTarget * 0.20) / 9));
+    let carbsG = Math.round((calorieTarget - (proteinG * 4) - (fatG * 9)) / 4);
+    if (carbsG < 0) carbsG = 0;
+
+    const weeklyChangeKg = (deficitKcal * 7) / 7700;
+    const weightGap = weightKg - targetWeightKg;
+    let weeksEstimateLow: number | null = null;
+    let weeksEstimateHigh: number | null = null;
+    if (deficitKcal > 0 && weightGap > 0 && weeklyChangeKg > 0) {
+      const weeksEst = weightGap / weeklyChangeKg;
+      weeksEstimateLow = Math.round(weeksEst * 0.8);
+      weeksEstimateHigh = Math.round(weeksEst * 1.2);
+    } else if (deficitKcal < 0 && weightGap < 0 && weeklyChangeKg < 0) {
+      const weeksEst = Math.abs(weightGap) / Math.abs(weeklyChangeKg);
+      weeksEstimateLow = Math.round(weeksEst * 0.8);
+      weeksEstimateHigh = Math.round(weeksEst * 1.2);
+    }
+
+    const tdeeRounded = Math.round(tdee);
+    const surplusDeficitDesc = deficitKcal > 0
+      ? `a deficit of ${deficitKcal} calories`
+      : deficitKcal < 0
+        ? `a surplus of ${Math.abs(deficitKcal)} calories`
+        : "matching your maintenance";
+    const summaryText = `Based on your stats, your body burns approximately ${tdeeRounded} calories per day. You've set a custom plan at ${calorieTarget} calories — ${surplusDeficitDesc}. Protein is set at ${proteinG}g (${proteinPerKg}g/kg) and fat at ${fatG}g.`;
+
+    return {
+      calorieTarget,
+      proteinG,
+      carbsG,
+      fatG,
+      tdeeEstimated: tdeeRounded,
+      deficitSurplusKcal: -deficitKcal,
+      bfEstimatePct: Math.round(bfPct * 10) / 10,
+      bfSource: "proxy_deurenberg",
+      weeklyExpectedChangeKg: Math.round(-weeklyChangeKg * 1000) / 1000,
+      weeksEstimateLow,
+      weeksEstimateHigh,
+      summaryText,
+      isCustomGoal: true,
+      customProteinRate: proteinPerKg,
+      customFatRate: fatPerKg,
+      customDeficitKcal: deficitKcal,
+    };
+  }
+
   const deficitRaw = calcDeficit(goalMode, bfPct, gender, weightKg);
 
   let deficitSurplusKcal: number;
@@ -173,6 +236,10 @@ export function calculatePlan(input: PlanInput): PlanResult {
     weeksEstimateLow,
     weeksEstimateHigh,
     summaryText,
+    isCustomGoal: false,
+    customProteinRate: null,
+    customFatRate: null,
+    customDeficitKcal: null,
   };
 }
 

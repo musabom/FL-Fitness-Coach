@@ -25,6 +25,7 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
 
 function validateGoalMode(currentWeightKg: number, targetWeightKg: number, goalMode: string, goalOverride: boolean): string | null {
   if (goalOverride) return null;
+  if (goalMode === "custom") return null;
   const { availableGoals, validationError } = getAvailableGoals(currentWeightKg, targetWeightKg);
   if (validationError) return validationError;
   const allowed = availableGoals.map(g => g.mode);
@@ -37,10 +38,28 @@ function validateGoalMode(currentWeightKg: number, targetWeightKg: number, goalM
 function buildPlanInsertValues(
   userId: number,
   version: number,
-  profileData: { weightKg: number; targetWeightKg: number; heightCm: number; age: number; gender: string; goalMode: string; activityLevel: string },
+  profileData: {
+    weightKg: number;
+    targetWeightKg: number;
+    heightCm: number;
+    age: number;
+    gender: string;
+    goalMode: string;
+    activityLevel: string;
+    customParams?: { proteinPerKg: number; fatPerKg: number; deficitKcal: number };
+  },
   trigger: "onboarding" | "manual_edit" | "weight_update" | "checkin_adjustment"
 ) {
-  const planResult = calculatePlan(profileData);
+  const planResult = calculatePlan({
+    weightKg: profileData.weightKg,
+    targetWeightKg: profileData.targetWeightKg,
+    heightCm: profileData.heightCm,
+    age: profileData.age,
+    gender: profileData.gender,
+    goalMode: profileData.goalMode,
+    activityLevel: profileData.activityLevel,
+    customParams: profileData.customParams,
+  });
   return {
     planValues: {
       userId,
@@ -65,6 +84,10 @@ function buildPlanInsertValues(
       snapshotHeightCm: profileData.heightCm,
       snapshotAge: profileData.age,
       snapshotGender: profileData.gender,
+      isCustomGoal: planResult.isCustomGoal,
+      customProteinRate: planResult.customProteinRate,
+      customFatRate: planResult.customFatRate,
+      customDeficitKcal: planResult.customDeficitKcal,
       trigger,
       active: true,
     },
@@ -97,25 +120,46 @@ router.post("/onboarding", async (req, res): Promise<void> => {
       return;
     }
 
+    if (data.goalMode === "custom" && (!data.customProteinPerKg || !data.customFatPerKg || data.customDeficitKcal === undefined)) {
+      res.status(400).json({ error: "Custom goal mode requires customProteinPerKg, customFatPerKg, and customDeficitKcal" });
+      return;
+    }
+
     const [profile] = await db.insert(userProfilesTable).values({
       userId,
       heightCm: data.heightCm,
       weightKg: data.weightKg,
       targetWeightKg: data.targetWeightKg,
       age: data.age,
-      gender: data.gender,
-      goalMode: data.goalMode,
-      activityLevel: data.activityLevel,
+      gender: data.gender as "male" | "female" | "prefer_not_to_say",
+      goalMode: data.goalMode as "cut" | "recomposition" | "lean_bulk" | "maintenance" | "custom",
+      activityLevel: data.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
       trainingDays: data.trainingDays,
-      trainingLocation: data.trainingLocation,
+      trainingLocation: data.trainingLocation as "gym" | "home" | "both",
       dietaryPreferences: data.dietaryPreferences,
       injuryFlags: data.injuryFlags,
       goalOverride: data.goalOverride ?? false,
+      customProteinPerKg: data.goalMode === "custom" ? (data.customProteinPerKg ?? null) : null,
+      customFatPerKg: data.goalMode === "custom" ? (data.customFatPerKg ?? null) : null,
+      customDeficitKcal: data.goalMode === "custom" ? (data.customDeficitKcal ?? null) : null,
     }).returning();
+
+    const customParams = data.goalMode === "custom" && data.customProteinPerKg && data.customFatPerKg && data.customDeficitKcal !== undefined
+      ? { proteinPerKg: data.customProteinPerKg, fatPerKg: data.customFatPerKg, deficitKcal: data.customDeficitKcal }
+      : undefined;
 
     const { planValues, planResult } = buildPlanInsertValues(
       userId, 1,
-      { weightKg: data.weightKg, targetWeightKg: data.targetWeightKg, heightCm: data.heightCm, age: data.age, gender: data.gender, goalMode: data.goalMode, activityLevel: data.activityLevel },
+      {
+        weightKg: data.weightKg,
+        targetWeightKg: data.targetWeightKg,
+        heightCm: data.heightCm,
+        age: data.age,
+        gender: data.gender,
+        goalMode: data.goalMode,
+        activityLevel: data.activityLevel,
+        customParams,
+      },
       "onboarding"
     );
 
@@ -143,6 +187,7 @@ router.post("/onboarding", async (req, res): Promise<void> => {
       trigger: plan.trigger,
       active: plan.active,
       createdAt: plan.createdAt.toISOString(),
+      isCustomGoal: plan.isCustomGoal,
       profile: {
         id: profile.id,
         heightCm: profile.heightCm,
@@ -157,6 +202,9 @@ router.post("/onboarding", async (req, res): Promise<void> => {
         dietaryPreferences: profile.dietaryPreferences as string[],
         injuryFlags: profile.injuryFlags as string[],
         goalOverride: profile.goalOverride,
+        customProteinPerKg: profile.customProteinPerKg,
+        customFatPerKg: profile.customFatPerKg,
+        customDeficitKcal: profile.customDeficitKcal,
       },
     });
   } catch (error) {
@@ -189,6 +237,9 @@ router.get("/profile", async (req, res): Promise<void> => {
     dietaryPreferences: profile.dietaryPreferences as string[],
     injuryFlags: profile.injuryFlags as string[],
     goalOverride: profile.goalOverride,
+    customProteinPerKg: profile.customProteinPerKg,
+    customFatPerKg: profile.customFatPerKg,
+    customDeficitKcal: profile.customDeficitKcal,
   });
 });
 
@@ -234,6 +285,16 @@ router.patch("/profile", async (req, res): Promise<void> => {
     return;
   }
 
+  if (mergedGoal === "custom" && d.customProteinPerKg !== undefined) {
+    updateData.customProteinPerKg = d.customProteinPerKg;
+  }
+  if (mergedGoal === "custom" && d.customFatPerKg !== undefined) {
+    updateData.customFatPerKg = d.customFatPerKg;
+  }
+  if (mergedGoal === "custom" && d.customDeficitKcal !== undefined) {
+    updateData.customDeficitKcal = d.customDeficitKcal;
+  }
+
   const result = await db.transaction(async (tx) => {
     const [updatedProfile] = await tx.update(userProfilesTable)
       .set(updateData)
@@ -252,6 +313,16 @@ router.patch("/profile", async (req, res): Promise<void> => {
 
     const newVersion = latestPlan ? latestPlan.version + 1 : 1;
 
+    const effectiveGoal = updatedProfile.goalMode;
+    let customParams: { proteinPerKg: number; fatPerKg: number; deficitKcal: number } | undefined;
+
+    if (effectiveGoal === "custom") {
+      const storedProtein = updatedProfile.customProteinPerKg ?? 2.2;
+      const storedFat = updatedProfile.customFatPerKg ?? 1.0;
+      const storedDeficit = updatedProfile.customDeficitKcal ?? 350;
+      customParams = { proteinPerKg: storedProtein, fatPerKg: storedFat, deficitKcal: storedDeficit };
+    }
+
     const { planValues } = buildPlanInsertValues(
       userId, newVersion,
       {
@@ -262,6 +333,7 @@ router.patch("/profile", async (req, res): Promise<void> => {
         gender: updatedProfile.gender,
         goalMode: updatedProfile.goalMode,
         activityLevel: updatedProfile.activityLevel,
+        customParams,
       },
       "manual_edit"
     );
@@ -295,6 +367,7 @@ router.patch("/profile", async (req, res): Promise<void> => {
     trigger: newPlan.trigger,
     active: newPlan.active,
     createdAt: newPlan.createdAt.toISOString(),
+    isCustomGoal: newPlan.isCustomGoal,
     profile: {
       id: updatedProfile.id,
       heightCm: updatedProfile.heightCm,
@@ -309,6 +382,9 @@ router.patch("/profile", async (req, res): Promise<void> => {
       dietaryPreferences: updatedProfile.dietaryPreferences as string[],
       injuryFlags: updatedProfile.injuryFlags as string[],
       goalOverride: updatedProfile.goalOverride,
+      customProteinPerKg: updatedProfile.customProteinPerKg,
+      customFatPerKg: updatedProfile.customFatPerKg,
+      customDeficitKcal: updatedProfile.customDeficitKcal,
     },
   });
 });

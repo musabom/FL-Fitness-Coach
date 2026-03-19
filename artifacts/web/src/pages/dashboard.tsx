@@ -173,6 +173,7 @@ export default function Dashboard() {
     cut: "Lose body fat",
     lean_bulk: "Build lean muscle",
     maintenance: "Maintain weight",
+    custom: "Custom Plan",
   };
 
   const weightGapStr = plan.weightKg > plan.targetWeightKg

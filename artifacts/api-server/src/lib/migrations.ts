@@ -40,6 +40,9 @@ async function runMigrationsInternal(): Promise<void> {
       dietary_preferences JSONB DEFAULT '[]',
       injury_flags JSONB DEFAULT '[]',
       goal_override BOOLEAN DEFAULT FALSE,
+      custom_protein_per_kg REAL,
+      custom_fat_per_kg REAL,
+      custom_deficit_kcal INTEGER,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
@@ -532,4 +535,10 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_plan_completions_user_date ON meal_plan_completions(user_id, date)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_meal_portion_completions_user_date ON meal_portion_completions(user_id, date)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_food_stock_user ON food_stock(user_id)`);
+
+  // ── Custom Goal Mode columns ─────────────────────────────────────────────────
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_custom_goal BOOLEAN DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_protein_rate REAL`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_fat_rate REAL`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_deficit_kcal INTEGER`);
 }

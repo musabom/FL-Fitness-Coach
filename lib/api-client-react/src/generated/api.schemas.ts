@@ -66,6 +66,7 @@ export const OnboardingBodyGoalMode = {
   cut: "cut",
   lean_bulk: "lean_bulk",
   maintenance: "maintenance",
+  custom: "custom",
 } as const;
 
 export type OnboardingBodyActivityLevel =
@@ -148,6 +149,9 @@ export interface OnboardingBody {
   dietaryPreferences: OnboardingBodyDietaryPreferencesItem[];
   injuryFlags: OnboardingBodyInjuryFlagsItem[];
   goalOverride?: boolean;
+  customProteinPerKg?: number;
+  customFatPerKg?: number;
+  customDeficitKcal?: number;
 }
 
 export type UpdateProfileBodyGender =
@@ -167,6 +171,7 @@ export const UpdateProfileBodyGoalMode = {
   cut: "cut",
   lean_bulk: "lean_bulk",
   maintenance: "maintenance",
+  custom: "custom",
 } as const;
 
 export type UpdateProfileBodyActivityLevel =
@@ -249,6 +254,9 @@ export interface UpdateProfileBody {
   dietaryPreferences?: UpdateProfileBodyDietaryPreferencesItem[];
   injuryFlags?: UpdateProfileBodyInjuryFlagsItem[];
   goalOverride?: boolean;
+  customProteinPerKg?: number;
+  customFatPerKg?: number;
+  customDeficitKcal?: number;
 }
 
 export interface ProfileResponse {
@@ -265,6 +273,9 @@ export interface ProfileResponse {
   dietaryPreferences: string[];
   injuryFlags: string[];
   goalOverride: boolean;
+  customProteinPerKg?: number | null;
+  customFatPerKg?: number | null;
+  customDeficitKcal?: number | null;
 }
 
 export interface PlanResponse {

@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { usersTable } from "./users";
 
 export const genderEnum = pgEnum("gender", ["male", "female", "prefer_not_to_say"]);
-export const goalModeEnum = pgEnum("goal_mode", ["cut", "recomposition", "lean_bulk", "maintenance"]);
+export const goalModeEnum = pgEnum("goal_mode", ["cut", "recomposition", "lean_bulk", "maintenance", "custom"]);
 export const activityLevelEnum = pgEnum("activity_level", ["sedentary", "lightly_active", "moderately_active", "very_active"]);
 export const trainingLocationEnum = pgEnum("training_location", ["gym", "home", "both"]);
 
@@ -23,6 +23,9 @@ export const userProfilesTable = pgTable("user_profiles", {
   dietaryPreferences: jsonb("dietary_preferences").notNull().default([]),
   injuryFlags: jsonb("injury_flags").notNull().default([]),
   goalOverride: boolean("goal_override").notNull().default(false),
+  customProteinPerKg: real("custom_protein_per_kg"),
+  customFatPerKg: real("custom_fat_per_kg"),
+  customDeficitKcal: integer("custom_deficit_kcal"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

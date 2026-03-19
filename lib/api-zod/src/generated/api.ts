@@ -96,13 +96,16 @@ export const CompleteOnboardingBody = zod.object({
     .min(completeOnboardingBodyAgeMin)
     .max(completeOnboardingBodyAgeMax),
   gender: zod.enum(["male", "female", "prefer_not_to_say"]),
-  goalMode: zod.enum(["recomposition", "cut", "lean_bulk", "maintenance"]),
+  goalMode: zod.enum(["recomposition", "cut", "lean_bulk", "maintenance", "custom"]),
   activityLevel: zod.enum([
     "sedentary",
     "lightly_active",
     "moderately_active",
     "very_active",
   ]),
+  customProteinPerKg: zod.number().min(0.5).max(5).optional(),
+  customFatPerKg: zod.number().min(0.1).max(5).optional(),
+  customDeficitKcal: zod.number().min(-1500).max(1500).optional(),
   trainingDays: zod.union([
     zod.literal(3),
     zod.literal(4),
@@ -181,7 +184,7 @@ export const UpdateProfileBody = zod.object({
     .optional(),
   gender: zod.enum(["male", "female", "prefer_not_to_say"]).optional(),
   goalMode: zod
-    .enum(["recomposition", "cut", "lean_bulk", "maintenance"])
+    .enum(["recomposition", "cut", "lean_bulk", "maintenance", "custom"])
     .optional(),
   activityLevel: zod
     .enum(["sedentary", "lightly_active", "moderately_active", "very_active"])
@@ -206,6 +209,9 @@ export const UpdateProfileBody = zod.object({
     .array(zod.enum(["knee", "shoulder", "lower_back", "none"]))
     .optional(),
   goalOverride: zod.boolean().optional(),
+  customProteinPerKg: zod.number().min(0.5).max(5).optional(),
+  customFatPerKg: zod.number().min(0.1).max(5).optional(),
+  customDeficitKcal: zod.number().min(-1500).max(1500).optional(),
 });
 
 export const UpdateProfileResponse = zod.object({
