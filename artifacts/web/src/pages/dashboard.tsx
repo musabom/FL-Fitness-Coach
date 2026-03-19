@@ -239,8 +239,8 @@ export default function Dashboard() {
               <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
                 <div className="flex gap-3">
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Daily Target</span>
-                    <span className="text-2xl font-bold text-foreground">{Math.round(todayData?.calorieTarget ?? 0)}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
+                    <span className="text-2xl font-bold text-foreground">{Math.round(todayData?.nutrition.consumed.calories ?? 0)}</span>
                     <span className="text-xs text-muted-foreground">kcal</span>
                   </div>
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
@@ -251,11 +251,6 @@ export default function Dashboard() {
                       <div>{Math.round(todayData?.tdeeEstimated ?? 0)} kcal baseline</div>
                       {(todayData?.workoutBurned ?? 0) > 0 && <div>+{Math.round(todayData?.workoutBurned ?? 0)} kcal exercise</div>}
                     </div>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
-                    <span className="text-2xl font-bold text-foreground">{Math.round(todayData?.nutrition.consumed.calories ?? 0)}</span>
-                    <span className="text-xs text-muted-foreground">kcal</span>
                   </div>
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
