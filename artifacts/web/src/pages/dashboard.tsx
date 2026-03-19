@@ -224,6 +224,145 @@ export default function Dashboard() {
         {/* ─── DAILY VIEW ─── */}
         {view === "daily" && (
           <>
+            {/* AM I ON TRACK? Card */}
+            <section className="py-4">
+              <Card className="p-5 bg-[#1A1A1A] border-none">
+                <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-4">Am I On Track?</h3>
+                
+                {/* Table */}
+                <div className="space-y-3">
+                  {/* Row 1: Calories */}
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Consumed */}
+                    <div className="text-center">
+                      <div className="text-sm font-bold text-foreground">{Math.round(consumed.calories)} kcal</div>
+                      {training.burned_calories > 0 && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">−{Math.round(training.burned_calories)} trained</div>
+                      )}
+                      <div className={`text-lg font-bold mt-1 ${training.burned_calories > 0 ? "text-foreground" : "text-foreground"}`}>
+                        {Math.round(consumed.calories - training.burned_calories)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">net</div>
+                    </div>
+                    
+                    {/* Target */}
+                    <div className="text-center">
+                      <div className="text-sm font-bold text-foreground">{Math.round(plan.calorieTarget)} kcal</div>
+                      {training.planned_calories > 0 && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">−{Math.round(training.planned_calories)} planned</div>
+                      )}
+                      <div className={`text-lg font-bold mt-1 ${training.planned_calories > 0 ? "text-foreground" : "text-foreground"}`}>
+                        {Math.round(plan.calorieTarget - training.planned_calories)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">net</div>
+                    </div>
+                    
+                    {/* Variance */}
+                    <div className="text-center">
+                      <div className="h-1 bg-white/5 rounded-full my-2" />
+                      <div className={`text-lg font-bold ${
+                        (() => {
+                          const consumedNet = consumed.calories - training.burned_calories;
+                          const targetNet = plan.calorieTarget - training.planned_calories;
+                          const variance = consumedNet - targetNet;
+                          if (variance <= 0) return "text-primary";
+                          const pct = Math.abs(variance) / targetNet;
+                          return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                        })()
+                      }`}>
+                        {(() => {
+                          const consumedNet = consumed.calories - training.burned_calories;
+                          const targetNet = plan.calorieTarget - training.planned_calories;
+                          const variance = consumedNet - targetNet;
+                          return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}`;
+                        })()}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">kcal</div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="h-px bg-white/5" />
+
+                  {/* Row 2: Protein */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(consumed.protein_g)}g</div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(planned.protein_g || plan.proteinG)}g</div>
+                    </div>
+                    <div className={`text-center text-sm font-bold ${
+                      (() => {
+                        const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
+                        if (variance <= 0) return "text-primary";
+                        const pct = Math.abs(variance) / (planned.protein_g || plan.proteinG);
+                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                      })()
+                    }`}>
+                      {(() => {
+                        const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
+                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}g`;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Row 3: Carbs */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(consumed.carbs_g)}g</div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(planned.carbs_g || plan.carbsG)}g</div>
+                    </div>
+                    <div className={`text-center text-sm font-bold ${
+                      (() => {
+                        const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
+                        if (variance <= 0) return "text-primary";
+                        const pct = Math.abs(variance) / (planned.carbs_g || plan.carbsG);
+                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                      })()
+                    }`}>
+                      {(() => {
+                        const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
+                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}g`;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Row 4: Fat */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(consumed.fat_g)}g</div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(planned.fat_g || plan.fatG)}g</div>
+                    </div>
+                    <div className={`text-center text-sm font-bold ${
+                      (() => {
+                        const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
+                        if (variance <= 0) return "text-primary";
+                        const pct = Math.abs(variance) / (planned.fat_g || plan.fatG);
+                        return pct > 0.05 ? "text-red-500" : "text-amber-500";
+                      })()
+                    }`}>
+                      {(() => {
+                        const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
+                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}g`;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column headers below */}
+                <div className="grid grid-cols-3 gap-4 mt-4 pt-3 border-t border-white/5">
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Consumed</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Target</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variance</div>
+                </div>
+              </Card>
+            </section>
+
             {/* Daily Target */}
             <section className="py-4 flex flex-col items-center">
               <div className="text-xs font-semibold tracking-widest text-primary uppercase mb-2">Daily Target</div>

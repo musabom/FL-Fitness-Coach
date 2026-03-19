@@ -1,0 +1,57 @@
+This is part of an existing project. Do not remove or change anything that already exists. Only add one new card at the very top of the dashboard, above everything else.
+
+Add "Am I On Track?" Card
+Add a new card at the very top of the daily dashboard view, above the existing daily target number and all other sections. Do not touch anything below it.
+
+The card
+Title: AM I ON TRACK?
+Three columns: CONSUMED — TARGET — VARIANCE
+Five rows: Calories — burn line — Protein — Carbs — Fat
+
+How each column is calculated
+CONSUMED column:
+
+Calories: food eaten today from meal plan completions
+Burn line below calories: actual workout calories burned today from completed workouts. Show as −X kcal training in small muted grey. Only show if workouts were completed today.
+Net calories: food eaten minus actual burned
+Protein, Carbs, Fat: consumed from meal plan today
+
+TARGET column:
+
+Calories: food calorie target from the active plan
+Burn line below calories: planned workout calories from workouts scheduled for today in the training plan. Show as −X kcal planned in small muted grey. Only show if workouts are scheduled today.
+Net calories: food target minus planned burn
+Protein, Carbs, Fat: macro targets from the active plan
+
+VARIANCE column:
+
+Net calories: consumed net minus target net
+Protein, Carbs, Fat: consumed minus target for each macro
+Negative = teal. Positive over target = amber. Over by more than 5% = red.
+
+
+What it looks like with real numbers
+AM I ON TRACK?
+
+              CONSUMED      TARGET       VARIANCE
+Calories      1,505 kcal    1,751 kcal
+              −300 trained  −300 planned
+              ──────────    ──────────   ──────────
+              1,205 net     1,451 net    −246 kcal
+
+Protein       132g          187g         −55g
+Carbs         142g          136g         +6g
+Fat           40g           51g          −11g
+
+Design
+Same dark card style as all existing cards. Column headers in small muted caps. Net calories in larger bold text. Burn lines in small muted grey. Variance values coloured per rules above. Card sits at the very top of the daily tab before any other content.
+
+Acceptance test
+
+New card appears at the top of the daily dashboard above everything else
+All existing cards and sections remain exactly as they are below it
+User has eaten 1,505 kcal and completed 300 kcal workout — consumed shows 1,205 net
+Target shows 1,451 net based on 1,751 food target minus 300 planned training
+Variance shows −246 in teal
+No workout completed today — training burn line does not appear in consumed
+No workout scheduled today — planned burn line does not appear in target
