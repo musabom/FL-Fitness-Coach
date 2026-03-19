@@ -230,9 +230,9 @@ router.get("/progress", async (req, res): Promise<void> => {
 
   // ── 6. Daily Deficit data ──────────────────────────────────────────────────
   
-  // Get current plan info
+  // Get current plan info (latest version)
   const planRes = await pool.query(
-    `SELECT tdee_estimated, calorie_target FROM plans WHERE user_id = $1 AND is_active = TRUE LIMIT 1`,
+    `SELECT tdee_estimated, calorie_target FROM plans WHERE user_id = $1 ORDER BY version DESC LIMIT 1`,
     [userId]
   );
   const plan = planRes.rows[0];
@@ -242,9 +242,16 @@ router.get("/progress", async (req, res): Promise<void> => {
 
   // Get daily consumed calories from meal_portion_completions
   const consumedCaloriesRes = await pool.query(
-    `SELECT mpc.date::text AS date, SUM(mp.calories) AS total_calories
+    `SELECT mpc.date::text AS date,
+       COALESCE(SUM(
+         CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
+           ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END
+       ), 0) AS total_calories
      FROM meal_portion_completions mpc
-     JOIN meal_portions mp ON mpc.portion_id = mp.id
+     JOIN meal_portions mp ON mp.id = mpc.portion_id
+     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
      WHERE mpc.user_id = $1 AND mpc.date >= $2
      GROUP BY mpc.date`,
     [userId, startDate]
