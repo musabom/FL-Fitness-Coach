@@ -335,7 +335,31 @@ export default function Dashboard() {
                 </div>
 
                 {/* TODAY'S DEFICIT */}
-                <div className="mt-6 pt-4 border-t border-white/5">
+                <div className="mt-6 pt-4 border-t border-white/5 space-y-2.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Daily Deficit</h4>
+                  
+                  {/* Maintenance (TDEE) */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Maintenance</span>
+                    <span className="font-bold text-foreground">{Math.round(plan.tdeeEstimated ?? 0)} kcal</span>
+                  </div>
+
+                  {/* Consumed */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Consumed</span>
+                    <span className="font-bold text-foreground">{Math.round(consumed.calories ?? 0)} kcal</span>
+                  </div>
+
+                  {/* Training Burn */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Training burn</span>
+                    <span className="font-bold text-foreground">{Math.round(training.burned_calories ?? 0)} kcal</span>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="h-px bg-white/10 my-2" />
+
+                  {/* Total Deficit */}
                   {(() => {
                     const tdee = plan.tdeeEstimated ?? 0;
                     const consumedCals = consumed.calories ?? 0;
@@ -347,8 +371,8 @@ export default function Dashboard() {
                     if (dailyDeficit < -200) color = "text-red-500"; // red if less than -200
                     
                     return (
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Daily Deficit</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-semibold text-foreground">Total</span>
                         <span className={`text-lg font-bold ${color}`}>
                           {dailyDeficit >= 0 ? "+" : ""}{Math.round(dailyDeficit)} kcal
                         </span>
