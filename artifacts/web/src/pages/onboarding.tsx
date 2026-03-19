@@ -90,6 +90,7 @@ export default function Onboarding() {
   const [availableGoals, setAvailableGoals] = useState<GoalOption[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(false);
   const [saveAnyway, setSaveAnyway] = useState(false);
+  const [touchedCustomFields, setTouchedCustomFields] = useState({ protein: false, fat: false, deficit: false });
 
   useEffect(() => {
     if (step === 2) {
@@ -115,6 +116,25 @@ export default function Onboarding() {
     return getCustomWarnings(customParams, Number(formData.weightKg));
   }, [formData.goalMode, customParams, formData.weightKg]);
 
+  const visibleWarnings = useMemo(() => {
+    if (formData.goalMode !== "custom") return [];
+    const warnings: string[] = [];
+    const p = Number(customParams.proteinPerKg);
+    const f = Number(customParams.fatPerKg);
+    const d = Number(customParams.deficitKcal);
+    if (touchedCustomFields.protein && customParams.proteinPerKg && (p < SAFE_PROTEIN_MIN || p > SAFE_PROTEIN_MAX)) {
+      warnings.push(`Protein (${p}g/kg) is outside the safe range of ${SAFE_PROTEIN_MIN}–${SAFE_PROTEIN_MAX}g/kg`);
+    }
+    if (touchedCustomFields.fat && customParams.fatPerKg && (f < SAFE_FAT_MIN || f > SAFE_FAT_MAX)) {
+      warnings.push(`Fat (${f}g/kg) is outside the safe range of ${SAFE_FAT_MIN}–${SAFE_FAT_MAX}g/kg`);
+    }
+    if (touchedCustomFields.deficit && customParams.deficitKcal && Math.abs(d) > SAFE_DEFICIT_ABS_MAX) {
+      const label = d > 0 ? `deficit of ${d} kcal` : `surplus of ${Math.abs(d)} kcal`;
+      warnings.push(`Calorie ${label} exceeds the safe limit of ±${SAFE_DEFICIT_ABS_MAX} kcal`);
+    }
+    return warnings;
+  }, [touchedCustomFields, customParams, formData.goalMode]);
+
   const customPreview = useMemo(() => {
     if (formData.goalMode !== "custom") return null;
     const weight = Number(formData.weightKg);
@@ -135,6 +155,10 @@ export default function Onboarding() {
   }, [formData.goalMode, customParams, formData.weightKg, formData.heightCm, formData.age, formData.gender]);
 
   const handleNext = () => {
+    if (step === 2 && formData.goalMode === "custom" && customWarnings.length > 0) {
+      setTouchedCustomFields({ protein: true, fat: true, deficit: true });
+      return;
+    }
     if (step < totalSteps) {
       setStep(s => s + 1);
     } else {
@@ -189,7 +213,7 @@ export default function Onboarding() {
     }
   };
 
-  const hasActiveWarnings = formData.goalMode === "custom" && customWarnings.length > 0 && step === totalSteps;
+  const hasActiveWarnings = formData.goalMode === "custom" && visibleWarnings.length > 0 && step === 2;
 
   const renderStepContent = (): React.ReactNode => {
     switch (step) {
@@ -295,7 +319,10 @@ export default function Onboarding() {
                     title={opt.label}
                     description={opt.description}
                     selected={formData.goalMode === opt.mode}
-                    onClick={() => setFormData({ ...formData, goalMode: opt.mode })}
+                    onClick={() => {
+                      setFormData({ ...formData, goalMode: opt.mode });
+                      if (opt.mode !== "custom") setTouchedCustomFields({ protein: false, fat: false, deficit: false });
+                    }}
                   />
                 ))}
 
@@ -321,6 +348,7 @@ export default function Onboarding() {
                             max="5"
                             value={customParams.proteinPerKg}
                             onChange={e => setCustomParams({ ...customParams, proteinPerKg: e.target.value })}
+                            onBlur={() => setTouchedCustomFields(t => ({ ...t, protein: true }))}
                             className="pr-16"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">g/kg</span>
@@ -340,6 +368,7 @@ export default function Onboarding() {
                             max="5"
                             value={customParams.fatPerKg}
                             onChange={e => setCustomParams({ ...customParams, fatPerKg: e.target.value })}
+                            onBlur={() => setTouchedCustomFields(t => ({ ...t, fat: true }))}
                             className="pr-16"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">g/kg</span>
@@ -359,6 +388,7 @@ export default function Onboarding() {
                             max="1500"
                             value={customParams.deficitKcal}
                             onChange={e => setCustomParams({ ...customParams, deficitKcal: e.target.value })}
+                            onBlur={() => setTouchedCustomFields(t => ({ ...t, deficit: true }))}
                             className="pr-16"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kcal</span>
@@ -465,7 +495,7 @@ export default function Onboarding() {
       <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-background via-background to-transparent pt-12">
         {hasActiveWarnings && !saveAnyway && (
           <div className="mb-4 space-y-2">
-            {customWarnings.map((w, i) => (
+            {visibleWarnings.map((w, i) => (
               <div key={i} className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-sm">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{w}</span>
@@ -476,17 +506,17 @@ export default function Onboarding() {
                 variant="outline"
                 className="flex-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
                 size="lg"
-                onClick={() => setStep(s => s - 1)}
+                onClick={() => setTouchedCustomFields({ protein: false, fat: false, deficit: false })}
               >
                 Adjust values
               </Button>
               <Button
                 className="flex-1"
                 size="lg"
-                onClick={() => { setSaveAnyway(true); submitForm(true); }}
+                onClick={() => { setSaveAnyway(true); setStep(s => s + 1); }}
                 disabled={completeOnboarding.isPending}
               >
-                {completeOnboarding.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save anyway"}
+                Continue anyway
               </Button>
             </div>
           </div>
