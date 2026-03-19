@@ -202,7 +202,6 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
-
       <main className="px-6 pt-6 space-y-6">
 
         {/* Toggle */}
@@ -229,7 +228,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-6">
                 {/* TDEE Baseline — Left */}
                 <div className="flex flex-col items-center">
-                  <div className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-2">TDEE</div>
+                  <div className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-2">Maintenance Calories</div>
                   <div className="text-5xl font-light tracking-tighter text-muted-foreground">{Math.round(plan.tdeeEstimated)}</div>
                   <div className="text-xs text-muted-foreground mt-1">baseline</div>
                 </div>
