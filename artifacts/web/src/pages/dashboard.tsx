@@ -228,102 +228,112 @@ export default function Dashboard() {
             <section className="py-4">
               <Card className="p-5 bg-[#1A1A1A] border-none">
                 <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-4">Am I On Track?</h3>
-                
+
+                {/* Column headers */}
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"></div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Consumed</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Target</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variance</div>
+                </div>
+
                 {/* Table */}
-                <div className="space-y-3">
+                <div className="space-y-1">
                   {/* Row 1: Calories */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.calories)} kcal</div>
+                  <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
+                    <div className="flex items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">Calories</span>
                     </div>
                     <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(plan.calorieTarget)} kcal</div>
+                      <div className="font-bold text-foreground">{Math.round(consumed.calories)}<span className="text-[10px] text-muted-foreground ml-0.5">kcal</span></div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(plan.calorieTarget)}<span className="text-[10px] text-muted-foreground ml-0.5">kcal</span></div>
                     </div>
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.calories - plan.calorieTarget;
-                        return variance <= 0 ? "text-green-500" : "text-red-500";
+                        return variance >= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
                         const variance = consumed.calories - plan.calorieTarget;
-                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}`;
+                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}`;
                       })()}
                     </div>
                   </div>
 
-                  {/* Divider */}
-                  <div className="h-px bg-white/5" />
-
                   {/* Row 2: Protein */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.protein_g)}g</div>
+                  <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
+                    <div className="flex items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">Protein</span>
                     </div>
                     <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(planned.protein_g || plan.proteinG)}g</div>
+                      <div className="font-bold text-foreground">{Math.round(consumed.protein_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(planned.protein_g || plan.proteinG)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
                     </div>
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
-                        return variance <= 0 ? "text-green-500" : "text-red-500";
+                        return variance >= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
                         const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
-                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}g`;
+                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}g`;
                       })()}
                     </div>
                   </div>
 
                   {/* Row 3: Carbs */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.carbs_g)}g</div>
+                  <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
+                    <div className="flex items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">Carbs</span>
                     </div>
                     <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(planned.carbs_g || plan.carbsG)}g</div>
+                      <div className="font-bold text-foreground">{Math.round(consumed.carbs_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(planned.carbs_g || plan.carbsG)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
                     </div>
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
-                        return variance <= 0 ? "text-green-500" : "text-red-500";
+                        return variance >= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
                         const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
-                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}g`;
+                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}g`;
                       })()}
                     </div>
                   </div>
 
                   {/* Row 4: Fat */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.fat_g)}g</div>
+                  <div className="grid grid-cols-4 gap-2 py-2.5">
+                    <div className="flex items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">Fats</span>
                     </div>
                     <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(planned.fat_g || plan.fatG)}g</div>
+                      <div className="font-bold text-foreground">{Math.round(consumed.fat_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
+                    </div>
+                    <div className="text-center text-sm">
+                      <div className="font-bold text-foreground">{Math.round(planned.fat_g || plan.fatG)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
                     </div>
                     <div className={`text-center text-sm font-bold ${
                       (() => {
                         const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
-                        return variance <= 0 ? "text-green-500" : "text-red-500";
+                        return variance >= 0 ? "text-green-500" : "text-red-500";
                       })()
                     }`}>
                       {(() => {
                         const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
-                        return `${variance <= 0 ? "−" : "+"}${Math.abs(Math.round(variance))}g`;
+                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}g`;
                       })()}
                     </div>
                   </div>
-                </div>
-
-                {/* Column headers below */}
-                <div className="grid grid-cols-3 gap-4 mt-4 pt-3 border-t border-white/5">
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Consumed</div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Target</div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variance</div>
                 </div>
 
                 {/* TODAY'S DEFICIT */}
