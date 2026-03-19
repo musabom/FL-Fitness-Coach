@@ -166,12 +166,13 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
   const profileRes = await pool.query(`SELECT weight_kg FROM user_profiles WHERE user_id = $1`, [userId]);
   const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
 
-  // Fetch plan for metabolic rate (TDEE)
+  // Fetch plan (calorie target and TDEE)
   const planRes = await pool.query(
-    `SELECT calorie_target FROM plans WHERE user_id = $1 AND active = true ORDER BY created_at DESC LIMIT 1`,
+    `SELECT calorie_target, tdee_estimated FROM plans WHERE user_id = $1 AND active = true ORDER BY created_at DESC LIMIT 1`,
     [userId]
   );
-  const tdee = planRes.rows[0] ? Number(planRes.rows[0].calorie_target) : 0;
+  const calorieTarget = planRes.rows[0] ? Number(planRes.rows[0].calorie_target) : 0;
+  const tdeeEstimated = planRes.rows[0] ? Number(planRes.rows[0].tdee_estimated) : 0;
 
   const [nutrition, training] = await Promise.all([
     getNutritionData(userId, dateStr),
@@ -179,10 +180,10 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
   ]);
 
   // Calculate balance: consumed - (metabolic rate + exercise burn)
-  const totalBurned = tdee + training.burned_calories;
+  const totalBurned = tdeeEstimated + training.burned_calories;
   const balance = nutrition.consumed.calories - totalBurned;
 
-  res.json({ date: dateStr, nutrition, training, tdee, totalBurned, balance });
+  res.json({ date: dateStr, nutrition, training, calorieTarget, tdeeEstimated, workoutBurned: training.burned_calories, totalBurned, balance });
 });
 
 // GET /dashboard/weekly?week_start=YYYY-MM-DD  (defaults to current Mon)
