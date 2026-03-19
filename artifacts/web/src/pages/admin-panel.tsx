@@ -15,6 +15,7 @@ interface AdminUser {
   full_name: string | null;
   role: string;
   created_at: string;
+  is_active: boolean;
   goal_mode: string | null;
   coach_name: string | null;
 }
@@ -97,6 +98,19 @@ function UsersTab() {
     onError: () => toast({ title: "Failed to update role", variant: "destructive" }),
   });
 
+  const deactivateMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/admin/users/${id}/deactivate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      toast({ title: "User deactivated" });
+    },
+    onError: () => toast({ title: "Failed to deactivate user", variant: "destructive" }),
+  });
+
   const users = (usersQuery.data ?? []).filter(u =>
     `${u.email} ${u.full_name ?? ""}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -118,10 +132,15 @@ function UsersTab() {
       ) : (
         <div className="space-y-2">
           {users.map(user => (
-            <div key={user.id} className="bg-card border border-card-border rounded-xl p-4">
+            <div key={user.id} className={`bg-card border border-card-border rounded-xl p-4 ${!user.is_active ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-medium text-sm">{user.full_name || "—"}</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">{user.full_name || "—"}</p>
+                    {!user.is_active && (
+                      <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">Inactive</span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
                   {user.coach_name && (
                     <p className="text-xs text-muted-foreground mt-0.5">Coach: {user.coach_name}</p>
@@ -136,7 +155,7 @@ function UsersTab() {
                     variant="outline"
                     className="text-xs h-7 px-2"
                     onClick={() => changeRoleMutation.mutate({ id: user.id, role: "member" })}
-                    disabled={changeRoleMutation.isPending}
+                    disabled={changeRoleMutation.isPending || !user.is_active}
                   >
                     <User className="w-3 h-3 mr-1" /> Set Member
                   </Button>
@@ -147,9 +166,20 @@ function UsersTab() {
                     variant="outline"
                     className="text-xs h-7 px-2"
                     onClick={() => changeRoleMutation.mutate({ id: user.id, role: "coach" })}
-                    disabled={changeRoleMutation.isPending}
+                    disabled={changeRoleMutation.isPending || !user.is_active}
                   >
                     <UserCheck className="w-3 h-3 mr-1" /> Set Coach
+                  </Button>
+                )}
+                {user.is_active && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                    onClick={() => deactivateMutation.mutate(user.id)}
+                    disabled={deactivateMutation.isPending}
+                  >
+                    {deactivateMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <X className="w-3 h-3 mr-1" />} Deactivate
                   </Button>
                 )}
               </div>

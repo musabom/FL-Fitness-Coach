@@ -12,7 +12,7 @@ router.get("/admin/users", async (req, res): Promise<void> => {
 
   const result = await pool.query(`
     SELECT
-      u.id, u.email, u.full_name, u.role, u.created_at,
+      u.id, u.email, u.full_name, u.role, u.created_at, u.is_active,
       u.coach_id,
       c.full_name AS coach_name,
       up.goal_mode, up.weight_kg, up.target_weight_kg
@@ -50,6 +50,22 @@ router.put("/admin/users/:id/role", async (req, res): Promise<void> => {
   }
 
   res.json({ message: "Role updated" });
+});
+
+router.post("/admin/users/:id/deactivate", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const targetId = parseInt(req.params["id"], 10);
+
+  if (targetId === adminId) {
+    res.status(400).json({ error: "Cannot deactivate your own account" });
+    return;
+  }
+
+  await pool.query(`UPDATE users SET is_active = false WHERE id = $1`, [targetId]);
+
+  res.json({ message: "User deactivated" });
 });
 
 // ── Coach-Client Assignment ──────────────────────────────────────────────────
