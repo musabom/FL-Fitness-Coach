@@ -9,6 +9,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getExerciseImageUrl } from "@/lib/exercise-images";
+import BottomNav from "@/components/bottom-nav";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -474,7 +475,7 @@ export default function WorkoutPlan() {
   const existingWorkoutIds = useMemo(() => new Set(entries.map(e => e.workout.id)), [entries]);
 
   return (
-    <div className="mobile-container flex flex-col bg-background min-h-screen">
+    <div className="mobile-container flex flex-col bg-background min-h-screen pb-24">
       {/* Header */}
       <header className="px-5 pt-6 pb-4 flex items-center justify-between sticky top-0 bg-background/90 backdrop-blur-xl z-20 border-b border-border/40">
         <Link href="/dashboard">
@@ -658,6 +659,7 @@ export default function WorkoutPlan() {
           </div>
         </div>
       )}
+      <BottomNav />
     </div>
   );
 }

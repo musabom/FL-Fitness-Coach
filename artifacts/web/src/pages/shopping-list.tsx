@@ -8,6 +8,7 @@ import {
 import { customFetch } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import BottomNav from "@/components/bottom-nav";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -240,7 +241,7 @@ export default function ShoppingList() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-24">
         {/* Summary cards */}
         {scheduledItems.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
@@ -381,6 +382,7 @@ export default function ShoppingList() {
 
         <div className="h-6" />
       </div>
+      <BottomNav />
     </div>
   );
 }

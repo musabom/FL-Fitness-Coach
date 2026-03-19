@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { getExerciseImageUrl } from "@/lib/exercise-images";
+import BottomNav from "@/components/bottom-nav";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -950,7 +951,7 @@ export default function TrainingBuilder() {
   const todayBurn = todayWorkouts.reduce((sum, w) => sum + w.total_calories, 0);
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-foreground max-w-[430px] mx-auto flex flex-col">
+    <div className="min-h-screen bg-[#0F0F0F] text-foreground max-w-[430px] mx-auto flex flex-col pb-24">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-5 pb-4 border-b border-border/30 sticky top-0 bg-[#0F0F0F]/90 backdrop-blur-xl z-10">
         <Link href="/dashboard">
@@ -1046,6 +1047,7 @@ export default function TrainingBuilder() {
       </div>
 
       <CreateCustomExerciseSheet open={customExerciseOpen} onClose={() => setCustomExerciseOpen(false)} />
+      <BottomNav />
     </div>
   );
 }
