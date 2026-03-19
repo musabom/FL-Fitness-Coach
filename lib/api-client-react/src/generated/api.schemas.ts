@@ -304,6 +304,8 @@ export interface PlanResponse {
   trigger: string;
   active: boolean;
   createdAt: string;
+  isCustomGoal?: boolean;
+  carbsTooLow?: boolean;
   profile?: ProfileResponse;
 }
 

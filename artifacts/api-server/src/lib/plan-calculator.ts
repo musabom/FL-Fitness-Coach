@@ -20,6 +20,7 @@ interface PlanResult {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  carbsTooLow: boolean;
   tdeeEstimated: number;
   deficitSurplusKcal: number;
   bfEstimatePct: number;
@@ -154,6 +155,7 @@ export function calculatePlan(input: PlanInput): PlanResult {
       proteinG,
       carbsG,
       fatG,
+      carbsTooLow: carbsG < 50,
       tdeeEstimated: tdeeRounded,
       deficitSurplusKcal: -deficitKcal,
       bfEstimatePct: Math.round(bfPct * 10) / 10,
@@ -228,6 +230,7 @@ export function calculatePlan(input: PlanInput): PlanResult {
     proteinG,
     carbsG,
     fatG,
+    carbsTooLow: carbsG < 50,
     tdeeEstimated: Math.round(tdee),
     deficitSurplusKcal,
     bfEstimatePct: Math.round(bfPct * 10) / 10,

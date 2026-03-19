@@ -9,6 +9,18 @@ export async function runMigrations(): Promise<void> {
 }
 
 async function runMigrationsInternal(): Promise<void> {
+  // ── Enum Safety ──────────────────────────────────────────────────────────────
+  // goal_mode is stored as VARCHAR(20) in this schema, but some deployments may
+  // use a native PostgreSQL enum type. This block safely adds 'custom' if the
+  // type exists; it is a no-op otherwise.
+  await pool.query(`
+    DO $$ BEGIN
+      ALTER TYPE goal_mode ADD VALUE IF NOT EXISTS 'custom';
+    EXCEPTION WHEN undefined_object THEN
+      NULL;
+    END $$;
+  `);
+
   // ── User Tables ─────────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (

@@ -188,6 +188,7 @@ router.post("/onboarding", async (req, res): Promise<void> => {
       active: plan.active,
       createdAt: plan.createdAt.toISOString(),
       isCustomGoal: plan.isCustomGoal,
+      carbsTooLow: (plan.carbsG ?? 0) < 50,
       profile: {
         id: profile.id,
         heightCm: profile.heightCm,
@@ -368,6 +369,7 @@ router.patch("/profile", async (req, res): Promise<void> => {
     active: newPlan.active,
     createdAt: newPlan.createdAt.toISOString(),
     isCustomGoal: newPlan.isCustomGoal,
+    carbsTooLow: (newPlan.carbsG ?? 0) < 50,
     profile: {
       id: updatedProfile.id,
       heightCm: updatedProfile.heightCm,

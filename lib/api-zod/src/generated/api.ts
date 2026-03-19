@@ -236,6 +236,8 @@ export const UpdateProfileResponse = zod.object({
   trigger: zod.string(),
   active: zod.boolean(),
   createdAt: zod.date(),
+  isCustomGoal: zod.boolean().optional(),
+  carbsTooLow: zod.boolean().optional(),
   profile: zod
     .object({
       id: zod.number(),
@@ -280,6 +282,8 @@ export const GetActivePlanResponse = zod.object({
   trigger: zod.string(),
   active: zod.boolean(),
   createdAt: zod.date(),
+  isCustomGoal: zod.boolean().optional(),
+  carbsTooLow: zod.boolean().optional(),
   profile: zod
     .object({
       id: zod.number(),

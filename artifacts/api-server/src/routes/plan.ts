@@ -66,6 +66,8 @@ router.get("/plan/active", async (req, res): Promise<void> => {
     trigger: plan.trigger,
     active: plan.active,
     createdAt: plan.createdAt.toISOString(),
+    isCustomGoal: plan.isCustomGoal,
+    carbsTooLow: (plan.carbsG ?? 0) < 50,
     ...(profile ? {
       profile: {
         id: profile.id,
