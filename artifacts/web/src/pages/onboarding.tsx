@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useProfile } from "@/hooks/use-profile";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { OptionCard } from "@/components/OptionCard";
-import { ChevronLeft, Loader2, AlertTriangle } from "lucide-react";
+import { ChevronLeft, LogOut, Loader2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface OnboardingFormData {
@@ -69,6 +70,7 @@ function getCustomWarnings(params: CustomParams, weightKg: number): string[] {
 export default function Onboarding() {
   const { completeOnboarding, useGetAvailableGoals } = useProfile();
   const getGoalsMutation = useGetAvailableGoals();
+  const { logout } = useAuth();
   
   const [step, setStep] = useState(1);
   const totalSteps = 3;
@@ -506,7 +508,13 @@ export default function Onboarding() {
             <ChevronLeft className="w-5 h-5" />
           </button>
         ) : (
-          <div className="w-10 h-10" />
+          <button
+            onClick={() => logout.mutate()}
+            className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 active:scale-95 transition-all"
+            title="Sign out"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         )}
         <div className="flex-1">
           <Progress value={(step / totalSteps) * 100} />
