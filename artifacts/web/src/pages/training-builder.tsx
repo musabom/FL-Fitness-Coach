@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { getExerciseImageUrl } from "@/lib/exercise-images";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -430,31 +431,47 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
                   </Button>
                 </div>
               )}
-              {exercises.map(ex => (
-                <button
-                  key={ex.id}
-                  onClick={() => setSelectedExercise(ex)}
-                  className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] border border-border/30 hover:border-primary/40 active:scale-[0.99] transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-muted-foreground">{EQUIPMENT_ICONS[ex.equipment] || "[E]"}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm text-foreground truncate">{ex.exercise_name}</p>
-                        {ex.is_custom && <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 whitespace-nowrap">Custom</span>}
+              {exercises.map(ex => {
+                const imgUrl = getExerciseImageUrl(ex.exercise_name);
+                return (
+                  <button
+                    key={ex.id}
+                    onClick={() => setSelectedExercise(ex)}
+                    className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] border border-border/30 hover:border-primary/40 active:scale-[0.99] transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      {imgUrl ? (
+                        <img src={imgUrl} alt={ex.exercise_name} className="w-10 h-10 rounded object-cover bg-white/5 flex-shrink-0" />
+                      ) : (
+                        <span className="text-xs font-semibold text-muted-foreground">{EQUIPMENT_ICONS[ex.equipment] || "[E]"}</span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm text-foreground truncate">{ex.exercise_name}</p>
+                          {ex.is_custom && <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 whitespace-nowrap">Custom</span>}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{ex.muscle_primary} · {ex.equipment}</p>
                       </div>
-                      <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{ex.muscle_primary} · {ex.equipment}</p>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ex.exercise_type === "cardio" ? "bg-blue-500/15 text-blue-400" : "bg-primary/10 text-primary"}`}>
+                        {ex.exercise_type}
+                      </span>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ex.exercise_type === "cardio" ? "bg-blue-500/15 text-blue-400" : "bg-primary/10 text-primary"}`}>
-                      {ex.exercise_type}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </>
         ) : (
           <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-4">
+            {/* Exercise image */}
+            {getExerciseImageUrl(selectedExercise.exercise_name) && (
+              <img
+                src={getExerciseImageUrl(selectedExercise.exercise_name)!}
+                alt={selectedExercise.exercise_name}
+                className="w-full h-48 rounded-xl object-cover bg-white/5"
+              />
+            )}
+
             {/* Exercise info */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1A1A1A] border border-border/30">
               <span className="text-xs font-semibold text-muted-foreground px-2 py-1 bg-muted/30 rounded">{EQUIPMENT_ICONS[selectedExercise.equipment] || "[E]"}</span>

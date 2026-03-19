@@ -8,6 +8,7 @@ import {
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getExerciseImageUrl } from "@/lib/exercise-images";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -155,11 +156,12 @@ function CalendarPicker({ selectedDate, onSelectDate, onClose }: {
 
 // ── Workout card ──────────────────────────────────────────────────────────────
 
-function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise }: {
+function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onViewImage }: {
   entry: PlanEntry;
   onRemove: () => void;
   onToggleComplete: () => void;
   onToggleExercise: (weId: number) => void;
+  onViewImage?: (url: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const workout = entry.workout;
@@ -206,11 +208,17 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise }: {
           {workout.exercises.map(ex => {
             const isCardio = ex.exercise_type === "cardio";
             const equip = EQUIPMENT_ICONS[ex.equipment] ?? "";
+            const imgUrl = getExerciseImageUrl(ex.exercise_name);
             return (
               <div key={ex.id} className={`flex items-center gap-3 py-2.5 ${ex.completed ? "opacity-50" : ""}`}>
                 <button onClick={() => onToggleExercise(ex.id)} className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
                   {ex.completed ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5" />}
                 </button>
+                {imgUrl && (
+                  <button onClick={() => onViewImage?.(imgUrl)} className="shrink-0 w-10 h-10 rounded overflow-hidden hover:opacity-80 transition-opacity">
+                    <img src={imgUrl} alt={ex.exercise_name} className="w-full h-full object-cover" />
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={`text-sm font-medium ${ex.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>{ex.exercise_name}</span>
@@ -329,6 +337,7 @@ export default function WorkoutPlan() {
   const [date, setDate] = useState(getTodayLocal());
   const [showSheet, setShowSheet] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [imageModal, setImageModal] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const today = getTodayLocal();
 
@@ -603,6 +612,7 @@ export default function WorkoutPlan() {
               const ex = entry.workout.exercises.find(e => e.id === weId);
               if (ex) exerciseCompleteMutation.mutate({ workoutId: entry.workout.id, weId, completed: ex.completed });
             }}
+            onViewImage={(url) => setImageModal(url)}
           />
         ))}
       </div>
@@ -635,6 +645,18 @@ export default function WorkoutPlan() {
           onSelectDate={setDate}
           onClose={() => setShowCalendar(false)}
         />
+      )}
+
+      {/* Image modal */}
+      {imageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setImageModal(null)}>
+          <div className="relative max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setImageModal(null)} className="absolute top-2 right-2 z-10 p-1 bg-black/60 rounded-lg hover:bg-black/80 transition-colors">
+              <X className="w-5 h-5 text-white" />
+            </button>
+            <img src={imageModal} alt="Exercise" className="w-full rounded-xl object-contain" />
+          </div>
+        </div>
       )}
     </div>
   );
