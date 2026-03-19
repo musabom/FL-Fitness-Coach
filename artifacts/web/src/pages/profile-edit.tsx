@@ -12,14 +12,18 @@ interface ProfileFormData {
   weightKg: number;
   targetWeightKg: number;
   age: number;
+  gender: string;
   activityLevel: string;
-  trainingDays: number;
   goalMode: string;
 }
 
 interface CustomParams {
   proteinPerKg: string;
   fatPerKg: string;
+  deficitKcal: string;
+}
+
+interface PreprogrammedParams {
   deficitKcal: string;
 }
 
@@ -82,6 +86,9 @@ export default function ProfileEdit() {
     fatPerKg: "1.0",
     deficitKcal: "350",
   });
+  const [preprogrammedParams, setPreprogrammedParams] = useState<PreprogrammedParams>({
+    deficitKcal: "350",
+  });
   const [availableGoals, setAvailableGoals] = useState<GoalOption[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -94,14 +101,18 @@ export default function ProfileEdit() {
         weightKg: profile.weightKg,
         targetWeightKg: profile.targetWeightKg,
         age: profile.age,
+        gender: profile.gender,
         activityLevel: profile.activityLevel,
-        trainingDays: profile.trainingDays,
         goalMode: profile.goalMode,
       });
       if (profile.goalMode === "custom") {
         setCustomParams({
           proteinPerKg: String(profile.customProteinPerKg ?? "2.2"),
           fatPerKg: String(profile.customFatPerKg ?? "1.0"),
+          deficitKcal: String(profile.customDeficitKcal ?? "350"),
+        });
+      } else {
+        setPreprogrammedParams({
           deficitKcal: String(profile.customDeficitKcal ?? "350"),
         });
       }
@@ -166,7 +177,7 @@ export default function ProfileEdit() {
       weightKg: Number(formData.weightKg),
       targetWeightKg: Number(formData.targetWeightKg),
       age: Number(formData.age),
-      trainingDays: formData.trainingDays as 3 | 4 | 5 | 6,
+      gender: formData.gender,
       activityLevel: formData.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
       goalMode: formData.goalMode,
     };
@@ -174,6 +185,8 @@ export default function ProfileEdit() {
       payload.customProteinPerKg = Number(customParams.proteinPerKg);
       payload.customFatPerKg = Number(customParams.fatPerKg);
       payload.customDeficitKcal = Number(customParams.deficitKcal);
+    } else {
+      payload.customDeficitKcal = Number(preprogrammedParams.deficitKcal);
     }
 
     updateProfile.mutate(
@@ -252,6 +265,18 @@ export default function ProfileEdit() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Lifestyle</h2>
           
           <div className="space-y-1.5">
+            <label className="text-sm font-medium">Gender</label>
+            <select 
+              className="flex h-14 w-full rounded-xl border border-card-border bg-input px-4 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={formData.gender}
+              onChange={e => setFormData({...formData, gender: e.target.value})}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Activity Level</label>
             <select 
               className="flex h-14 w-full rounded-xl border border-card-border bg-input px-4 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -262,20 +287,6 @@ export default function ProfileEdit() {
               <option value="lightly_active">Lightly Active</option>
               <option value="moderately_active">Moderately Active</option>
               <option value="very_active">Very Active</option>
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Training Days</label>
-            <select 
-              className="flex h-14 w-full rounded-xl border border-card-border bg-input px-4 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={formData.trainingDays}
-              onChange={e => setFormData({...formData, trainingDays: Number(e.target.value)})}
-            >
-              <option value="3">3 Days</option>
-              <option value="4">4 Days</option>
-              <option value="5">5 Days</option>
-              <option value="6">6 Days</option>
             </select>
           </div>
         </section>
@@ -295,11 +306,44 @@ export default function ProfileEdit() {
                   title={opt.label}
                   description={opt.description}
                   selected={formData.goalMode === opt.mode}
-                  onClick={() => setFormData({ ...formData, goalMode: opt.mode })}
+                  onClick={() => {
+                    setFormData({ ...formData, goalMode: opt.mode });
+                    setPreprogrammedParams({ deficitKcal: "350" });
+                  }}
                 />
               ))}
 
               <AnimatePresence>
+                {formData.goalMode !== "custom" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="space-y-4"
+                  >
+                    <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Deficit / Surplus</p>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium flex justify-between">
+                          <span>Deficit / Surplus</span>
+                          <span className="text-muted-foreground text-xs">+deficit / −surplus</span>
+                        </label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="50"
+                            min="-1500"
+                            max="1500"
+                            value={preprogrammedParams.deficitKcal}
+                            onChange={e => setPreprogrammedParams({ ...preprogrammedParams, deficitKcal: e.target.value })}
+                            className="pr-16"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
                 {formData.goalMode === "custom" && (
                   <motion.div
                     initial={{ opacity: 0, y: -8 }}

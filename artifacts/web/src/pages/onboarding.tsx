@@ -87,6 +87,8 @@ export default function Onboarding() {
     deficitKcal: "350",
   });
 
+  const [preprogrammedDeficitKcal, setPreprogrammedDeficitKcal] = useState("350");
+
   const [availableGoals, setAvailableGoals] = useState<GoalOption[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(false);
   const [saveAnyway, setSaveAnyway] = useState(false);
@@ -179,8 +181,6 @@ export default function Onboarding() {
       gender: formData.gender as "male" | "female" | "prefer_not_to_say",
       goalMode: formData.goalMode as "cut" | "recomposition" | "lean_bulk" | "maintenance" | "custom",
       activityLevel: formData.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
-      trainingDays: 4,
-      trainingLocation: "gym",
       dietaryPreferences: [],
       injuryFlags: [],
     };
@@ -188,6 +188,8 @@ export default function Onboarding() {
       payload.customProteinPerKg = Number(customParams.proteinPerKg);
       payload.customFatPerKg = Number(customParams.fatPerKg);
       payload.customDeficitKcal = Number(customParams.deficitKcal);
+    } else {
+      payload.customDeficitKcal = Number(preprogrammedDeficitKcal);
     }
     completeOnboarding.mutate({ data: payload as Parameters<typeof completeOnboarding.mutate>[0]["data"] });
   };
@@ -321,10 +323,41 @@ export default function Onboarding() {
                     selected={formData.goalMode === opt.mode}
                     onClick={() => {
                       setFormData({ ...formData, goalMode: opt.mode });
+                      setPreprogrammedDeficitKcal("350");
                       if (opt.mode !== "custom") setTouchedCustomFields({ protein: false, fat: false, deficit: false });
                     }}
                   />
                 ))}
+
+                {formData.goalMode !== "custom" && formData.goalMode && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4 mt-2"
+                  >
+                    <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Deficit / Surplus</p>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium flex justify-between">
+                          <span>Calorie Deficit / Surplus</span>
+                          <span className="text-muted-foreground text-xs">+deficit / −surplus</span>
+                        </label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="50"
+                            min="-1500"
+                            max="1500"
+                            value={preprogrammedDeficitKcal}
+                            onChange={e => setPreprogrammedDeficitKcal(e.target.value)}
+                            className="pr-16"
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {formData.goalMode === "custom" && (
                   <motion.div
