@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, userProfilesTable, plansTable } from "@workspace/db";
+import { pool } from "@workspace/db";
 import {
   CompleteOnboardingBody,
   UpdateProfileBody,
@@ -299,6 +300,8 @@ router.patch("/profile", async (req, res): Promise<void> => {
     }
   }
 
+  const previousWeight = existingProfile.weightKg;
+
   const result = await db.transaction(async (tx) => {
     const [updatedProfile] = await tx.update(userProfilesTable)
       .set(updateData)
@@ -348,6 +351,14 @@ router.patch("/profile", async (req, res): Promise<void> => {
   });
 
   const { updatedProfile, newPlan } = result;
+
+  // Record weight in history if it changed
+  if (d.weightKg !== undefined && d.weightKg !== previousWeight) {
+    await pool.query(
+      `INSERT INTO weight_history (user_id, weight_kg) VALUES ($1, $2)`,
+      [userId, d.weightKg]
+    );
+  }
 
   res.json({
     id: newPlan.id,

@@ -11,6 +11,7 @@ import shoppingListRouter from "./shopping-list";
 import workoutsRouter from "./workouts";
 import workoutPlanRouter from "./workout-plan";
 import dashboardRouter from "./dashboard";
+import progressRouter from "./progress";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(shoppingListRouter);
 router.use(workoutsRouter);
 router.use(workoutPlanRouter);
 router.use(dashboardRouter);
+router.use(progressRouter);
 
 export default router;

@@ -550,4 +550,25 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_protein_rate REAL`);
   await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_fat_rate REAL`);
   await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS custom_deficit_kcal INTEGER`);
+
+  // ── Weight History ────────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS weight_history (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      weight_kg REAL NOT NULL,
+      recorded_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_weight_history_user ON weight_history(user_id, recorded_at)`);
+
+  // Seed weight_history from the earliest plan snapshot for users who have no history yet
+  await pool.query(`
+    INSERT INTO weight_history (user_id, weight_kg, recorded_at)
+    SELECT DISTINCT ON (p.user_id) p.user_id, p.snapshot_weight_kg, p.created_at
+    FROM plans p
+    WHERE p.snapshot_weight_kg IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM weight_history wh WHERE wh.user_id = p.user_id)
+    ORDER BY p.user_id, p.created_at ASC
+  `);
 }

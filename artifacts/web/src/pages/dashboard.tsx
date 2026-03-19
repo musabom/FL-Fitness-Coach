@@ -10,6 +10,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { customFetch, getGetActivePlanQueryKey } from "@workspace/api-client-react";
+import BottomNav from "@/components/bottom-nav";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -183,7 +184,7 @@ export default function Dashboard() {
       : "You are at your target weight";
 
   return (
-    <div className="mobile-container overflow-y-auto scrollbar-none pb-12">
+    <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
       {/* Header */}
       <header className="px-6 py-4 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50">
         <div>
@@ -698,6 +699,7 @@ export default function Dashboard() {
         </section>
 
       </main>
+      <BottomNav />
     </div>
   );
 }
