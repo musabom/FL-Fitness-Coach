@@ -391,7 +391,8 @@ export default function Dashboard() {
               </Card>
             </section>
 
-            {/* Daily Target */}
+            {/* Daily Target — Hidden */}
+            {false && (
             <section className="py-4 flex flex-col items-center">
               <div className="text-xs font-semibold tracking-widest text-primary uppercase mb-2">Daily Target</div>
               <div className="text-5xl font-light tracking-tighter text-primary">{plan.calorieTarget}</div>
@@ -402,8 +403,10 @@ export default function Dashboard() {
                 </div>
               </div>
             </section>
+            )}
 
-            {/* Calorie Balance */}
+            {/* Calorie Balance — Hidden */}
+            {false && (
             <section className="space-y-3">
               <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
               <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
@@ -432,8 +435,10 @@ export default function Dashboard() {
                 </div>
               </Card>
             </section>
+            )}
 
-            {/* Daily Nutrition Progress — Compact bars */}
+            {/* Daily Nutrition Progress — Hidden */}
+            {false && (
             <section className="space-y-3">
               <button
                 onClick={() => setCollapsedNutrition(!collapsedNutrition)}
@@ -473,6 +478,7 @@ export default function Dashboard() {
                 </Card>
               )}
             </section>
+            )}
 
             {/* Daily Workout Burn */}
             <section className="space-y-3">
