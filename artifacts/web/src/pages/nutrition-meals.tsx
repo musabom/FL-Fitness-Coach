@@ -936,15 +936,14 @@ export default function NutritionMeals() {
 
         {/* Add meal */}
         <Button
-          variant="outline"
-          className="w-full border-dashed border-border hover:border-primary/50 hover:text-primary text-muted-foreground"
           onClick={() => createMealMutation.mutate()}
           disabled={createMealMutation.isPending}
+          className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2"
         >
           {createMealMutation.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4" />
           )}
           Add Meal
         </Button>
