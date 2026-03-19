@@ -374,7 +374,7 @@ export default function Progress() {
 
           {dailyDeficit.length > 0 && (
             <p className="text-xs text-muted-foreground text-center">
-              Dashed line = maintenance calories &nbsp;·&nbsp; Solid teal = actual daily deficit (includes food, training, and plan).
+              Dashed line = maintenance calories &nbsp;·&nbsp; Solid teal = daily deficit snapshot. Positive = calories remaining; Negative = over target.
             </p>
           )}
         </section>

@@ -254,17 +254,18 @@ router.get("/progress", async (req, res): Promise<void> => {
     trainingBurnMap[row.date] = Number(row.total_burn);
   }
 
-  // Calculate daily deficit for each day
+  // Calculate daily deficit snapshot for each day
+  // Daily Deficit = TDEE - Consumed - Training Burn
+  // Positive = surplus (calories remaining), Negative = deficit (over target)
   const dailyDeficit = dateRange.map((date) => {
     const consumed = consumedMap[date] ?? 0;
     const trainingBurn = trainingBurnMap[date] ?? 0;
-    const foodVariance = calorieTarget - consumed;
-    const totalDeficit = plannedDeficit + foodVariance + trainingBurn;
+    const dailyDeficitSnapshot = tdee - consumed - trainingBurn;
     
     return { 
       date, 
       maintenance_calories: tdee,
-      daily_deficit: totalDeficit
+      daily_deficit: dailyDeficitSnapshot
     };
   });
 
