@@ -11,6 +11,20 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
   return req.session.userId;
 }
 
+// ── Calorie estimation helpers (same as in workouts.ts) ─────────────────────
+const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
+
+function estimateStrengthCalories(sets: number, repsMin: number, repsMax: number, restSecs: number, weightKg: number, effort = "moderate") {
+  const avgReps = (repsMin + repsMax) / 2;
+  const durationMins = (sets * (avgReps * 3 + restSecs)) / 60;
+  const met = EFFORT_MET[effort] ?? EFFORT_MET.moderate;
+  return +(met * weightKg * (durationMins / 60)).toFixed(1);
+}
+
+function estimateCardioCalories(metValue: number, durationMins: number, weightKg: number) {
+  return +(metValue * weightKg * (durationMins / 60)).toFixed(1);
+}
+
 function todayStr() {
   const n = new Date();
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
@@ -241,17 +255,33 @@ router.get("/progress", async (req, res): Promise<void> => {
   }
 
   // Get daily training burn from workout_exercise_completions
+  // First fetch user's weight for calorie estimation
+  const profileRes = await pool.query(
+    `SELECT weight_kg FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
+  const userWeightKg = profileRes.rows[0]?.weight_kg ?? 70;
+
   const trainingBurnRes = await pool.query(
-    `SELECT wec.date::text AS date, SUM(COALESCE(we.calories_per_rep * we.reps * we.sets, 0)) AS total_burn
+    `SELECT wec.date::text AS date, we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level, e.exercise_type, e.met_value
      FROM workout_exercise_completions wec
-     JOIN workout_exercises we ON wec.exercise_id = we.id
-     WHERE wec.user_id = $1 AND wec.date >= $2
-     GROUP BY wec.date`,
+     JOIN workout_exercises we ON wec.workout_exercise_id = we.id
+     JOIN exercises e ON we.exercise_id = e.id
+     WHERE wec.user_id = $1 AND wec.date >= $2`,
     [userId, startDate]
   );
+  
+  // Calculate calories for each exercise and sum by date
   const trainingBurnMap: Record<string, number> = {};
   for (const row of trainingBurnRes.rows) {
-    trainingBurnMap[row.date] = Number(row.total_burn);
+    let estimated_calories = 0;
+    if (row.exercise_type === "cardio") {
+      estimated_calories = estimateCardioCalories(Number(row.met_value) || 5, Number(row.duration_mins) || 0, userWeightKg);
+    } else {
+      estimated_calories = estimateStrengthCalories(Number(row.sets), Number(row.reps_min), Number(row.reps_max), Number(row.rest_seconds), userWeightKg, row.effort_level || "moderate");
+    }
+    if (!trainingBurnMap[row.date]) trainingBurnMap[row.date] = 0;
+    trainingBurnMap[row.date] += estimated_calories;
   }
 
   // Calculate daily deficit snapshot for each day

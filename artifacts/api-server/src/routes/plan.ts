@@ -10,21 +10,56 @@ declare module "express-session" {
 
 const router: IRouter = Router();
 
-async function getAvgDailyPlannedBurn(userId: number): Promise<number> {
-  // Query average daily planned training burn from scheduled workouts
-  const res = await pool.query(
-    `SELECT COALESCE(AVG(daily_total), 0) as avg_burn
-     FROM (
-       SELECT ws.day_of_week, COALESCE(SUM(we.calories_per_rep * we.reps * we.sets), 0) as daily_total
-       FROM workout_schedule ws
-       LEFT JOIN user_workouts uw ON ws.workout_id = uw.id AND uw.user_id = $1
-       LEFT JOIN workout_exercises we ON uw.id = we.workout_id
-       WHERE ws.user_id = $1
-       GROUP BY ws.day_of_week
-     ) daily_sums`,
+// ── Calorie estimation helpers (same as in workouts.ts) ─────────────────────
+const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
+
+function estimateStrengthCalories(sets: number, repsMin: number, repsMax: number, restSecs: number, weightKg: number, effort = "moderate") {
+  const avgReps = (repsMin + repsMax) / 2;
+  const durationMins = (sets * (avgReps * 3 + restSecs)) / 60;
+  const met = EFFORT_MET[effort] ?? EFFORT_MET.moderate;
+  return +(met * weightKg * (durationMins / 60)).toFixed(1);
+}
+
+function estimateCardioCalories(metValue: number, durationMins: number, weightKg: number) {
+  return +(metValue * weightKg * (durationMins / 60)).toFixed(1);
+}
+
+async function getAvgDailyPlannedBurn(userId: number, weightKg: number = 70): Promise<number> {
+  // Get user's weight for accurate calorie estimation
+  const profileRes = await pool.query(
+    `SELECT weight_kg FROM user_profiles WHERE user_id = $1`,
     [userId]
   );
-  return Number(res.rows[0]?.avg_burn ?? 0);
+  const userWeightKg = profileRes.rows[0]?.weight_kg ?? weightKg;
+
+  // Query planned training burn from scheduled workouts
+  const res = await pool.query(
+    `SELECT ws.day_of_week, we.id as exercise_id, e.exercise_type, we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level, e.met_value
+     FROM workout_schedule ws
+     JOIN user_workouts uw ON ws.workout_id = uw.id AND uw.user_id = $1
+     JOIN workout_exercises we ON uw.id = we.workout_id
+     JOIN exercises e ON we.exercise_id = e.id
+     WHERE ws.user_id = $1`,
+    [userId]
+  );
+
+  // Group by day_of_week and calculate total calories per day
+  const calorisByDay: Record<string, number> = {};
+  for (const row of res.rows) {
+    const day = row.day_of_week;
+    let estimated_calories = 0;
+    if (row.exercise_type === "cardio") {
+      estimated_calories = estimateCardioCalories(Number(row.met_value) || 5, Number(row.duration_mins) || 0, userWeightKg);
+    } else {
+      estimated_calories = estimateStrengthCalories(Number(row.sets), Number(row.reps_min), Number(row.reps_max), Number(row.rest_seconds), userWeightKg, row.effort_level || "moderate");
+    }
+    calorisByDay[day] = (calorisByDay[day] || 0) + estimated_calories;
+  }
+
+  // Calculate average across 7 days
+  const daysWithWorkouts = Object.values(calorisByDay);
+  const totalCalories = daysWithWorkouts.reduce((sum, cal) => sum + cal, 0);
+  return daysWithWorkouts.length > 0 ? Math.round(totalCalories / 7) : 0;
 }
 
 function recalculateTimeline(
@@ -111,7 +146,7 @@ router.get("/plan/active", async (req, res): Promise<void> => {
   const currentTargetKg = profile?.targetWeightKg ?? plan.snapshotTargetWeightKg;
 
   // Recalculate timeline based on current workout schedule
-  const avgDailyPlannedBurn = await getAvgDailyPlannedBurn(userId);
+  const avgDailyPlannedBurn = await getAvgDailyPlannedBurn(userId, currentWeightKg);
   const { weeksEstimateLow, weeksEstimateHigh } = recalculateTimeline(
     plan,
     currentWeightKg,
