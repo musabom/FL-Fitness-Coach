@@ -214,10 +214,65 @@ router.get("/progress", async (req, res): Promise<void> => {
     return { date, planned, completed };
   });
 
+  // ── 6. Daily Deficit data ──────────────────────────────────────────────────
+  
+  // Get current plan info
+  const planRes = await pool.query(
+    `SELECT tdee_estimated, calorie_target FROM plans WHERE user_id = $1 AND is_active = TRUE LIMIT 1`,
+    [userId]
+  );
+  const plan = planRes.rows[0];
+  const tdee = plan ? Number(plan.tdee_estimated) : 2000;
+  const calorieTarget = plan ? Number(plan.calorie_target) : 1800;
+  const plannedDeficit = tdee - calorieTarget;
+
+  // Get daily consumed calories from meal_portion_completions
+  const consumedCaloriesRes = await pool.query(
+    `SELECT mpc.date::text AS date, SUM(mp.calories) AS total_calories
+     FROM meal_portion_completions mpc
+     JOIN meal_portions mp ON mpc.portion_id = mp.id
+     WHERE mpc.user_id = $1 AND mpc.date >= $2
+     GROUP BY mpc.date`,
+    [userId, startDate]
+  );
+  const consumedMap: Record<string, number> = {};
+  for (const row of consumedCaloriesRes.rows) {
+    consumedMap[row.date] = Number(row.total_calories);
+  }
+
+  // Get daily training burn from workout_exercise_completions
+  const trainingBurnRes = await pool.query(
+    `SELECT wec.date::text AS date, SUM(COALESCE(we.calories_per_rep * we.reps * we.sets, 0)) AS total_burn
+     FROM workout_exercise_completions wec
+     JOIN workout_exercises we ON wec.exercise_id = we.id
+     WHERE wec.user_id = $1 AND wec.date >= $2
+     GROUP BY wec.date`,
+    [userId, startDate]
+  );
+  const trainingBurnMap: Record<string, number> = {};
+  for (const row of trainingBurnRes.rows) {
+    trainingBurnMap[row.date] = Number(row.total_burn);
+  }
+
+  // Calculate daily deficit for each day
+  const dailyDeficit = dateRange.map((date) => {
+    const consumed = consumedMap[date] ?? 0;
+    const trainingBurn = trainingBurnMap[date] ?? 0;
+    const foodVariance = calorieTarget - consumed;
+    const totalDeficit = plannedDeficit + foodVariance + trainingBurn;
+    
+    return { 
+      date, 
+      maintenance_calories: tdee,
+      daily_deficit: totalDeficit
+    };
+  });
+
   res.json({
     weightHistory: weightRes.rows.map(r => ({ date: r.date, weight_kg: Number(r.weight_kg) })),
     mealCompliance,
     workoutCompliance,
+    dailyDeficit,
   });
 });
 

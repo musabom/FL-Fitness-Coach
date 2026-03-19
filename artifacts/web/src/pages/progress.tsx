@@ -20,6 +20,7 @@ interface ProgressData {
   weightHistory: { date: string; weight_kg: number }[];
   mealCompliance: { date: string; planned: number; completed: number }[];
   workoutCompliance: { date: string; planned: number; completed: number }[];
+  dailyDeficit: { date: string; maintenance_calories: number; daily_deficit: number }[];
 }
 
 function formatDateShort(dateStr: string): string {
@@ -90,6 +91,7 @@ export default function Progress() {
   const weightHistory = data?.weightHistory ?? [];
   const mealCompliance = data?.mealCompliance ?? [];
   const workoutCompliance = data?.workoutCompliance ?? [];
+  const dailyDeficit = data?.dailyDeficit ?? [];
 
   // Filter compliance data to only days that have any planned activity
   const mealChartData = mealCompliance.filter(d => d.planned > 0 || d.completed > 0);
@@ -309,6 +311,70 @@ export default function Progress() {
           {workoutChartData.length > 0 && (
             <p className="text-xs text-muted-foreground text-center">
               Dashed line = planned &nbsp;·&nbsp; Solid teal = completed. Gap = missed exercises.
+            </p>
+          )}
+        </section>
+
+        {/* ── Chart 4: Daily Deficit vs Maintenance Calories ────────────────────── */}
+        <section className="space-y-3">
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Daily Deficit</p>
+
+          <Card className="p-4 bg-[#1A1A1A] border-none">
+            {dailyDeficit.length === 0 ? (
+              <EmptyState message="Log meals and workouts to start tracking your daily deficit." />
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={dailyDeficit} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatDateAxis}
+                    tick={{ fill: "#6B7280", fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "#6B7280", fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={35}
+                    domain={["auto", "auto"]}
+                  />
+                  <Tooltip content={<CustomTooltip unit=" kcal" />} />
+                  <Legend
+                    verticalAlign="top"
+                    height={28}
+                    formatter={(value) => (
+                      <span style={{ color: value === "Maintenance Calories" ? GREY : TEAL, fontSize: 11 }}>{value}</span>
+                    )}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="maintenance_calories"
+                    name="Maintenance Calories"
+                    stroke={GREY}
+                    strokeWidth={2}
+                    strokeDasharray="4 2"
+                    dot={false}
+                    activeDot={{ fill: GREY, r: 4, strokeWidth: 0 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="daily_deficit"
+                    name="Daily Deficit"
+                    stroke={TEAL}
+                    strokeWidth={2.5}
+                    dot={{ fill: TEAL, r: 2.5, strokeWidth: 0 }}
+                    activeDot={{ fill: TEAL, r: 5, strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {dailyDeficit.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center">
+              Dashed line = maintenance calories &nbsp;·&nbsp; Solid teal = actual daily deficit (includes food, training, and plan).
             </p>
           )}
         </section>
