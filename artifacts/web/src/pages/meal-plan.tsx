@@ -540,12 +540,29 @@ export default function MealPlan() {
 
       {/* Daily summary */}
       <div className="px-5 py-4 border-b border-border/20 space-y-3">
-        {/* Consumed macro pills */}
+        {/* Planned / Completed / Remaining pills */}
         <div className="flex gap-2">
-          <MacroPill label="Cal" value={consumedTotals.calories} unit="kcal" accent />
-          <MacroPill label="Protein" value={consumedTotals.protein_g} unit="g" />
-          <MacroPill label="Carbs" value={consumedTotals.carbs_g} unit="g" />
-          <MacroPill label="Fat" value={consumedTotals.fat_g} unit="g" />
+          {/* Planned */}
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-primary/15 border border-primary/30">
+            <div className="text-base font-bold tabular-nums text-primary">
+              {Math.round(dailyTotals.calories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Planned</div>
+          </div>
+          {/* Completed */}
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#1A1A1A]">
+            <div className="text-base font-bold tabular-nums text-foreground">
+              {Math.round(consumedTotals.calories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Completed</div>
+          </div>
+          {/* Remaining */}
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#1A1A1A]">
+            <div className="text-base font-bold tabular-nums text-foreground">
+              {Math.round(Math.max(0, dailyTotals.calories - consumedTotals.calories))}<span className="text-[10px] font-medium ml-0.5">kcal</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Remaining</div>
+          </div>
         </div>
 
         {/* Progress bars vs target */}
