@@ -15,6 +15,8 @@ interface OnboardingFormData {
   gender: string;
   goalMode: string;
   activityLevel: string;
+  trainingDays: string;
+  trainingLocation: string;
 }
 
 interface CustomParams {
@@ -79,6 +81,8 @@ export default function Onboarding() {
     gender: "",
     goalMode: "",
     activityLevel: "",
+    trainingDays: "",
+    trainingLocation: "",
   });
 
   const [customParams, setCustomParams] = useState<CustomParams>({
@@ -181,6 +185,8 @@ export default function Onboarding() {
       gender: formData.gender as "male" | "female" | "prefer_not_to_say",
       goalMode: formData.goalMode as "cut" | "recomposition" | "lean_bulk" | "maintenance" | "custom",
       activityLevel: formData.activityLevel as "sedentary" | "lightly_active" | "moderately_active" | "very_active",
+      trainingDays: Number(formData.trainingDays),
+      trainingLocation: formData.trainingLocation as "gym" | "home" | "both",
       dietaryPreferences: [],
       injuryFlags: [],
     };
@@ -209,7 +215,7 @@ export default function Onboarding() {
         return formData.goalMode !== "" && p > 0 && f > 0;
       }
       case 3: 
-        return formData.activityLevel !== "";
+        return formData.activityLevel !== "" && formData.trainingDays !== "" && formData.trainingLocation !== "";
       default: 
         return false;
     }
@@ -462,9 +468,11 @@ export default function Onboarding() {
       
       case 3:
         return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight">How active are you?</h2>
-            <p className="text-muted-foreground">Not including your workouts.</p>
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-3xl font-semibold tracking-tight mb-1">How active are you?</h2>
+              <p className="text-muted-foreground text-sm">Not including your workouts.</p>
+            </div>
             <div className="space-y-3">
               {[
                 { id: "sedentary", label: "Sedentary", desc: "Mostly sitting" },
@@ -480,6 +488,49 @@ export default function Onboarding() {
                   onClick={() => setFormData({ ...formData, activityLevel: opt.id })}
                 />
               ))}
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold tracking-tight mb-3">Training Setup</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">Days per week</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[3, 4, 5, 6].map(days => (
+                      <button
+                        key={days}
+                        onClick={() => setFormData({ ...formData, trainingDays: String(days) })}
+                        className={`py-3 px-2 rounded-xl font-semibold text-sm transition-colors ${
+                          formData.trainingDays === String(days)
+                            ? "bg-primary text-black"
+                            : "bg-card border border-card-border hover:border-primary/50"
+                        }`}
+                      >
+                        {days}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-3 px-1">Where do you train?</label>
+                  <div className="space-y-2">
+                    {[
+                      { id: "gym", label: "Gym", desc: "Full equipment access" },
+                      { id: "home", label: "Home", desc: "Bodyweight or dumbbells" },
+                      { id: "both", label: "Both", desc: "Mix of gym and home" }
+                    ].map(opt => (
+                      <OptionCard
+                        key={opt.id}
+                        title={opt.label}
+                        description={opt.desc}
+                        selected={formData.trainingLocation === opt.id}
+                        onClick={() => setFormData({ ...formData, trainingLocation: opt.id })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
