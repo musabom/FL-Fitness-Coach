@@ -33,10 +33,6 @@ async function runMigrationsInternal(): Promise<void> {
   `);
 
   await pool.query(`
-    DROP TABLE IF EXISTS user_profiles CASCADE
-  `);
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS user_profiles (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
@@ -52,12 +48,13 @@ async function runMigrationsInternal(): Promise<void> {
       dietary_preferences JSONB DEFAULT '[]',
       injury_flags JSONB DEFAULT '[]',
       goal_override BOOLEAN DEFAULT FALSE,
-      custom_protein_per_kg REAL,
-      custom_fat_per_kg REAL,
-      custom_deficit_kcal INTEGER,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+
+  await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_protein_per_kg REAL`);
+  await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_fat_per_kg REAL`);
+  await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_deficit_kcal INTEGER`);
 
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)`);
 
