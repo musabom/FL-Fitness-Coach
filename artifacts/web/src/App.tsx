@@ -9,6 +9,8 @@ import { Loader2 } from "lucide-react";
 // Pages
 import Login from "./pages/login";
 import Signup from "./pages/signup";
+import ForgotPassword from "./pages/forgot-password";
+import ResetPassword from "./pages/reset-password";
 import Onboarding from "./pages/onboarding";
 import Dashboard from "./pages/dashboard";
 import ProfileEdit from "./pages/profile-edit";
@@ -48,6 +50,10 @@ if (typeof window !== 'undefined') {
   });
 }
 
+function isPublicRoute(loc: string) {
+  return loc === "/login" || loc === "/signup" || loc === "/forgot-password" || loc.startsWith("/reset-password");
+}
+
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -55,22 +61,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const isAuthRoute = location === "/login" || location === "/signup";
-
-    if (!user && !isAuthRoute) {
+    if (!user && !isPublicRoute(location)) {
       setLocation("/login");
-    } else if (user && isAuthRoute) {
+    } else if (user && isPublicRoute(location)) {
       setLocation("/dashboard");
     } else if (user && !user.hasProfile && location !== "/onboarding") {
       setLocation("/onboarding");
     } else if (user && user.hasProfile && location === "/onboarding") {
       setLocation("/dashboard");
-    }
-    // Redirect root to dashboard
-    else if (user && user.hasProfile && location === "/") {
+    } else if (user && user.hasProfile && location === "/") {
       setLocation("/dashboard");
     }
-
   }, [user, isLoading, location, setLocation]);
 
   if (isLoading) {
@@ -82,8 +83,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Prevent rendering protected content while redirecting
-  const isAuthRoute = location === "/login" || location === "/signup";
-  if (!user && !isAuthRoute) return null;
+  if (!user && !isPublicRoute(location)) return null;
   if (user && !user.hasProfile && location !== "/onboarding") return null;
 
   return <>{children}</>;
@@ -95,6 +95,8 @@ function Router() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/profile/edit" component={ProfileEdit} />

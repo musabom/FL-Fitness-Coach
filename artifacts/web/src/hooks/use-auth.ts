@@ -18,11 +18,9 @@ interface AuthUser {
 
 const AUTH_KEY = ["auth", "me"];
 
-// DEVELOPMENT MODE: Auto-login disabled authentication
-// Set to false to require manual login
-const AUTO_LOGIN_ENABLED = true;
-const AUTO_LOGIN_EMAIL = "test@example.com";
-const AUTO_LOGIN_PASSWORD = "Password123";
+const AUTO_LOGIN_ENABLED = false;
+const AUTO_LOGIN_EMAIL = "";
+const AUTO_LOGIN_PASSWORD = "";
 let autoLoginAttempted = false;
 
 export function useAuth() {

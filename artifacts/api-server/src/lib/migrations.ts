@@ -571,4 +571,18 @@ async function runMigrationsInternal(): Promise<void> {
       AND NOT EXISTS (SELECT 1 FROM weight_history wh WHERE wh.user_id = p.user_id)
     ORDER BY p.user_id, p.created_at ASC
   `);
+
+  // ── Password Reset Tokens ────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token VARCHAR(64) NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id)`);
 }

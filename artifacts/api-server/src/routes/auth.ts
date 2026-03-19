@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { eq } from "drizzle-orm";
-import { db, usersTable, userProfilesTable } from "@workspace/db";
+import { db, usersTable, userProfilesTable, pool } from "@workspace/db";
 import {
   SignupBody,
   LoginBody,
@@ -121,6 +122,141 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     role: user.role,
     hasProfile: !!profile,
   });
+});
+
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const { email } = req.body;
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  const [user] = await db.select({ id: usersTable.id, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase().trim()));
+
+  if (!user) {
+    res.json({ message: "If that email exists, a reset link has been sent." });
+    return;
+  }
+
+  await pool.query(
+    `DELETE FROM password_reset_tokens WHERE user_id = $1`,
+    [user.id]
+  );
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await pool.query(
+    `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+    [user.id, token, expiresAt]
+  );
+
+  console.log(`\n🔐 PASSWORD RESET TOKEN for ${user.email}:`);
+  console.log(`   Token: ${token}`);
+  console.log(`   Expires: ${expiresAt.toISOString()}\n`);
+
+  res.json({
+    message: "If that email exists, a reset link has been sent.",
+    token,
+  });
+});
+
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, password, passwordConfirm } = req.body;
+
+  if (!token || !password || !passwordConfirm) {
+    res.status(400).json({ error: "Token, password, and confirmation are required" });
+    return;
+  }
+
+  if (typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    res.status(400).json({ error: "Passwords do not match" });
+    return;
+  }
+
+  const result = await pool.query(
+    `SELECT id, user_id, expires_at, used_at FROM password_reset_tokens WHERE token = $1`,
+    [token]
+  );
+
+  const tokenRow = result.rows[0];
+  if (!tokenRow) {
+    res.status(400).json({ error: "Invalid or expired reset token" });
+    return;
+  }
+
+  if (tokenRow.used_at) {
+    res.status(400).json({ error: "This reset link has already been used" });
+    return;
+  }
+
+  if (new Date(tokenRow.expires_at) < new Date()) {
+    res.status(400).json({ error: "This reset link has expired. Please request a new one." });
+    return;
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  await db.update(usersTable)
+    .set({ password: hashedPassword })
+    .where(eq(usersTable.id, tokenRow.user_id));
+
+  await pool.query(
+    `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
+    [tokenRow.id]
+  );
+
+  res.json({ message: "Password reset successfully. You can now log in." });
+});
+
+router.put("/auth/change-password", async (req, res): Promise<void> => {
+  if (!req.session.userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const { currentPassword, newPassword, newPasswordConfirm } = req.body;
+
+  if (!currentPassword || !newPassword || !newPasswordConfirm) {
+    res.status(400).json({ error: "All fields are required" });
+    return;
+  }
+
+  if (typeof newPassword !== "string" || newPassword.length < 8) {
+    res.status(400).json({ error: "New password must be at least 8 characters" });
+    return;
+  }
+
+  if (newPassword !== newPasswordConfirm) {
+    res.status(400).json({ error: "New passwords do not match" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId));
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.password);
+  if (!valid) {
+    res.status(400).json({ error: "Current password is incorrect" });
+    return;
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  await db.update(usersTable)
+    .set({ password: hashedPassword })
+    .where(eq(usersTable.id, user.id));
+
+  res.json({ message: "Password changed successfully" });
 });
 
 export default router;
