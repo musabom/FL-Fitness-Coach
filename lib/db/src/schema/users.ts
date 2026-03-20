@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +12,8 @@ export const usersTable = pgTable("users", {
   photoConsent: boolean("photo_consent").notNull().default(false),
   notificationPrefs: jsonb("notification_prefs"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  coachId: integer("coach_id"),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true });

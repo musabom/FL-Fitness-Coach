@@ -39,6 +39,7 @@ export const plansTable = pgTable("plans", {
   trigger: planTriggerEnum("trigger").notNull(),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  coachUpdatedAt: timestamp("coach_updated_at", { withTimezone: true }),
 });
 
 export const insertPlanSchema = createInsertSchema(plansTable).omit({ id: true, createdAt: true });
