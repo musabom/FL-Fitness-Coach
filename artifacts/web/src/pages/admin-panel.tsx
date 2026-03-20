@@ -543,10 +543,32 @@ export default function AdminPanel() {
   const { user, logout } = useAuth();
   const { activeClient, setActiveClient } = useCoachClient();
   const [tab, setTab] = useState<Tab>("users");
+  const [showViewSearch, setShowViewSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const usersQuery = useQuery<AdminUser[]>({
+    queryKey: ["admin", "users"],
+    queryFn: () => customFetch<AdminUser[]>("/api/admin/users"),
+  });
 
   const handleStopViewing = () => {
     setActiveClient(null);
   };
+
+  const handleViewUser = (user: AdminUser) => {
+    setActiveClient({
+      id: user.id,
+      name: user.full_name || user.email,
+      email: user.email,
+      mode: "admin",
+    });
+    setShowViewSearch(false);
+    setSearchQuery("");
+  };
+
+  const filteredUsers = (usersQuery.data ?? []).filter(u =>
+    `${u.email} ${u.full_name ?? ""}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="mobile-container flex flex-col h-screen overflow-hidden bg-background">
@@ -572,9 +594,52 @@ export default function AdminPanel() {
           </div>
           <p className="text-sm text-muted-foreground">{user?.email}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="text-xs gap-1.5 text-muted-foreground mt-1">
-          <LogOut className="w-3.5 h-3.5" /> Logout
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowViewSearch(!showViewSearch)}
+              className="text-xs gap-1.5 text-muted-foreground mt-1"
+            >
+              <Eye className="w-3.5 h-3.5" /> View
+            </Button>
+            {showViewSearch && (
+              <div className="absolute right-0 mt-2 w-64 bg-card border border-card-border rounded-xl shadow-lg z-50">
+                <div className="p-3">
+                  <Input
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="h-8 text-xs"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto border-t border-card-border">
+                  {usersQuery.isLoading ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground">No users found</div>
+                  ) : (
+                    filteredUsers.map(u => (
+                      <button
+                        key={u.id}
+                        onClick={() => handleViewUser(u)}
+                        className="w-full text-left px-4 py-2 hover:bg-muted transition-colors border-b border-card-border last:border-b-0 text-xs"
+                      >
+                        <p className="font-medium">{u.full_name || "—"}</p>
+                        <p className="text-muted-foreground text-xs">{u.email}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="text-xs gap-1.5 text-muted-foreground mt-1">
+            <LogOut className="w-3.5 h-3.5" /> Logout
+          </Button>
+        </div>
       </header>
 
       {/* Tabs */}
