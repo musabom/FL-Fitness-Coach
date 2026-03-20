@@ -1,5 +1,6 @@
 import app from "./app";
 import { runMigrations } from "./lib/migrations";
+import { runSeed } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -16,12 +17,13 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 runMigrations()
+  .then(() => runSeed())
   .then(() => {
     app.listen(port, () => {
       console.log(`Server listening on port ${port}`);
     });
   })
   .catch((err) => {
-    console.error("Migration failed:", err);
+    console.error("Migration or seed failed:", err);
     process.exit(1);
   });
