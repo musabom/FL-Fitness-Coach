@@ -238,10 +238,14 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground mt-0.5">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-3">
-          {isCoachView && user?.role === "admin" && (
-            <Link href="/admin" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors" title="Back to Admin Panel">
+          {isCoachView && (
+            <button
+              onClick={handleBackToManagement}
+              className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
+              title={viewMode === "admin" ? "Back to Admin Panel" : "Back to My Clients"}
+            >
               <ArrowLeft className="w-5 h-5 text-foreground" />
-            </Link>
+            </button>
           )}
           {!isCoachView && user?.role === "coach" && (
             <Link href="/coach/clients" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors" title="Back to My Clients">
