@@ -248,9 +248,13 @@ export default function Dashboard() {
             </button>
           )}
           {!isCoachView && user?.role === "coach" && (
-            <Link href="/coach/clients" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors" title="Back to My Clients">
+            <button
+              onClick={handleBackToManagement}
+              className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
+              title="Back to My Clients"
+            >
               <ArrowLeft className="w-5 h-5 text-foreground" />
-            </Link>
+            </button>
           )}
           {(isCoachView || user?.role === "member") && (
             <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
