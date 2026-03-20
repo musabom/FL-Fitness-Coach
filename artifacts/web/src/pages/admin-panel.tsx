@@ -541,11 +541,30 @@ function ContentTab() {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const { user, logout } = useAuth();
+  const { activeClient, setActiveClient } = useCoachClient();
   const [tab, setTab] = useState<Tab>("users");
+
+  const handleStopViewing = () => {
+    setActiveClient(null);
+  };
 
   return (
     <div className="mobile-container flex flex-col h-screen overflow-hidden bg-background">
-      <header className="px-6 pt-12 pb-4 flex items-start justify-between">
+      {activeClient && activeClient.mode === "admin" && (
+        <div className="sticky top-0 z-20 bg-blue-600/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-white" />
+            <span className="text-sm font-semibold text-white">Viewing: {activeClient.name}</span>
+          </div>
+          <button
+            onClick={handleStopViewing}
+            className="flex items-center gap-1 text-xs text-white/80 hover:text-white transition-colors"
+          >
+            <X className="w-3.5 h-3.5" /> Exit
+          </button>
+        </div>
+      )}
+      <header className="px-6 pt-12 pb-4 flex items-start justify-between" style={{ paddingTop: activeClient?.mode === "admin" ? "1rem" : "3rem" }}>
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Shield className="w-5 h-5 text-primary" />

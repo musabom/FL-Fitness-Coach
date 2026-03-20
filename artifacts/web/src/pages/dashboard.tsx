@@ -252,7 +252,7 @@ export default function Dashboard() {
               <ArrowLeft className="w-5 h-5 text-foreground" />
             </Link>
           )}
-          {!isCoachView && user?.role !== "coach" && user?.role !== "admin" && (
+          {(isCoachView || user?.role === "member") && (
             <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
               <Settings className="w-5 h-5 text-foreground" />
             </Link>
