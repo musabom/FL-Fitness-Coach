@@ -175,6 +175,17 @@ function UsersTab() {
                     <UserCheck className="w-3 h-3 mr-1" /> Set Coach
                   </Button>
                 )}
+                {user.role !== "admin" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 px-2 text-primary border-primary/30 hover:bg-primary/10"
+                    onClick={() => changeRoleMutation.mutate({ id: user.id, role: "admin" })}
+                    disabled={changeRoleMutation.isPending || !user.is_active}
+                  >
+                    <Shield className="w-3 h-3 mr-1" /> Set Admin
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
