@@ -280,4 +280,38 @@ router.put("/auth/change-password", async (req, res): Promise<void> => {
   res.json({ message: "Password changed successfully" });
 });
 
+router.post("/auth/setup-admin", async (req, res): Promise<void> => {
+  const setupSecret = process.env.ADMIN_SETUP_SECRET;
+  if (!setupSecret) {
+    res.status(403).json({ error: "Admin setup is not enabled" });
+    return;
+  }
+
+  const { secret, email } = req.body;
+  if (!secret || secret !== setupSecret) {
+    res.status(403).json({ error: "Invalid setup secret" });
+    return;
+  }
+
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  const [user] = await db.select({ id: usersTable.id, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase().trim()));
+
+  if (!user) {
+    res.status(404).json({ error: "No account found with that email" });
+    return;
+  }
+
+  await db.update(usersTable)
+    .set({ role: "admin" })
+    .where(eq(usersTable.id, user.id));
+
+  res.json({ message: `User ${user.email} has been promoted to admin` });
+});
+
 export default router;
