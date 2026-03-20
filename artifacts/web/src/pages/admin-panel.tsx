@@ -542,6 +542,7 @@ function ContentTab() {
 export default function AdminPanel() {
   const { user, logout } = useAuth();
   const { activeClient, setActiveClient } = useCoachClient();
+  const [, setLocation] = useLocation();
   const [tab, setTab] = useState<Tab>("users");
   const [showViewSearch, setShowViewSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -564,6 +565,7 @@ export default function AdminPanel() {
     });
     setShowViewSearch(false);
     setSearchQuery("");
+    setLocation("/dashboard");
   };
 
   const filteredUsers = (usersQuery.data ?? []).filter(u =>
