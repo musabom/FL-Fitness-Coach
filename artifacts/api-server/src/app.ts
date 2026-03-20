@@ -1,13 +1,15 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import session from "express-session";
-import FileStore from "session-file-store";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "@workspace/db";
 import router from "./routes";
-import path from "path";
 
 const app: Express = express();
 
 const isProduction = process.env.NODE_ENV === "production";
+
+app.set("trust proxy", 1);
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",")
@@ -27,10 +29,11 @@ if (isProduction && !sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required in production");
 }
 
-const FileStoreSession = FileStore(session);
-const sessionStore = new FileStoreSession({
-  dir: path.join(process.cwd(), ".sessions"),
-  ttl: 7 * 24 * 60 * 60,
+const PgSession = connectPgSimple(session);
+const sessionStore = new PgSession({
+  pool,
+  tableName: "session",
+  createTableIfMissing: false,
 });
 
 app.use(
@@ -40,7 +43,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: isProduction,
+      secure: false,
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
