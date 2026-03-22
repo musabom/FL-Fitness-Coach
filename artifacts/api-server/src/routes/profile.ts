@@ -93,6 +93,7 @@ function buildPlanInsertValues(
     goalMode: string;
     activityLevel: string;
     customParams?: { proteinPerKg: number; fatPerKg: number; deficitKcal: number };
+    deficitOverride?: number;
   },
   trigger: "onboarding" | "manual_edit" | "weight_update" | "checkin_adjustment",
   avgDailyPlannedBurn: number = 0
@@ -107,6 +108,7 @@ function buildPlanInsertValues(
     activityLevel: profileData.activityLevel,
     customParams: profileData.customParams,
     avgDailyPlannedBurn,
+    deficitOverride: profileData.deficitOverride,
   });
   return {
     planValues: {

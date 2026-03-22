@@ -177,19 +177,11 @@ export function calculatePlan(input: PlanInput): PlanResult {
 
   const deficitRaw = deficitOverride !== undefined ? deficitOverride : calcDeficit(goalMode, bfPct, gender, weightKg);
 
-  let deficitSurplusKcal: number;
-  let calorieTarget: number;
-
-  if (goalMode === "lean_bulk") {
-    deficitSurplusKcal = 250;
-    calorieTarget = Math.round(tdee + 250);
-  } else if (goalMode === "maintenance") {
-    deficitSurplusKcal = 0;
-    calorieTarget = Math.round(tdee);
-  } else {
-    deficitSurplusKcal = -deficitRaw;
-    calorieTarget = Math.round(tdee - deficitRaw);
-  }
+  // deficitRaw > 0 = calorie deficit; deficitRaw < 0 = calorie surplus
+  // calcDeficit already handles lean_bulk (-250) and maintenance (0)
+  // deficitOverride replaces the auto-calculated value for all plan types
+  const deficitSurplusKcal = -deficitRaw;
+  const calorieTarget = Math.max(Math.round(tdee - deficitRaw), 1200);
 
   const { proteinG, fatG, carbsG } = calcMacros(weightKg, age, goalMode, calorieTarget);
 
