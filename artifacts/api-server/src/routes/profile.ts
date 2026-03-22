@@ -189,7 +189,7 @@ router.post("/onboarding", async (req, res): Promise<void> => {
       goalOverride: data.goalOverride ?? false,
       customProteinPerKg: data.goalMode === "custom" ? (data.customProteinPerKg ?? null) : null,
       customFatPerKg: data.goalMode === "custom" ? (data.customFatPerKg ?? null) : null,
-      customDeficitKcal: data.goalMode === "custom" ? (data.customDeficitKcal ?? null) : null,
+      customDeficitKcal: data.customDeficitKcal ?? null,
     }).returning();
 
     const customParams = data.goalMode === "custom" && data.customProteinPerKg && data.customFatPerKg && data.customDeficitKcal !== undefined
