@@ -209,6 +209,7 @@ router.post("/onboarding", async (req, res): Promise<void> => {
         goalMode: data.goalMode,
         activityLevel: data.activityLevel,
         customParams,
+        deficitOverride: data.goalMode !== "custom" && data.customDeficitKcal !== undefined ? data.customDeficitKcal : undefined,
       },
       "onboarding",
       avgDailyPlannedBurn
@@ -393,6 +394,7 @@ router.patch("/profile", async (req, res): Promise<void> => {
         goalMode: updatedProfile.goalMode,
         activityLevel: updatedProfile.activityLevel,
         customParams,
+        deficitOverride: effectiveGoal !== "custom" && updatedProfile.customDeficitKcal !== null ? updatedProfile.customDeficitKcal : undefined,
       },
       "manual_edit",
       avgDailyPlannedBurn

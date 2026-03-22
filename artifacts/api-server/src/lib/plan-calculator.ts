@@ -14,6 +14,7 @@ interface PlanInput {
   activityLevel: string;
   customParams?: CustomParams;
   avgDailyPlannedBurn?: number;
+  deficitOverride?: number;
 }
 
 interface PlanResult {
@@ -115,7 +116,7 @@ export function goalLabel(goalMode: string): string {
 }
 
 export function calculatePlan(input: PlanInput): PlanResult {
-  const { weightKg, targetWeightKg, heightCm, age, gender, goalMode, activityLevel, customParams, avgDailyPlannedBurn = 0 } = input;
+  const { weightKg, targetWeightKg, heightCm, age, gender, goalMode, activityLevel, customParams, avgDailyPlannedBurn = 0, deficitOverride } = input;
 
   const bmr = calcBMR(weightKg, heightCm, age, gender);
   const tdee = calcTDEE(bmr, activityLevel);
@@ -174,7 +175,7 @@ export function calculatePlan(input: PlanInput): PlanResult {
     };
   }
 
-  const deficitRaw = calcDeficit(goalMode, bfPct, gender, weightKg);
+  const deficitRaw = deficitOverride !== undefined ? deficitOverride : calcDeficit(goalMode, bfPct, gender, weightKg);
 
   let deficitSurplusKcal: number;
   let calorieTarget: number;
