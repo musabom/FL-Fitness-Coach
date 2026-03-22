@@ -1,36 +1,38 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
-  useGetProfile, 
-  useUpdateProfile, 
   useCompleteOnboarding, 
   useGetAvailableGoals,
-  getGetProfileQueryKey,
   getGetActivePlanQueryKey,
 } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { useCoachClient } from "@/context/coach-client-context";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 
-const AUTH_KEY = ["auth", "me"];
+const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
 export function useProfile() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { clientId } = useCoachClient();
+  const buildUrl = useClientUrl();
 
-  const profileQuery = useGetProfile({
-    query: {
-      queryKey: getGetProfileQueryKey(clientId ? { clientId } : undefined),
-      retry: false,
-    },
-    params: clientId ? { clientId } : undefined,
+  const profileQuery = useQuery({
+    queryKey: ["profile", clientId ?? "self"],
+    queryFn: () => customFetch<any>(buildUrl(`${BASE}/profile`)),
+    retry: false,
   });
 
-  const updateProfileMutation = useUpdateProfile({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey(clientId ? { clientId } : undefined) });
-        queryClient.invalidateQueries({ queryKey: getGetActivePlanQueryKey(clientId ? { clientId } : undefined) });
-      }
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: any) =>
+      customFetch(buildUrl(`${BASE}/profile`), {
+        method: "PUT",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: getGetActivePlanQueryKey() });
     }
   });
 
