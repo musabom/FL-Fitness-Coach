@@ -26,7 +26,7 @@ export function useProfile() {
   const updateProfileMutation = useMutation({
     mutationFn: (variables: { data: any }) =>
       customFetch(buildUrl(`${BASE}/profile`), {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(variables.data),
         headers: { "Content-Type": "application/json" },
       }),
