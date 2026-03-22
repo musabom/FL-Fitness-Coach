@@ -77,7 +77,7 @@ function getCustomWarnings(params: CustomParams): string[] {
 
 export default function ProfileEdit() {
   const [, setLocation] = useLocation();
-  const { profile, isLoading, updateProfile, useGetAvailableGoals } = useProfile();
+  const { profile, isLoading, updateProfile, clientId, useGetAvailableGoals } = useProfile();
   const getGoalsMutation = useGetAvailableGoals();
 
   const [formData, setFormData] = useState<ProfileFormData | null>(null);
@@ -93,6 +93,7 @@ export default function ProfileEdit() {
   const [goalsLoading, setGoalsLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveAnyway, setSaveAnyway] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -171,6 +172,7 @@ export default function ProfileEdit() {
 
   const handleSave = (force = false) => {
     if (hasActiveWarnings && !force && !saveAnyway) return;
+    setSaveError(null);
 
     const payload: Record<string, unknown> = {
       heightCm: Number(formData.heightCm),
@@ -190,13 +192,17 @@ export default function ProfileEdit() {
     }
 
     updateProfile.mutate(
-      { data: payload as Parameters<typeof updateProfile.mutate>[0]["data"] },
+      { data: payload, cId: clientId },
       {
         onSuccess: () => {
           setSaved(true);
           setTimeout(() => {
             setLocation("/dashboard");
           }, 1500);
+        },
+        onError: (err: any) => {
+          const msg = err?.data?.error ?? err?.message ?? "Failed to save. Please try again.";
+          setSaveError(msg);
         }
       }
     );
@@ -459,6 +465,12 @@ export default function ProfileEdit() {
       </main>
 
       <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-background via-background to-transparent pt-12">
+        {saveError && (
+          <div className="mb-3 flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-sm">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{saveError}</span>
+          </div>
+        )}
         {hasActiveWarnings && !saveAnyway && (
           <div className="mb-4 space-y-2">
             {customWarnings.map((w, i) => (
