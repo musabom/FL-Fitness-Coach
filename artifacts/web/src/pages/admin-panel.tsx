@@ -4,7 +4,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp, Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2, Eye } from "lucide-react";
+import { Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp, Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2, Eye, Activity, Clock, MousePointerClick, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCoachClient } from "@/context/coach-client-context";
 import { useLocation } from "wouter";
@@ -57,7 +57,7 @@ interface AdminExercise {
   equipment: string | null;
 }
 
-type Tab = "users" | "coaches" | "content";
+type Tab = "users" | "coaches" | "content" | "logs";
 
 // ── Role badge ─────────────────────────────────────────────────────────────────
 function RoleBadge({ role }: { role: string }) {
@@ -538,6 +538,168 @@ function ContentTab() {
   );
 }
 
+// ── Logs Tab ───────────────────────────────────────────────────────────────────
+interface ClickLog {
+  id: number;
+  userId: number | null;
+  sessionId: string | null;
+  eventType: string;
+  elementTag: string | null;
+  elementText: string | null;
+  elementId: string | null;
+  page: string | null;
+  metadata: Record<string, any> | null;
+  createdAt: string;
+  userName: string | null;
+  userEmail: string | null;
+}
+
+interface LogsResponse {
+  logs: ClickLog[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+function LogsTab() {
+  const [page, setPage] = useState(1);
+  const [filterUserId, setFilterUserId] = useState("");
+  const [filterPage, setFilterPage] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const params = new URLSearchParams({ page: String(page), limit: "50" });
+  if (filterUserId) params.set("userId", filterUserId);
+
+  const logsQuery = useQuery<LogsResponse>({
+    queryKey: ["admin", "logs", page, filterUserId],
+    queryFn: () => customFetch<LogsResponse>(`/api/admin/logs?${params}`),
+    refetchInterval: 15000,
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () => customFetch("/api/admin/logs?olderThanDays=7", { method: "DELETE" }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "logs"] });
+      toast({ title: `Cleared ${data?.deleted ?? 0} old log entries` });
+    },
+  });
+
+  const logs = logsQuery.data?.logs ?? [];
+  const total = logsQuery.data?.total ?? 0;
+  const totalPages = Math.ceil(total / 50);
+
+  const displayedLogs = filterPage
+    ? logs.filter(l => l.page?.includes(filterPage))
+    : logs;
+
+  function formatTime(iso: string) {
+    return new Date(iso).toLocaleString();
+  }
+
+  const tagColor: Record<string, string> = {
+    button: "bg-blue-500/20 text-blue-400",
+    a: "bg-green-500/20 text-green-400",
+    input: "bg-yellow-500/20 text-yellow-400",
+    select: "bg-purple-500/20 text-purple-400",
+    div: "bg-gray-500/20 text-gray-400",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold">{total.toLocaleString()} total events</span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+          onClick={() => clearMutation.mutate()}
+          disabled={clearMutation.isPending}
+        >
+          {clearMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Clear >7d"}
+        </Button>
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          placeholder="Filter by user ID..."
+          value={filterUserId}
+          onChange={e => { setFilterUserId(e.target.value); setPage(1); }}
+          className="h-8 text-xs"
+        />
+        <Input
+          placeholder="Filter by page..."
+          value={filterPage}
+          onChange={e => setFilterPage(e.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+
+      {logsQuery.isLoading ? (
+        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+      ) : displayedLogs.length === 0 ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">No events found</div>
+      ) : (
+        <div className="space-y-2">
+          {displayedLogs.map(log => (
+            <div key={log.id} className="bg-card border border-card-border rounded-xl p-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <MousePointerClick className="w-3.5 h-3.5 text-primary shrink-0" />
+                  {log.elementTag && (
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${tagColor[log.elementTag] ?? "bg-muted text-muted-foreground"}`}>
+                      {log.elementTag}
+                    </span>
+                  )}
+                  {log.elementText && (
+                    <span className="text-xs font-medium truncate max-w-[160px]">{log.elementText}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+                  <Clock className="w-3 h-3" />
+                  {formatTime(log.createdAt)}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+                {log.page && (
+                  <span className="font-mono bg-muted px-1.5 py-0.5 rounded truncate max-w-[160px]">{log.page}</span>
+                )}
+                {(log.userName || log.userEmail) && (
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {log.userName || log.userEmail}
+                  </span>
+                )}
+                {!log.userId && (
+                  <span className="text-amber-500">anonymous</span>
+                )}
+                {log.elementId && (
+                  <span className="font-mono text-[10px] text-muted-foreground">#{log.elementId}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-xs text-muted-foreground">Page {page} / {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const { user, logout } = useAuth();
@@ -645,14 +807,14 @@ export default function AdminPanel() {
       </header>
 
       {/* Tabs */}
-      <div className="px-6 flex gap-2 mb-4">
-        {(["users", "coaches", "content"] as Tab[]).map(t => (
+      <div className="px-6 flex gap-2 mb-4 flex-wrap">
+        {(["users", "coaches", "content", "logs"] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold capitalize transition-colors ${tab === t ? "bg-primary text-black" : "bg-card border border-card-border text-muted-foreground"}`}
           >
-            {t}
+            {t === "logs" ? "📋 Logs" : t}
           </button>
         ))}
       </div>
@@ -661,6 +823,7 @@ export default function AdminPanel() {
         {tab === "users" && <UsersTab />}
         {tab === "coaches" && <CoachesTab />}
         {tab === "content" && <ContentTab />}
+        {tab === "logs" && <LogsTab />}
       </main>
     </div>
   );

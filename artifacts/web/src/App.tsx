@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
 import { useAuth } from "./hooks/use-auth";
 import { CoachClientProvider } from "./context/coach-client-context";
+import { useClickTracker } from "./hooks/use-click-tracker";
 import { Loader2 } from "lucide-react";
 
 // Pages
@@ -52,6 +53,11 @@ const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password"];
 
 function isPublicRoute(loc: string) {
   return PUBLIC_ROUTES.includes(loc) || loc.startsWith("/reset-password");
+}
+
+function ClickTracker() {
+  useClickTracker();
+  return null;
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -121,6 +127,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 function Router() {
   return (
+    <>
+    <ClickTracker />
     <AuthGuard>
       <Switch>
         {/* Public */}
@@ -154,6 +162,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
     </AuthGuard>
+    </>
   );
 }
 

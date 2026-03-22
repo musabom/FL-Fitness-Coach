@@ -15,6 +15,7 @@ import dashboardRouter from "./dashboard";
 import progressRouter from "./progress";
 import adminRouter from "./admin";
 import coachRouter from "./coach";
+import logsRouter from "./logs";
 
 const router: IRouter = Router();
 
@@ -72,5 +73,6 @@ router.use(workoutsRouter);
 router.use(workoutPlanRouter);
 router.use(dashboardRouter);
 router.use(progressRouter);
+router.use(logsRouter);
 
 export default router;

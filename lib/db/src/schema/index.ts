@@ -5,3 +5,4 @@ export * from "./weekly-checkins";
 export * from "./meal-logs";
 export * from "./workout-sessions";
 export * from "./adjustment-logs";
+export * from "./click-logs";
