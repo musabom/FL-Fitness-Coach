@@ -325,6 +325,7 @@ router.patch("/profile", async (req, res): Promise<void> => {
   if (d.dietaryPreferences !== undefined) updateData.dietaryPreferences = d.dietaryPreferences;
   if (d.injuryFlags !== undefined) updateData.injuryFlags = d.injuryFlags;
   if (d.goalOverride !== undefined) updateData.goalOverride = d.goalOverride;
+  if (d.customDeficitKcal !== undefined) updateData.customDeficitKcal = d.customDeficitKcal;
 
   const mergedWeight = d.weightKg ?? existingProfile.weightKg;
   const mergedTarget = d.targetWeightKg ?? existingProfile.targetWeightKg;
@@ -340,7 +341,6 @@ router.patch("/profile", async (req, res): Promise<void> => {
   if (mergedGoal === "custom") {
     if (d.customProteinPerKg !== undefined) updateData.customProteinPerKg = d.customProteinPerKg;
     if (d.customFatPerKg !== undefined) updateData.customFatPerKg = d.customFatPerKg;
-    if (d.customDeficitKcal !== undefined) updateData.customDeficitKcal = d.customDeficitKcal;
 
     const resolvedProtein = d.customProteinPerKg ?? existingProfile.customProteinPerKg;
     const resolvedFat = d.customFatPerKg ?? existingProfile.customFatPerKg;
