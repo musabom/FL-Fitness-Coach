@@ -18,8 +18,12 @@ export default function Login() {
     login.mutate(
       { email, password },
       {
-        onError: () => {
-          setError("Invalid email or password");
+        onError: (err: any) => {
+          if (err?.status === 403 && err?.data?.error === "ACCOUNT_DEACTIVATED") {
+            setError("ACCOUNT_DEACTIVATED");
+          } else {
+            setError("Invalid email or password");
+          }
         }
       }
     );
@@ -48,12 +52,22 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+          {error === "ACCOUNT_DEACTIVATED" ? (
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-sm space-y-1">
+              <div className="flex items-center gap-2 text-destructive font-semibold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Account Deactivated
+              </div>
+              <p className="text-muted-foreground text-xs pl-6">
+                Your account has been deactivated. Please contact your admin to restore access.
+              </p>
+            </div>
+          ) : error ? (
             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               {error}
             </div>
-          )}
+          ) : null}
           
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-muted-foreground px-1">Email</label>

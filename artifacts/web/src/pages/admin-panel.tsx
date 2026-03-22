@@ -4,7 +4,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp, Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2, Eye, Activity, Clock, MousePointerClick, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp, Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2, Eye, Activity, Clock, MousePointerClick, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCoachClient } from "@/context/coach-client-context";
 import { useLocation } from "wouter";
@@ -115,6 +115,19 @@ function UsersTab() {
     onError: () => toast({ title: "Failed to deactivate user", variant: "destructive" }),
   });
 
+  const activateMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/admin/users/${id}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      toast({ title: "User activated" });
+    },
+    onError: () => toast({ title: "Failed to activate user", variant: "destructive" }),
+  });
+
   const users = (usersQuery.data ?? []).filter(u =>
     `${u.email} ${u.full_name ?? ""}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -198,15 +211,25 @@ function UsersTab() {
                 >
                   <Eye className="w-3 h-3 mr-1" /> View
                 </Button>
-                {user.is_active && (
+                {user.is_active ? (
                   <Button
                     size="sm"
                     variant="outline"
                     className="text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
                     onClick={() => deactivateMutation.mutate(user.id)}
-                    disabled={deactivateMutation.isPending}
+                    disabled={deactivateMutation.isPending || activateMutation.isPending}
                   >
                     {deactivateMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <X className="w-3 h-3 mr-1" />} Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 px-2 text-green-400 border-green-400/30 hover:bg-green-400/10"
+                    onClick={() => activateMutation.mutate(user.id)}
+                    disabled={activateMutation.isPending || deactivateMutation.isPending}
+                  >
+                    {activateMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />} Activate
                   </Button>
                 )}
               </div>

@@ -65,7 +65,21 @@ router.post("/admin/users/:id/deactivate", async (req, res): Promise<void> => {
 
   await pool.query(`UPDATE users SET is_active = false WHERE id = $1`, [targetId]);
 
+  // Destroy any active session for this user
+  await pool.query(`DELETE FROM session WHERE sess->>'userId' = $1`, [String(targetId)]).catch(() => {});
+
   res.json({ message: "User deactivated" });
+});
+
+router.post("/admin/users/:id/activate", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const targetId = parseInt(req.params["id"], 10);
+
+  await pool.query(`UPDATE users SET is_active = true WHERE id = $1`, [targetId]);
+
+  res.json({ message: "User activated" });
 });
 
 // ── Coach-Client Assignment ──────────────────────────────────────────────────

@@ -80,6 +80,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!user.isActive) {
+    res.status(403).json({ error: "ACCOUNT_DEACTIVATED" });
+    return;
+  }
+
   const [profile] = await db.select({ id: userProfilesTable.id }).from(userProfilesTable).where(eq(userProfilesTable.userId, user.id));
 
   req.session.userId = user.id;
@@ -113,6 +118,12 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   if (!user) {
     req.session.destroy(() => {});
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  if (!user.isActive) {
+    req.session.destroy(() => {});
+    res.status(403).json({ error: "ACCOUNT_DEACTIVATED" });
     return;
   }
 

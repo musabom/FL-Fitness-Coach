@@ -35,7 +35,10 @@ export function useAuth() {
       try {
         return await customFetch<AuthUser>("/api/auth/me");
       } catch (e) {
-        if (e instanceof ApiError && e.status === 401) {
+        if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+          // 403 means account deactivated — treat as unauthenticated
+          if (e.status === 403) return null;
+
           // Auto-login if enabled and not already attempted
           if (AUTO_LOGIN_ENABLED && !autoLoginAttempted) {
             autoLoginAttempted = true;
