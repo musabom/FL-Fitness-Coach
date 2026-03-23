@@ -596,4 +596,23 @@ async function runMigrationsInternal(): Promise<void> {
 
   // Ensure role column exists with correct default
   await pool.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'member'`);
+
+  // ── Coach Services ──────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coach_services (
+      id SERIAL PRIMARY KEY,
+      coach_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      price NUMERIC(10, 3),
+      specializations TEXT[] NOT NULL DEFAULT '{}',
+      active_offer TEXT,
+      before_after_photos TEXT[] NOT NULL DEFAULT '{}',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_coach ON coach_services(coach_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_active ON coach_services(is_active)`);
 }

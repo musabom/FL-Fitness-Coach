@@ -97,11 +97,9 @@ router.get("/public/services", async (req, res): Promise<void> => {
       cs.active_offer,
       cs.before_after_photos,
       u.id AS coach_id,
-      u.full_name AS coach_name,
-      cp.photo_url AS coach_photo
+      u.full_name AS coach_name
     FROM coach_services cs
     INNER JOIN users u ON u.id = cs.coach_id
-    LEFT JOIN coach_profiles cp ON cp.user_id = u.id
     WHERE cs.is_active = true
       AND u.is_active = true
       AND u.role = 'coach'
@@ -127,7 +125,7 @@ router.get("/public/services", async (req, res): Promise<void> => {
     beforeAfterPhotos: r.before_after_photos ?? [],
     coachId: r.coach_id,
     coachName: r.coach_name,
-    coachPhoto: r.coach_photo,
+    coachPhoto: null,
   })));
 });
 
@@ -148,12 +146,9 @@ router.get("/public/services/:id", async (req, res): Promise<void> => {
       cs.active_offer,
       cs.before_after_photos,
       u.id AS coach_id,
-      u.full_name AS coach_name,
-      cp.photo_url AS coach_photo,
-      cp.bio AS coach_bio
+      u.full_name AS coach_name
     FROM coach_services cs
     INNER JOIN users u ON u.id = cs.coach_id
-    LEFT JOIN coach_profiles cp ON cp.user_id = u.id
     WHERE cs.id = $1 AND cs.is_active = true AND u.is_active = true AND u.role = 'coach'
   `, [serviceId]);
 
@@ -173,8 +168,8 @@ router.get("/public/services/:id", async (req, res): Promise<void> => {
     beforeAfterPhotos: r.before_after_photos ?? [],
     coachId: r.coach_id,
     coachName: r.coach_name,
-    coachPhoto: r.coach_photo,
-    coachBio: r.coach_bio,
+    coachPhoto: null,
+    coachBio: null,
   });
 });
 

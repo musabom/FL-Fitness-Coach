@@ -63,7 +63,7 @@ export default function CoachDetail() {
     onSuccess: () => {
       setSubscribed(true);
       toast({ title: t("coaches.subscribeSuccess") });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
     },
     onError: (err: Error) => {
       toast({ title: err.message, variant: "destructive" });
