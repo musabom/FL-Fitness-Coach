@@ -601,7 +601,7 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS coach_services (
       id SERIAL PRIMARY KEY,
-      coach_id INTEGER NOT NULL,
+      coach_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       description TEXT,
       price NUMERIC(10, 3),

@@ -162,8 +162,8 @@ export default function CoachServices() {
         paths.push(path);
       }
       setBeforeAfterPhotos(prev => [...prev, ...paths]);
-    } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: err instanceof Error ? err.message : "Upload failed", variant: "destructive" });
     } finally {
       setUploadingBAP(false);
     }
