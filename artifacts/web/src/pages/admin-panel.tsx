@@ -130,6 +130,19 @@ function UsersTab() {
     onError: () => toast({ title: "Failed to activate user", variant: "destructive" }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch(`/api/admin/users/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      toast({ title: "User deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete user", variant: "destructive" }),
+  });
+
   const users = (usersQuery.data ?? []).filter(u =>
     `${u.email} ${u.full_name ?? ""}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -234,6 +247,15 @@ function UsersTab() {
                     {activateMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />} Activate
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 px-2 text-red-500 border-red-500/30 hover:bg-red-500/10"
+                  onClick={() => deleteMutation.mutate(user.id)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />} Delete
+                </Button>
               </div>
             </div>
           ))}

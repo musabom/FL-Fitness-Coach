@@ -82,6 +82,23 @@ router.post("/admin/users/:id/activate", async (req, res): Promise<void> => {
   res.json({ message: "User activated" });
 });
 
+router.delete("/admin/users/:id", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const targetId = parseInt(req.params["id"], 10);
+
+  if (targetId === adminId) {
+    res.status(400).json({ error: "Cannot delete your own account" });
+    return;
+  }
+
+  // Delete user and cascade to related data
+  await pool.query(`DELETE FROM users WHERE id = $1`, [targetId]);
+
+  res.json({ message: "User deleted" });
+});
+
 // ── Coach-Client Assignment ──────────────────────────────────────────────────
 
 router.get("/admin/coaches", async (req, res): Promise<void> => {
