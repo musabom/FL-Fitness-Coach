@@ -45,7 +45,13 @@ export function useProfile() {
     mutation: {
       onSuccess: () => {
         queryClient.clear();
-        setLocation("/dashboard");
+        // If user came from a coach service page before signing up, send them back there
+        const pendingId = localStorage.getItem("pendingSubscriptionServiceId");
+        if (pendingId) {
+          setLocation(`/coaches/service/${pendingId}`);
+        } else {
+          setLocation("/dashboard");
+        }
       }
     }
   });

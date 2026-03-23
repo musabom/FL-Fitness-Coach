@@ -82,6 +82,20 @@ export function useAuth() {
       queryClient.setQueryData(AUTH_KEY, data);
       queryClient.invalidateQueries({ queryKey: getGetActivePlanQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
+
+      // If user was trying to subscribe to a coach before login, send them back there
+      const pendingId = localStorage.getItem("pendingSubscriptionServiceId");
+      if (pendingId && data.role === "member") {
+        if (data.hasProfile) {
+          // Has profile → go straight to the service page to complete the subscribe
+          setLocation(`/coaches/service/${pendingId}`);
+        }
+        // No profile → AuthGuard sends to /onboarding; pendingId stays in localStorage
+        // and use-profile.ts will redirect to the service after onboarding completes
+      } else if (pendingId && (data.role === "coach" || data.role === "admin")) {
+        // Coaches/admins don't subscribe — clear the pending subscription
+        localStorage.removeItem("pendingSubscriptionServiceId");
+      }
     },
   });
 

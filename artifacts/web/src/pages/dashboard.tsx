@@ -1,12 +1,12 @@
-import { useState, useMemo, useEffect } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
 import {
   Settings, LogOut, Loader2, ChevronRight, ChevronDown,
   UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap, Edit2, Check, X,
-  ArrowLeft, UserCheck, Bell,
+  ArrowLeft, UserCheck, Bell, Search,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -131,50 +131,6 @@ export default function Dashboard() {
   const viewMode = activeClient?.mode ?? null;
   const isCoachView = !!activeClient;
 
-  // Auto-subscribe to pending service if user just completed signup/onboarding
-  const autoSubscribeMutation = useMutation({
-    mutationFn: async (coachId: number) => {
-      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-      const res = await fetch(`${base}/api/public/coaches/${coachId}/subscribe`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to subscribe");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-      localStorage.removeItem("pendingSubscriptionServiceId");
-    },
-    onError: () => {
-      // Silently fail - user can always manually subscribe
-      localStorage.removeItem("pendingSubscriptionServiceId");
-    },
-  });
-
-  useEffect(() => {
-    // Check if user just completed signup and has a pending subscription
-    if (user && !user.coachId) {
-      const pendingServiceId = localStorage.getItem("pendingSubscriptionServiceId");
-      if (pendingServiceId) {
-        // Fetch the service to get coach ID, then auto-subscribe
-        (async () => {
-          try {
-            const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-            const res = await fetch(`${base}/api/public/services/${pendingServiceId}`);
-            if (res.ok) {
-              const service = await res.json();
-              autoSubscribeMutation.mutate(service.coachId);
-            } else {
-              localStorage.removeItem("pendingSubscriptionServiceId");
-            }
-          } catch (err) {
-            localStorage.removeItem("pendingSubscriptionServiceId");
-          }
-        })();
-      }
-    }
-  }, [user, autoSubscribeMutation]);
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
     queryKey: ["dashboard-today", today, activeClient?.id],
@@ -341,6 +297,24 @@ export default function Dashboard() {
               <p className="text-sm text-foreground">{t("dashboard.planUpdatedMsg")}</p>
             </div>
           </div>
+        )}
+        {/* Member: no coach yet — Find a Coach CTA */}
+        {!isCoachView && user?.role === "member" && !user?.coachId && (
+          <button
+            onClick={() => setLocation("/coaches")}
+            className="w-full flex items-center justify-between gap-3 bg-card border border-border hover:border-primary/40 rounded-2xl px-4 py-4 transition-colors text-start group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Search className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t("dashboard.findCoach")}</p>
+                <p className="text-xs text-muted-foreground">{t("dashboard.findCoachHint")}</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+          </button>
         )}
 
         {/* Toggle */}

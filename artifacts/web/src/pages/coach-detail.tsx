@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { ArrowLeft, Star, ChevronLeft, ChevronRight, User, CheckCircle, Activity } from "lucide-react";
@@ -70,11 +70,21 @@ export default function CoachDetail() {
     },
   });
 
+  // When user returns to this page after login/signup, auto-trigger subscribe
+  useEffect(() => {
+    if (!user || !service || subscribeMutation.isPending || subscribed) return;
+    const pendingId = localStorage.getItem("pendingSubscriptionServiceId");
+    if (pendingId === String(serviceId) && user.role === "member" && user.coachId !== service.coachId) {
+      localStorage.removeItem("pendingSubscriptionServiceId");
+      subscribeMutation.mutate();
+    }
+  }, [user, service]);
+
   function handleSubscribe() {
     if (!user) {
-      // Save the service ID so we can auto-subscribe after signup
+      // Save the service ID so we can auto-subscribe after login/signup
       localStorage.setItem("pendingSubscriptionServiceId", String(serviceId));
-      setLocation(`/login`);
+      setLocation(`/signup`);
       return;
     }
     subscribeMutation.mutate();
