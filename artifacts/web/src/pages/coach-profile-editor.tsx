@@ -84,6 +84,7 @@ export default function CoachProfileEditor() {
       toast({ title: t("coaches.profileSaved") });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/public/coaches"] });
+      setTimeout(() => setLocation("/coach/clients"), 500);
     },
     onError: (err: Error) => {
       toast({ title: err.message, variant: "destructive" });
