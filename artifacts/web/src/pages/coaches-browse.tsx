@@ -20,6 +20,8 @@ interface ServiceCard {
   beforeAfterPhotos: string[];
   coachId: number;
   coachName: string;
+  coachPhoto: string | null;
+  coachBio: string | null;
 }
 
 function CoachAvatar({ photoUrl, name }: { photoUrl: string | null; name: string }) {
@@ -146,7 +148,7 @@ export default function CoachesBrowse() {
                 onClick={() => setLocation(`/coaches/service/${service.id}`)}
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <CoachAvatar photoUrl={null} name={service.coachName || "?"} />
+                  <CoachAvatar photoUrl={service.coachPhoto} name={service.coachName || "?"} />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-base leading-tight truncate">{service.title}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">{t("services.by")} {service.coachName}</p>

@@ -125,9 +125,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Coaches go directly to their dashboard (no member onboarding needed)
+    // Coaches: redirect from "/" to coach clients, but allow /onboarding and /dashboard
     if (user && user.role === "coach") {
-      if (location === "/" || location === "/onboarding") {
+      if (location === "/") {
         setLocation("/coach/clients");
       }
     }

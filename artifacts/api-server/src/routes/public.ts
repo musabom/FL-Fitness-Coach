@@ -15,9 +15,12 @@ router.get("/public/services", async (req, res): Promise<void> => {
       cs.active_offer,
       cs.before_after_photos,
       u.id AS coach_id,
-      u.full_name AS coach_name
+      COALESCE(u.full_name, split_part(u.email, '@', 1)) AS coach_name,
+      cp.photo_url AS coach_photo,
+      cp.bio AS coach_bio
     FROM coach_services cs
     INNER JOIN users u ON u.id = cs.coach_id
+    LEFT JOIN coach_profiles cp ON cp.user_id = u.id
     WHERE cs.is_active = true
       AND u.is_active = true
       AND u.role = 'coach'
@@ -25,6 +28,7 @@ router.get("/public/services", async (req, res): Promise<void> => {
         $1 = ''
         OR cs.title ILIKE $2
         OR u.full_name ILIKE $2
+        OR split_part(u.email, '@', 1) ILIKE $2
         OR EXISTS (
           SELECT 1 FROM unnest(cs.specializations) AS s
           WHERE s ILIKE $2
@@ -43,7 +47,8 @@ router.get("/public/services", async (req, res): Promise<void> => {
     beforeAfterPhotos: r.before_after_photos ?? [],
     coachId: r.coach_id,
     coachName: r.coach_name,
-    coachPhoto: null,
+    coachPhoto: r.coach_photo ?? null,
+    coachBio: r.coach_bio ?? null,
   })));
 });
 
@@ -64,9 +69,12 @@ router.get("/public/services/:id", async (req, res): Promise<void> => {
       cs.active_offer,
       cs.before_after_photos,
       u.id AS coach_id,
-      u.full_name AS coach_name
+      COALESCE(u.full_name, split_part(u.email, '@', 1)) AS coach_name,
+      cp.photo_url AS coach_photo,
+      cp.bio AS coach_bio
     FROM coach_services cs
     INNER JOIN users u ON u.id = cs.coach_id
+    LEFT JOIN coach_profiles cp ON cp.user_id = u.id
     WHERE cs.id = $1 AND cs.is_active = true AND u.is_active = true AND u.role = 'coach'
   `, [serviceId]);
 
@@ -86,8 +94,8 @@ router.get("/public/services/:id", async (req, res): Promise<void> => {
     beforeAfterPhotos: r.before_after_photos ?? [],
     coachId: r.coach_id,
     coachName: r.coach_name,
-    coachPhoto: null,
-    coachBio: null,
+    coachPhoto: r.coach_photo ?? null,
+    coachBio: r.coach_bio ?? null,
   });
 });
 

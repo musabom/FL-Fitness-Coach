@@ -356,6 +356,8 @@ const en = {
     lastActive: "Last active",
     hasProfile: "Profile complete",
     noProfile: "No profile",
+    myProgress: "Track My Own Progress",
+    myProgressHint: "View your personal body composition dashboard",
   },
   adminPanel: {
     title: "Admin Panel",
@@ -839,6 +841,8 @@ const ar: typeof en = {
     lastActive: "آخر نشاط",
     hasProfile: "البيانات مكتملة",
     noProfile: "لا توجد بيانات",
+    myProgress: "تتبع تقدمي الشخصي",
+    myProgressHint: "عرض لوحة متابعة تكوين جسمك الشخصية",
   },
   adminPanel: {
     title: "لوحة الإدارة",

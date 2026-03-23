@@ -128,6 +128,23 @@ export default function CoachClients() {
         </div>
       </header>
 
+      {/* My Progress Banner */}
+      <div className="px-6 pb-2">
+        <button
+          onClick={handleMyDashboard}
+          className="w-full flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3 hover:bg-primary/20 active:scale-[0.98] transition-all text-left"
+        >
+          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+            <LayoutDashboard className="w-4.5 h-4.5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-primary">{t("coachClients.myProgress")}</p>
+            <p className="text-xs text-muted-foreground">{t("coachClients.myProgressHint")}</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
+        </button>
+      </div>
+
       {/* Client list */}
       <main className="flex-1 overflow-y-auto px-6 pb-8 space-y-3">
         {clientsQuery.isLoading ? (

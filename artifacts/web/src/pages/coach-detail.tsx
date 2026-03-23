@@ -20,6 +20,8 @@ interface ServiceDetail {
   beforeAfterPhotos: string[];
   coachId: number;
   coachName: string;
+  coachPhoto: string | null;
+  coachBio: string | null;
 }
 
 export default function CoachDetail() {
@@ -124,9 +126,18 @@ export default function CoachDetail() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8">
           <div className="flex-shrink-0">
-            <div className="w-28 h-28 rounded-full bg-primary/20 border-4 border-primary/30 flex items-center justify-center text-3xl font-bold text-primary">
-              {service.coachName?.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase() || <User className="w-10 h-10" />}
-            </div>
+            {service.coachPhoto ? (
+              <img
+                src={getObjectUrl(service.coachPhoto)}
+                alt={service.coachName}
+                className="w-28 h-28 rounded-full object-cover border-4 border-primary/30"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <div className="w-28 h-28 rounded-full bg-primary/20 border-4 border-primary/30 flex items-center justify-center text-3xl font-bold text-primary">
+                {service.coachName?.split(" ").filter(Boolean).map(p => p[0]).join("").slice(0, 2).toUpperCase() || <User className="w-10 h-10" />}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 text-center sm:text-start">
@@ -155,6 +166,13 @@ export default function CoachDetail() {
             )}
           </div>
         </div>
+
+        {service.coachBio && (
+          <div className="mb-6 p-5 bg-card border border-border rounded-2xl">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t("coaches.aboutCoach")}</h2>
+            <p className="text-base leading-relaxed">{service.coachBio}</p>
+          </div>
+        )}
 
         {service.description && (
           <div className="mb-8 p-5 bg-card border border-border rounded-2xl">
