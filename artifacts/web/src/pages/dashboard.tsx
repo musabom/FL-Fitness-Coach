@@ -265,12 +265,15 @@ export default function Dashboard() {
               <Settings className="w-5 h-5 text-foreground" />
             </Link>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => logout.mutate()}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+            className="text-xs gap-1.5 text-muted-foreground"
           >
-            <LogOut className="w-5 h-5" />
-          </button>
+            <LogOut className="w-3.5 h-3.5" />
+            {t("signOut")}
+          </Button>
         </div>
       </header>
       <main className="px-6 pt-6 space-y-6">
