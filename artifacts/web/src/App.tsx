@@ -69,6 +69,25 @@ function ClickTracker() {
   return null;
 }
 
+function RootRedirect() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (user?.role === "member") {
+      setLocation(user.hasProfile ? "/dashboard" : "/onboarding");
+    } else if (user?.role === "coach") {
+      setLocation(user.hasProfile ? "/coach/clients" : "/onboarding");
+    } else if (user?.role === "admin") {
+      setLocation("/admin");
+    } else {
+      setLocation("/coaches");
+    }
+  }, [user, setLocation]);
+
+  return null;
+}
+
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -179,7 +198,7 @@ function Router() {
         <Route path="/progress" component={Progress} />
 
         <Route path="/">
-          <div />
+          <RootRedirect />
         </Route>
         <Route component={NotFound} />
       </Switch>
