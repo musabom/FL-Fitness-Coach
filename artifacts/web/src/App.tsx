@@ -77,7 +77,7 @@ function RootRedirect() {
     if (user?.role === "member") {
       setLocation(user.hasProfile ? "/dashboard" : "/onboarding");
     } else if (user?.role === "coach") {
-      setLocation(user.hasProfile ? "/coach/clients" : "/onboarding");
+      setLocation("/coach/clients");
     } else if (user?.role === "admin") {
       setLocation("/admin");
     } else {
@@ -124,11 +124,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Coaches with no profile still need onboarding
+    // Coaches go directly to their dashboard (no member onboarding needed)
     if (user && user.role === "coach") {
-      if (!user.hasProfile && location !== "/onboarding") {
-        setLocation("/onboarding");
-      } else if (user.hasProfile && location === "/") {
+      if (location === "/" || location === "/onboarding") {
         setLocation("/coach/clients");
       }
     }
@@ -156,7 +154,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   if (isPublicRoute(location)) return <>{children}</>;
   if (!user) return null;
   if (user.role === "member" && !user.hasProfile && location !== "/onboarding") return null;
-  if (user.role === "coach" && !user.hasProfile && location !== "/onboarding") return null;
 
   return <>{children}</>;
 }
