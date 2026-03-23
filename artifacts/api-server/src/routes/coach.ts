@@ -102,90 +102,53 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
   res.json(enriched);
 });
 
-// GET /coach/profile — get own coach profile
+// GET /coach/profile — get own coach profile (personal info only)
 router.get("/coach/profile", async (req, res): Promise<void> => {
   const caller = await requireCoachOrAdmin(req, res);
   if (!caller) return;
 
   const result = await pool.query(
-    `SELECT cp.*, u.full_name FROM coach_profiles cp
-     LEFT JOIN users u ON u.id = cp.user_id
-     WHERE cp.user_id = $1`,
+    `SELECT cp.photo_url, cp.bio, u.full_name
+     FROM users u
+     LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+     WHERE u.id = $1`,
     [caller.userId]
   );
 
-  if (result.rows.length === 0) {
-    // Fetch from users table if profile doesn't exist yet
-    const userResult = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [caller.userId]);
-    const user = userResult.rows[0];
-    
-    res.json({
-      fullName: user?.full_name || null,
-      photoUrl: null,
-      specializations: [],
-      pricePerMonth: null,
-      bio: null,
-      activeOffer: null,
-      beforeAfterPhotos: [],
-    });
-    return;
-  }
-
   const r = result.rows[0];
   res.json({
-    fullName: r.full_name,
-    photoUrl: r.photo_url,
-    specializations: r.specializations ?? [],
-    pricePerMonth: r.price_per_month ? Number(r.price_per_month) : null,
-    bio: r.bio,
-    activeOffer: r.active_offer,
-    beforeAfterPhotos: r.before_after_photos ?? [],
+    fullName: r?.full_name || null,
+    photoUrl: r?.photo_url || null,
+    bio: r?.bio || null,
   });
 });
 
-// PUT /coach/profile — upsert coach profile
+// PUT /coach/profile — save personal profile info only (photo, name, bio)
 router.put("/coach/profile", async (req, res): Promise<void> => {
   const caller = await requireCoachOrAdmin(req, res);
   if (!caller) return;
 
-  const { fullName, photoUrl, specializations, pricePerMonth, bio, activeOffer, beforeAfterPhotos } = req.body;
+  const { fullName, photoUrl, bio } = req.body;
 
-  // Validate
   if (bio && bio.length > 150) {
     res.status(400).json({ error: "Bio must be 150 characters or fewer" });
     return;
   }
-  if (specializations && (!Array.isArray(specializations) || specializations.length > 3)) {
-    res.status(400).json({ error: "Specializations must be an array of 1-3 tags" });
-    return;
+
+  // Update full_name in users table
+  if (fullName !== undefined) {
+    await pool.query(`UPDATE users SET full_name = $1 WHERE id = $2`, [fullName || null, caller.userId]);
   }
 
-  // Update users table if fullName provided
-  if (fullName) {
-    await pool.query(`UPDATE users SET full_name = $1 WHERE id = $2`, [fullName, caller.userId]);
-  }
-
-  // Update coach_profiles
+  // Upsert coach_profiles — only touch photo_url and bio, preserve all other fields
   await pool.query(`
-    INSERT INTO coach_profiles (user_id, photo_url, specializations, price_per_month, bio, active_offer, before_after_photos, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    INSERT INTO coach_profiles (user_id, photo_url, bio, updated_at)
+    VALUES ($1, $2, $3, NOW())
     ON CONFLICT (user_id) DO UPDATE SET
       photo_url = EXCLUDED.photo_url,
-      specializations = EXCLUDED.specializations,
-      price_per_month = EXCLUDED.price_per_month,
       bio = EXCLUDED.bio,
-      active_offer = EXCLUDED.active_offer,
-      before_after_photos = EXCLUDED.before_after_photos,
       updated_at = NOW()
-  `, [
-    caller.userId,
-    photoUrl ?? null,
-    specializations ?? [],
-    pricePerMonth ?? null,
-    bio ?? null,
-    activeOffer ?? null,
-    beforeAfterPhotos ?? [],
-  ]);
+  `, [caller.userId, photoUrl ?? null, bio ?? null]);
 
   res.json({ message: "Profile updated" });
 });

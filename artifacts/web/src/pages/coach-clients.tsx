@@ -114,7 +114,7 @@ export default function CoachClients() {
             className="text-xs gap-1.5 text-muted-foreground"
           >
             <UserCircle2 className="w-3.5 h-3.5" />
-            {t("coaches.editProfile")}
+            {t("coaches.myProfile")}
           </Button>
           <Button
             variant="ghost"
