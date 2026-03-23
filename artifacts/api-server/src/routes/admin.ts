@@ -93,10 +93,53 @@ router.delete("/admin/users/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Delete user and cascade to related data
-  await pool.query(`DELETE FROM users WHERE id = $1`, [targetId]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  res.json({ message: "User deleted" });
+    // Unlink any members who have this user as their coach
+    await client.query(`UPDATE users SET coach_id = NULL WHERE coach_id = $1`, [targetId]);
+
+    // Delete all related data in dependency order (leaf tables first)
+    await client.query(`DELETE FROM meal_portion_completions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM meal_plan_completions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM meal_plan_exclusions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM meal_plan_entries WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM meal_schedule WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM meal_logs WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM user_meals WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM user_foods WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM food_stock WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM workout_exercise_completions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM workout_plan_completions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM workout_plan_exclusions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM workout_plan_entries WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM workout_schedule WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM workout_sessions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM user_workouts WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM exercises WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM weight_history WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM weekly_checkins WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM adjustment_logs WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM plans WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM user_profiles WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM coach_services WHERE coach_id = $1`, [targetId]);
+    await client.query(`DELETE FROM coach_profiles WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM session WHERE sess->>'userId' = $1`, [String(targetId)]).catch(() => {});
+
+    // Finally delete the user
+    await client.query(`DELETE FROM users WHERE id = $1`, [targetId]);
+
+    await client.query("COMMIT");
+    res.json({ message: "User deleted" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Delete user error:", err);
+    res.status(500).json({ error: "Failed to delete user" });
+  } finally {
+    client.release();
+  }
 });
 
 // ── Coach-Client Assignment ──────────────────────────────────────────────────
