@@ -70,6 +70,8 @@ export default function CoachDetail() {
 
   function handleSubscribe() {
     if (!user) {
+      // Save the service ID so we can auto-subscribe after signup
+      localStorage.setItem("pendingSubscriptionServiceId", String(serviceId));
       setLocation(`/login`);
       return;
     }

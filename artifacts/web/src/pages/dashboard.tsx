@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
@@ -130,6 +130,51 @@ export default function Dashboard() {
   const today = todayStr();
   const viewMode = activeClient?.mode ?? null;
   const isCoachView = !!activeClient;
+
+  // Auto-subscribe to pending service if user just completed signup/onboarding
+  const autoSubscribeMutation = useMutation({
+    mutationFn: async (coachId: number) => {
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+      const res = await fetch(`${base}/api/public/coaches/${coachId}/subscribe`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to subscribe");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      localStorage.removeItem("pendingSubscriptionServiceId");
+    },
+    onError: () => {
+      // Silently fail - user can always manually subscribe
+      localStorage.removeItem("pendingSubscriptionServiceId");
+    },
+  });
+
+  useEffect(() => {
+    // Check if user just completed signup and has a pending subscription
+    if (user && !user.coachId) {
+      const pendingServiceId = localStorage.getItem("pendingSubscriptionServiceId");
+      if (pendingServiceId) {
+        // Fetch the service to get coach ID, then auto-subscribe
+        (async () => {
+          try {
+            const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+            const res = await fetch(`${base}/api/public/services/${pendingServiceId}`);
+            if (res.ok) {
+              const service = await res.json();
+              autoSubscribeMutation.mutate(service.coachId);
+            } else {
+              localStorage.removeItem("pendingSubscriptionServiceId");
+            }
+          } catch (err) {
+            localStorage.removeItem("pendingSubscriptionServiceId");
+          }
+        })();
+      }
+    }
+  }, [user, autoSubscribeMutation]);
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
     queryKey: ["dashboard-today", today, activeClient?.id],
