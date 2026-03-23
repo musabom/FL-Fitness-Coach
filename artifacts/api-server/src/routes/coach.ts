@@ -266,7 +266,8 @@ router.put("/coach/services/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const { title, description, price, specializations, activeOffer, beforeAfterPhotos, isActive } = req.body;
+  const body = req.body;
+  const { title, description, price, specializations, activeOffer, beforeAfterPhotos, isActive } = body;
 
   if (title !== undefined && (typeof title !== "string" || title.trim().length === 0)) {
     res.status(400).json({ error: "Title cannot be empty" });
@@ -278,28 +279,31 @@ router.put("/coach/services/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const setClauses: string[] = ["updated_at = NOW()"];
+  const values: unknown[] = [serviceId];
+  let paramIdx = 2;
+
+  function addField(column: string, value: unknown, key: string) {
+    if (key in body) {
+      setClauses.push(`${column} = $${paramIdx}`);
+      values.push(value);
+      paramIdx++;
+    }
+  }
+
+  addField("title", title?.trim() ?? null, "title");
+  addField("description", description ?? null, "description");
+  addField("price", price ?? null, "price");
+  addField("specializations", specializations ?? [], "specializations");
+  addField("active_offer", activeOffer ?? null, "activeOffer");
+  addField("before_after_photos", beforeAfterPhotos ?? [], "beforeAfterPhotos");
+  addField("is_active", isActive ?? true, "isActive");
+
   const result = await pool.query(`
-    UPDATE coach_services SET
-      title = COALESCE($2, title),
-      description = COALESCE($3, description),
-      price = COALESCE($4, price),
-      specializations = COALESCE($5, specializations),
-      active_offer = COALESCE($6, active_offer),
-      before_after_photos = COALESCE($7, before_after_photos),
-      is_active = COALESCE($8, is_active),
-      updated_at = NOW()
+    UPDATE coach_services SET ${setClauses.join(", ")}
     WHERE id = $1
     RETURNING *
-  `, [
-    serviceId,
-    title?.trim() ?? null,
-    description ?? null,
-    price ?? null,
-    specializations ?? null,
-    activeOffer ?? null,
-    beforeAfterPhotos ?? null,
-    isActive ?? null,
-  ]);
+  `, values);
 
   const r = result.rows[0];
   res.json({
