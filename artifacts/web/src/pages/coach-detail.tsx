@@ -54,7 +54,7 @@ export default function CoachDetail() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to subscribe");
+        throw new Error(data.error || t("services.failedToSubscribe"));
       }
       return res.json();
     },

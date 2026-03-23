@@ -474,6 +474,11 @@ const en = {
     aboutService: "About This Service",
     aboutCoach: "About the Coach",
     manageServices: "My Services",
+    failedToLoad: "Failed to load services",
+    failedToSave: "Failed to save service",
+    failedToDelete: "Failed to delete service",
+    uploadFailed: "Upload failed",
+    failedToSubscribe: "Failed to subscribe",
   },
 };
 
@@ -951,6 +956,11 @@ const ar: typeof en = {
     aboutService: "عن هذه الخدمة",
     aboutCoach: "عن المدرب",
     manageServices: "خدماتي",
+    failedToLoad: "فشل تحميل الخدمات",
+    failedToSave: "فشل حفظ الخدمة",
+    failedToDelete: "فشل حذف الخدمة",
+    uploadFailed: "فشل الرفع",
+    failedToSubscribe: "فشل الاشتراك",
   },
 };
 

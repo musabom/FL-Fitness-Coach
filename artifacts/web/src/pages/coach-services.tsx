@@ -49,7 +49,7 @@ export default function CoachServices() {
     queryKey: ["/api/coach/services"],
     queryFn: async () => {
       const res = await fetch(`${BASE}/api/coach/services`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load services");
+      if (!res.ok) throw new Error(t("services.failedToLoad"));
       return res.json();
     },
   });
@@ -106,7 +106,7 @@ export default function CoachServices() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save service");
+        throw new Error(data.error || t("services.failedToSave"));
       }
       return res.json();
     },
@@ -126,7 +126,7 @@ export default function CoachServices() {
         method: "DELETE",
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to delete service");
+      if (!res.ok) throw new Error(t("services.failedToDelete"));
       return res.json();
     },
     onSuccess: () => {
@@ -163,7 +163,7 @@ export default function CoachServices() {
       }
       setBeforeAfterPhotos(prev => [...prev, ...paths]);
     } catch (err: unknown) {
-      toast({ title: err instanceof Error ? err.message : "Upload failed", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("services.uploadFailed"), variant: "destructive" });
     } finally {
       setUploadingBAP(false);
     }
