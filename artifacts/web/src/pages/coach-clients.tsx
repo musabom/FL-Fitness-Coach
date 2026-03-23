@@ -1,13 +1,12 @@
-import { useState } from "react";
 import { useLanguage } from "@/context/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCoachClient } from "@/context/coach-client-context";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2, Star } from "lucide-react";
+import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2, Star, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface CoachClient {
@@ -58,6 +57,8 @@ export default function CoachClients() {
   const clientsQuery = useQuery<CoachClient[]>({
     queryKey: ["coach", "clients"],
     queryFn: () => customFetch<CoachClient[]>("/api/coach/clients"),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   const clients = clientsQuery.data ?? [];
@@ -154,8 +155,18 @@ export default function CoachClients() {
         ) : clients.length === 0 ? (
           <div className="text-center py-20">
             <User className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">No clients assigned yet</p>
-            <p className="text-muted-foreground/60 text-xs mt-1">Ask your admin to assign clients to you</p>
+            <p className="text-muted-foreground text-sm">{t("coachClients.noClients")}</p>
+            <p className="text-muted-foreground/60 text-xs mt-1">{t("coachClients.noClientsHint")}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-4 gap-2 text-muted-foreground"
+              onClick={() => clientsQuery.refetch()}
+              disabled={clientsQuery.isFetching}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${clientsQuery.isFetching ? "animate-spin" : ""}`} />
+              {t("common.refresh")}
+            </Button>
           </div>
         ) : (
           clients.map((client, i) => (
