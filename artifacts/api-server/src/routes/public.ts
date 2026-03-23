@@ -1,7 +1,5 @@
 import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
-import { z } from "zod/v4";
-
 const router: IRouter = Router();
 
 router.get("/public/services", async (req, res): Promise<void> => {
