@@ -108,12 +108,19 @@ router.get("/coach/profile", async (req, res): Promise<void> => {
   if (!caller) return;
 
   const result = await pool.query(
-    `SELECT * FROM coach_profiles WHERE user_id = $1`,
+    `SELECT cp.*, u.full_name FROM coach_profiles cp
+     LEFT JOIN users u ON u.id = cp.user_id
+     WHERE cp.user_id = $1`,
     [caller.userId]
   );
 
   if (result.rows.length === 0) {
+    // Fetch from users table if profile doesn't exist yet
+    const userResult = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [caller.userId]);
+    const user = userResult.rows[0];
+    
     res.json({
+      fullName: user?.full_name || null,
       photoUrl: null,
       specializations: [],
       pricePerMonth: null,
@@ -126,6 +133,7 @@ router.get("/coach/profile", async (req, res): Promise<void> => {
 
   const r = result.rows[0];
   res.json({
+    fullName: r.full_name,
     photoUrl: r.photo_url,
     specializations: r.specializations ?? [],
     pricePerMonth: r.price_per_month ? Number(r.price_per_month) : null,
@@ -140,7 +148,7 @@ router.put("/coach/profile", async (req, res): Promise<void> => {
   const caller = await requireCoachOrAdmin(req, res);
   if (!caller) return;
 
-  const { photoUrl, specializations, pricePerMonth, bio, activeOffer, beforeAfterPhotos } = req.body;
+  const { fullName, photoUrl, specializations, pricePerMonth, bio, activeOffer, beforeAfterPhotos } = req.body;
 
   // Validate
   if (bio && bio.length > 150) {
@@ -152,6 +160,12 @@ router.put("/coach/profile", async (req, res): Promise<void> => {
     return;
   }
 
+  // Update users table if fullName provided
+  if (fullName) {
+    await pool.query(`UPDATE users SET full_name = $1 WHERE id = $2`, [fullName, caller.userId]);
+  }
+
+  // Update coach_profiles
   await pool.query(`
     INSERT INTO coach_profiles (user_id, photo_url, specializations, price_per_month, bio, active_offer, before_after_photos, updated_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())

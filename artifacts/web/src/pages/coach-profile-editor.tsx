@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePhotoUpload, getObjectUrl } from "@/hooks/use-photo-upload";
 
 interface CoachProfileData {
+  fullName: string | null;
   photoUrl: string | null;
   specializations: string[];
   pricePerMonth: number | null;
@@ -34,6 +35,7 @@ export default function CoachProfileEditor() {
   const queryClient = useQueryClient();
   const { uploadPhoto, isUploading } = usePhotoUpload();
 
+  const [fullName, setFullName] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [specializations, setSpecializations] = useState<string[]>([]);
   const [specInput, setSpecInput] = useState("");
@@ -50,6 +52,7 @@ export default function CoachProfileEditor() {
     queryKey: ["/api/coach/profile"],
     queryFn: fetchCoachProfile,
     onSuccess: (data) => {
+      setFullName(data.fullName ?? "");
       setPhotoUrl(data.photoUrl);
       setSpecializations(data.specializations ?? []);
       setPricePerMonth(data.pricePerMonth != null ? String(data.pricePerMonth) : "");
@@ -66,6 +69,7 @@ export default function CoachProfileEditor() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
+          fullName: fullName || null,
           photoUrl: photoUrl || null,
           specializations,
           pricePerMonth: pricePerMonth ? Number(pricePerMonth) : null,
@@ -189,6 +193,17 @@ export default function CoachProfileEditor() {
             onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
           />
           <p className="text-sm text-muted-foreground">{t("coaches.photoHint")}</p>
+        </div>
+
+        {/* Full Name */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">{t("coaches.fullName")}</label>
+          <Input
+            type="text"
+            placeholder="John Doe"
+            value={fullName}
+            onChange={e => setFullName(e.target.value)}
+          />
         </div>
 
         {/* Specializations */}
