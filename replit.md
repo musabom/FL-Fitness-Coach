@@ -57,6 +57,7 @@ Phase 1 (Drizzle ORM): users, user_profiles, plans
 Phase 1 (raw SQL — Meal Builder): foods (113 USDA rows), user_meals, meal_portions, meal_schedule, meal_plan_entries, meal_plan_completions, meal_plan_exclusions, meal_portion_completions
 Phase 1 (raw SQL — Exercise Builder): exercises (45 library + custom), user_workouts, workout_exercises, workout_schedule, food_stock
 Phase 1 (raw SQL — Workout Plan): workout_plan_entries, workout_plan_completions, workout_plan_exclusions, workout_exercise_completions
+Coach Services (raw SQL): coach_services (id serial PK, coach_id, title, description, price numeric(10,3), specializations text[], active_offer, before_after_photos text[], is_active, created_at, updated_at)
 Phase 2+ (schema only): weekly_checkins, meal_logs, workout_sessions, adjustment_logs
 
 ### Meal Builder tables (raw SQL, not in Drizzle schema)
@@ -157,6 +158,15 @@ Macro calculation for portions:
 
 **Coach API routes** (`/api/coach/...`):
 - GET `/coach/clients` — assigned clients with 30-day meal/workout compliance percentages
+- GET/POST `/coach/services` — list and create coach services
+- PUT/DELETE `/coach/services/:id` — update and delete owned services
+
+**Public API routes** (`/api/public/...`):
+- GET `/public/coaches` — list active coaches (legacy)
+- GET `/public/coaches/:id` — single coach detail (legacy)
+- GET `/public/services` — list active services with coach info (search supported)
+- GET `/public/services/:id` — single service detail with coach info
+- POST `/public/coaches/:id/subscribe` — subscribe to a coach (auth required, member role only)
 
 ## Auth Pattern
 

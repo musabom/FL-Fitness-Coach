@@ -176,6 +176,170 @@ router.put("/coach/profile", async (req, res): Promise<void> => {
   res.json({ message: "Profile updated" });
 });
 
+// ── Coach Services CRUD ─────────────────────────────────────────────────────
+
+router.get("/coach/services", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const result = await pool.query(
+    `SELECT * FROM coach_services WHERE coach_id = $1 ORDER BY created_at DESC`,
+    [caller.userId]
+  );
+
+  res.json(result.rows.map(r => ({
+    id: r.id,
+    coachId: r.coach_id,
+    title: r.title,
+    description: r.description,
+    price: r.price ? Number(r.price) : null,
+    specializations: r.specializations ?? [],
+    activeOffer: r.active_offer,
+    beforeAfterPhotos: r.before_after_photos ?? [],
+    isActive: r.is_active,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  })));
+});
+
+router.post("/coach/services", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const { title, description, price, specializations, activeOffer, beforeAfterPhotos } = req.body;
+
+  if (!title || typeof title !== "string" || title.trim().length === 0) {
+    res.status(400).json({ error: "Title is required" });
+    return;
+  }
+  if (specializations && (!Array.isArray(specializations) || specializations.length > 5)) {
+    res.status(400).json({ error: "Specializations must be an array of up to 5 tags" });
+    return;
+  }
+
+  const result = await pool.query(`
+    INSERT INTO coach_services (coach_id, title, description, price, specializations, active_offer, before_after_photos, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+    RETURNING *
+  `, [
+    caller.userId,
+    title.trim(),
+    description ?? null,
+    price ?? null,
+    specializations ?? [],
+    activeOffer ?? null,
+    beforeAfterPhotos ?? [],
+  ]);
+
+  const r = result.rows[0];
+  res.json({
+    id: r.id,
+    coachId: r.coach_id,
+    title: r.title,
+    description: r.description,
+    price: r.price ? Number(r.price) : null,
+    specializations: r.specializations ?? [],
+    activeOffer: r.active_offer,
+    beforeAfterPhotos: r.before_after_photos ?? [],
+    isActive: r.is_active,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  });
+});
+
+router.put("/coach/services/:id", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const serviceId = parseInt(req.params["id"], 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: "Invalid service ID" });
+    return;
+  }
+
+  const ownerCheck = await pool.query(
+    `SELECT id FROM coach_services WHERE id = $1 AND coach_id = $2`,
+    [serviceId, caller.userId]
+  );
+  if (ownerCheck.rows.length === 0) {
+    res.status(404).json({ error: "Service not found" });
+    return;
+  }
+
+  const { title, description, price, specializations, activeOffer, beforeAfterPhotos, isActive } = req.body;
+
+  if (title !== undefined && (typeof title !== "string" || title.trim().length === 0)) {
+    res.status(400).json({ error: "Title cannot be empty" });
+    return;
+  }
+
+  if (specializations !== undefined && (!Array.isArray(specializations) || specializations.length > 5)) {
+    res.status(400).json({ error: "Specializations must be an array of up to 5 tags" });
+    return;
+  }
+
+  const result = await pool.query(`
+    UPDATE coach_services SET
+      title = COALESCE($2, title),
+      description = COALESCE($3, description),
+      price = COALESCE($4, price),
+      specializations = COALESCE($5, specializations),
+      active_offer = COALESCE($6, active_offer),
+      before_after_photos = COALESCE($7, before_after_photos),
+      is_active = COALESCE($8, is_active),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING *
+  `, [
+    serviceId,
+    title?.trim() ?? null,
+    description ?? null,
+    price ?? null,
+    specializations ?? null,
+    activeOffer ?? null,
+    beforeAfterPhotos ?? null,
+    isActive ?? null,
+  ]);
+
+  const r = result.rows[0];
+  res.json({
+    id: r.id,
+    coachId: r.coach_id,
+    title: r.title,
+    description: r.description,
+    price: r.price ? Number(r.price) : null,
+    specializations: r.specializations ?? [],
+    activeOffer: r.active_offer,
+    beforeAfterPhotos: r.before_after_photos ?? [],
+    isActive: r.is_active,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  });
+});
+
+router.delete("/coach/services/:id", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const serviceId = parseInt(req.params["id"], 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: "Invalid service ID" });
+    return;
+  }
+
+  const result = await pool.query(
+    `DELETE FROM coach_services WHERE id = $1 AND coach_id = $2 RETURNING id`,
+    [serviceId, caller.userId]
+  );
+
+  if (result.rows.length === 0) {
+    res.status(404).json({ error: "Service not found" });
+    return;
+  }
+
+  res.json({ message: "Service deleted" });
+});
+
 // Mark plan as coach-updated (called when coach saves any change to client data)
 router.post("/coach/clients/:clientId/mark-updated", async (req, res): Promise<void> => {
   const caller = await requireCoachOrAdmin(req, res);

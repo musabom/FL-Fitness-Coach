@@ -29,6 +29,7 @@ import NotFound from "./pages/not-found";
 import CoachesBrowse from "./pages/coaches-browse";
 import CoachDetail from "./pages/coach-detail";
 import CoachProfileEditor from "./pages/coach-profile-editor";
+import CoachServicesPage from "./pages/coach-services";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -166,7 +167,7 @@ function Router() {
       <Switch>
         {/* Public — coach browse (no auth required) */}
         <Route path="/coaches" component={CoachesBrowse} />
-        <Route path="/coaches/:id" component={CoachDetail} />
+        <Route path="/coaches/service/:id" component={CoachDetail} />
 
         {/* Auth pages */}
         <Route path="/login" component={Login} />
@@ -183,6 +184,7 @@ function Router() {
         {/* Coach */}
         <Route path="/coach/clients" component={CoachClients} />
         <Route path="/coach/profile" component={CoachProfileEditor} />
+        <Route path="/coach/services" component={CoachServicesPage} />
 
         {/* Member + Coach client view */}
         <Route path="/dashboard" component={Dashboard} />

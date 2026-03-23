@@ -10,43 +10,47 @@ import { getObjectUrl } from "@/hooks/use-photo-upload";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
-interface CoachProfile {
+interface ServiceDetail {
   id: number;
-  fullName: string;
-  photoUrl: string | null;
+  title: string;
+  description: string | null;
+  price: number | null;
   specializations: string[];
-  pricePerMonth: number | null;
-  bio: string | null;
   activeOffer: string | null;
   beforeAfterPhotos: string[];
+  coachId: number;
+  coachName: string;
+  coachPhoto: string | null;
+  coachBio: string | null;
 }
 
 export default function CoachDetail() {
   const { t, isRTL } = useLanguage();
   const [, setLocation] = useLocation();
   const params = useParams<{ id: string }>();
-  const coachId = params?.id;
+  const serviceId = params?.id;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [currentPhoto, setCurrentPhoto] = useState(0);
   const [subscribed, setSubscribed] = useState(false);
 
-  const { data: coach, isLoading } = useQuery<CoachProfile>({
-    queryKey: [`/api/public/coaches/${coachId}`],
+  const { data: service, isLoading } = useQuery<ServiceDetail>({
+    queryKey: [`/api/public/services/${serviceId}`],
     queryFn: async () => {
       const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-      const res = await fetch(`${base}/api/public/coaches/${coachId}`);
-      if (!res.ok) throw new Error("Coach not found");
+      const res = await fetch(`${base}/api/public/services/${serviceId}`);
+      if (!res.ok) throw new Error("Service not found");
       return res.json();
     },
-    enabled: !!coachId,
+    enabled: !!serviceId,
   });
 
   const subscribeMutation = useMutation({
     mutationFn: async () => {
+      if (!service) throw new Error("No service");
       const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-      const res = await fetch(`${base}/api/public/coaches/${coachId}/subscribe`, {
+      const res = await fetch(`${base}/api/public/coaches/${service.coachId}/subscribe`, {
         method: "POST",
         credentials: "include",
       });
@@ -86,21 +90,20 @@ export default function CoachDetail() {
     );
   }
 
-  if (!coach) {
+  if (!service) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">{t("coaches.noCoachesFound")}</p>
+        <p className="text-muted-foreground">{t("services.noServicesFound")}</p>
         <Button variant="outline" onClick={handleBack}>{t("coaches.backToBrowse")}</Button>
       </div>
     );
   }
 
-  const photos = coach.beforeAfterPhotos ?? [];
-  const isAlreadySubscribed = user?.coachId === coach.id;
+  const photos = service.beforeAfterPhotos ?? [];
+  const isAlreadySubscribed = user?.coachId === service.coachId;
 
   return (
     <div className="min-h-screen bg-background" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header */}
       <header className="border-b border-border sticky top-0 z-50 bg-background/90 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -119,59 +122,62 @@ export default function CoachDetail() {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Coach hero */}
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8">
-          {/* Avatar */}
           <div className="flex-shrink-0">
-            {coach.photoUrl ? (
+            {service.coachPhoto ? (
               <img
-                src={getObjectUrl(coach.photoUrl)}
-                alt={coach.fullName}
+                src={getObjectUrl(service.coachPhoto)}
+                alt={service.coachName}
                 className="w-28 h-28 rounded-full object-cover border-4 border-border"
               />
             ) : (
               <div className="w-28 h-28 rounded-full bg-primary/20 border-4 border-primary/30 flex items-center justify-center text-3xl font-bold text-primary">
-                {coach.fullName?.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase() || <User className="w-10 h-10" />}
+                {service.coachName?.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase() || <User className="w-10 h-10" />}
               </div>
             )}
           </div>
 
-          {/* Info */}
           <div className="flex-1 text-center sm:text-start">
-            <h1 className="text-3xl font-bold mb-2">{coach.fullName}</h1>
+            <h1 className="text-3xl font-bold mb-1">{service.title}</h1>
+            <p className="text-sm text-muted-foreground mb-2">{t("services.by")} {service.coachName}</p>
 
-            {coach.specializations.length > 0 && (
+            {service.specializations.length > 0 && (
               <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-3">
-                {coach.specializations.map(s => (
+                {service.specializations.map(s => (
                   <Badge key={s} variant="secondary">{s}</Badge>
                 ))}
               </div>
             )}
 
-            {coach.activeOffer && (
+            {service.activeOffer && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg text-sm text-primary font-medium mb-3">
                 <Star className="w-3.5 h-3.5" />
-                {coach.activeOffer}
+                {service.activeOffer}
               </div>
             )}
 
-            {coach.pricePerMonth !== null && (
+            {service.price !== null && (
               <p className="text-2xl font-bold text-primary">
-                {coach.pricePerMonth} <span className="text-base font-normal text-muted-foreground">{t("coaches.omrPerMonth")}</span>
+                {service.price} <span className="text-base font-normal text-muted-foreground">{t("coaches.omrPerMonth")}</span>
               </p>
             )}
           </div>
         </div>
 
-        {/* Bio */}
-        {coach.bio && (
+        {service.description && (
           <div className="mb-8 p-5 bg-card border border-border rounded-2xl">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t("coaches.about")}</h2>
-            <p className="text-base leading-relaxed">{coach.bio}</p>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t("services.aboutService")}</h2>
+            <p className="text-base leading-relaxed">{service.description}</p>
           </div>
         )}
 
-        {/* Before & After Photos */}
+        {service.coachBio && (
+          <div className="mb-8 p-5 bg-card border border-border rounded-2xl">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t("services.aboutCoach")}</h2>
+            <p className="text-base leading-relaxed">{service.coachBio}</p>
+          </div>
+        )}
+
         {photos.length > 0 && (
           <div className="mb-8">
             <h2 className="text-lg font-semibold mb-4">{t("coaches.beforeAfter")}</h2>
@@ -227,7 +233,6 @@ export default function CoachDetail() {
           </div>
         )}
 
-        {/* Subscribe CTA */}
         <div className="sticky bottom-6">
           <div className="bg-card border border-border rounded-2xl p-5 shadow-lg">
             {isAlreadySubscribed || subscribed ? (
@@ -237,10 +242,10 @@ export default function CoachDetail() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {coach.pricePerMonth !== null && (
+                {service.price !== null && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">{t("coaches.monthlyPlan")}</span>
-                    <span className="text-xl font-bold text-primary">{coach.pricePerMonth} {t("coaches.omr")}</span>
+                    <span className="text-xl font-bold text-primary">{service.price} {t("coaches.omr")}</span>
                   </div>
                 )}
                 <Button

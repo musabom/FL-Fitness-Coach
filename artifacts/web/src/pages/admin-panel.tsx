@@ -827,9 +827,9 @@ export default function AdminPanel() {
               </div>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="text-xs gap-1.5 text-foreground hover:text-destructive hover:bg-destructive/10 mt-1">
+          <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 mt-1 border border-red-500/30">
             <LogOut className="w-3.5 h-3.5" />
-            {t("signOut")}
+            {t("common.signOut")}
           </Button>
         </div>
       </header>

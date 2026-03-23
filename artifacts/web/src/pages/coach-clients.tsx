@@ -7,7 +7,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCoachClient } from "@/context/coach-client-context";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2 } from "lucide-react";
+import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface CoachClient {
@@ -92,6 +92,15 @@ export default function CoachClients() {
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setLocation("/coach/services")}
+            className="text-xs gap-1.5 text-muted-foreground"
+          >
+            <Star className="w-3.5 h-3.5" />
+            {t("services.manageServices")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setLocation("/coach/profile")}
             className="text-xs gap-1.5 text-muted-foreground"
           >
@@ -111,10 +120,10 @@ export default function CoachClients() {
             variant="ghost"
             size="sm"
             onClick={() => logout.mutate()}
-            className="text-xs gap-1.5 text-muted-foreground"
+            className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30"
           >
             <LogOut className="w-3.5 h-3.5" />
-            {t("signOut")}
+            {t("common.signOut")}
           </Button>
         </div>
       </header>

@@ -7,3 +7,4 @@ export * from "./workout-sessions";
 export * from "./adjustment-logs";
 export * from "./click-logs";
 export * from "./coach-profiles";
+export * from "./coach-services";
