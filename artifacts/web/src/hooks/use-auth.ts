@@ -106,7 +106,7 @@ export function useAuth() {
     onSuccess: () => {
       queryClient.setQueryData(AUTH_KEY, null);
       queryClient.clear();
-      setLocation("/login");
+      setLocation("/coaches");
     },
   });
 
