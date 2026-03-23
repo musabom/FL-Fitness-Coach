@@ -776,13 +776,22 @@ export default function AdminPanel() {
           </button>
         </div>
       )}
-      <header className="px-6 pt-12 pb-4 flex items-start justify-between" style={{ paddingTop: activeClient?.mode === "admin" ? "1rem" : "3rem" }}>
+      <header className="px-6 pb-4 flex items-start justify-between" style={{ paddingTop: activeClient?.mode === "admin" ? "1rem" : "3rem" }}>
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Shield className="w-5 h-5 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">{t("adminPanel.title")}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
+          <p className="text-sm text-muted-foreground mb-2">{user?.email}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => logout.mutate()}
+            className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 h-7 px-2"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            {t("common.signOut")}
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
@@ -827,10 +836,6 @@ export default function AdminPanel() {
               </div>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => logout.mutate()} className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 mt-1 border border-red-500/30">
-            <LogOut className="w-3.5 h-3.5" />
-            {t("common.signOut")}
-          </Button>
         </div>
       </header>
 

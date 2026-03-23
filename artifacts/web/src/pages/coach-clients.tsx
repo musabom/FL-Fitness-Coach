@@ -83,9 +83,18 @@ export default function CoachClients() {
       <header className="px-6 pt-12 pb-4 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("coachClients.title")}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5 mb-2">
             {user?.fullName ?? user?.email}
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => logout.mutate()}
+            className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 h-7 px-2"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            {t("common.signOut")}
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
@@ -115,15 +124,6 @@ export default function CoachClients() {
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
             {t("coachClients.viewDashboard")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => logout.mutate()}
-            className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            {t("common.signOut")}
           </Button>
         </div>
       </header>
