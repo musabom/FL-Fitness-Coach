@@ -165,11 +165,11 @@ export default function CoachDetail() {
         {photos.length > 0 && (
           <div className="mb-8">
             <h2 className="text-lg font-semibold mb-4">{t("coaches.beforeAfter")}</h2>
-            <div className="relative">
+            <div className="relative w-full aspect-square sm:aspect-video rounded-2xl overflow-hidden border border-border">
               <img
                 src={getObjectUrl(photos[currentPhoto])}
                 alt={`Before & After ${currentPhoto + 1}`}
-                className="w-full rounded-2xl object-cover max-h-96 border border-border"
+                className="w-full h-full object-cover"
               />
               {photos.length > 1 && (
                 <>
