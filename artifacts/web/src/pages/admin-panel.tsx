@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -725,6 +727,7 @@ function LogsTab() {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AdminPanel() {
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const { activeClient, setActiveClient } = useCoachClient();
   const [, setLocation] = useLocation();
@@ -777,11 +780,12 @@ export default function AdminPanel() {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Shield className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("adminPanel.title")}</h1>
           </div>
           <p className="text-sm text-muted-foreground">{user?.email}</p>
         </div>
         <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           <div className="relative">
             <Button
               variant="ghost"
@@ -789,7 +793,7 @@ export default function AdminPanel() {
               onClick={() => setShowViewSearch(!showViewSearch)}
               className="text-xs gap-1.5 text-muted-foreground mt-1"
             >
-              <Eye className="w-3.5 h-3.5" /> View
+              <Eye className="w-3.5 h-3.5" /> {t("adminPanel.users.viewAsAdmin")}
             </Button>
             {showViewSearch && (
               <div className="absolute right-0 mt-2 w-64 bg-card border border-card-border rounded-xl shadow-lg z-50">

@@ -1,20 +1,22 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, TrendingUp, CalendarDays, Dumbbell, UtensilsCrossed, ShoppingCart, ArrowLeft, Users } from "lucide-react";
+import { LayoutDashboard, TrendingUp, CalendarDays, Dumbbell, UtensilsCrossed, ShoppingCart, ArrowLeft } from "lucide-react";
 import { useCoachClient } from "@/context/coach-client-context";
-
-const NAV_ITEMS = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/nutrition/meal-plan", icon: CalendarDays, label: "Meals" },
-  { href: "/training/plan", icon: Dumbbell, label: "Workouts" },
-  { href: "/progress", icon: TrendingUp, label: "Progress" },
-  { href: "/nutrition/meals", icon: UtensilsCrossed, label: "Builder" },
-  { href: "/training/builder", icon: Dumbbell, label: "Exercise" },
-  { href: "/nutrition/shopping-list", icon: ShoppingCart, label: "Shop" },
-];
+import { useLanguage } from "@/context/language-context";
 
 export default function BottomNav() {
   const [location] = useLocation();
   const { activeClient, setActiveClient } = useCoachClient();
+  const { t } = useLanguage();
+
+  const NAV_ITEMS = [
+    { href: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
+    { href: "/nutrition/meal-plan", icon: CalendarDays, label: t("nav.meals") },
+    { href: "/training/plan", icon: Dumbbell, label: t("nav.workouts") },
+    { href: "/progress", icon: TrendingUp, label: t("nav.progress") },
+    { href: "/nutrition/meals", icon: UtensilsCrossed, label: t("nav.builder") },
+    { href: "/training/builder", icon: Dumbbell, label: t("nav.exercise") },
+    { href: "/nutrition/shopping-list", icon: ShoppingCart, label: t("nav.shop") },
+  ];
 
   const isActive = (href: string): boolean => {
     return location === href || location.startsWith(href + "/");
@@ -34,7 +36,9 @@ export default function BottomNav() {
           className="flex-1 flex flex-col items-center py-3 gap-1 transition-colors min-w-0 text-blue-400"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-[10px] font-medium tracking-wide truncate px-1">{activeClient.mode === "admin" ? "Admin" : "Clients"}</span>
+          <span className="text-[10px] font-medium tracking-wide truncate px-1">
+            {activeClient.mode === "admin" ? t("nav.admin") : t("nav.clients")}
+          </span>
         </button>
       )}
       {NAV_ITEMS.map(({ href, icon: Icon, label }) => (

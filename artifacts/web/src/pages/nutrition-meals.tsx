@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLanguage } from "@/context/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ChevronLeft, Plus, Trash2, Pencil, Check, X, Search, Loader2, AlertTriangle, MessageSquare } from "lucide-react";
@@ -849,6 +850,7 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NutritionMeals() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
 
@@ -902,7 +904,7 @@ export default function NutritionMeals() {
             <ChevronLeft className="w-5 h-5" />
           </button>
         </Link>
-        <h1 className="text-xl font-semibold flex-1">Meal Builder</h1>
+        <h1 className="text-xl font-semibold flex-1">{t("nutritionMeals.title")}</h1>
       </header>
 
       <main className="px-4 pt-4 space-y-4">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLanguage } from "@/context/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -205,6 +206,7 @@ function ItemCard({ item }: { item: ShoppingItem }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShoppingList() {
+  const { t } = useLanguage();
   const [filter, setFilter] = useState<"all" | "needed" | "sufficient">("all");
 
   const { data: items = [], isLoading, isError } = useQuery<ShoppingItem[]>({
@@ -237,7 +239,7 @@ export default function ShoppingList() {
         </Link>
         <div className="flex items-center gap-2">
           <ShoppingCart className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-semibold">Shopping List</h1>
+          <h1 className="text-lg font-semibold">{t("shoppingList.title")}</h1>
         </div>
       </div>
 

@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Activity, AlertCircle, ArrowLeft, CheckCircle, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { customFetch } from "@workspace/api-client-react";
+import { useLanguage } from "@/context/language-context";
 
 export default function ForgotPassword() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +33,7 @@ export default function ForgotPassword() {
       }
     } catch (err: unknown) {
       const apiErr = err as { data?: { error?: string } };
-      setError(apiErr.data?.error || "Something went wrong. Please try again.");
+      setError(apiErr.data?.error || t("forgotPassword.somethingWentWrong"));
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +63,7 @@ export default function ForgotPassword() {
       >
         <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          Back to login
+          {t("forgotPassword.backToLogin")}
         </Link>
 
         <div className="flex justify-center mb-8">
@@ -74,8 +76,8 @@ export default function ForgotPassword() {
           {!resetToken ? (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="text-center mb-10">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Forgot password?</h1>
-                <p className="text-muted-foreground">Enter your email and we'll send you a reset link</p>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{t("forgotPassword.title")}</h1>
+                <p className="text-muted-foreground">{t("forgotPassword.subtitle")}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -87,7 +89,7 @@ export default function ForgotPassword() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-muted-foreground px-1">Email</label>
+                  <label className="text-sm font-medium text-muted-foreground px-1">{t("forgotPassword.email")}</label>
                   <Input
                     type="email"
                     placeholder="you@example.com"
@@ -103,14 +105,14 @@ export default function ForgotPassword() {
                   size="lg"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Sending..." : "Send Reset Link"}
+                  {isLoading ? t("forgotPassword.sending") : t("forgotPassword.sendLink")}
                 </Button>
               </form>
 
               <div className="mt-8 text-center text-sm text-muted-foreground">
-                Remember your password?{" "}
+                {t("forgotPassword.rememberPassword")}{" "}
                 <Link href="/login" className="text-primary font-medium hover:underline">
-                  Sign in
+                  {t("forgotPassword.signIn")}
                 </Link>
               </div>
             </motion.div>
@@ -122,18 +124,18 @@ export default function ForgotPassword() {
                     <CheckCircle className="w-7 h-7 text-primary" />
                   </div>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Reset link ready</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">{t("forgotPassword.resetLinkReady")}</h1>
                 {resetToken === "EMAIL_NOT_FOUND" ? (
-                  <p className="text-muted-foreground text-sm">If that email exists in our system, a reset link has been generated.</p>
+                  <p className="text-muted-foreground text-sm">{t("forgotPassword.emailNotFoundMsg")}</p>
                 ) : (
-                  <p className="text-muted-foreground text-sm">Your password reset link has been generated below.</p>
+                  <p className="text-muted-foreground text-sm">{t("forgotPassword.linkGeneratedMsg")}</p>
                 )}
               </div>
 
               {resetLink && (
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl bg-card border border-card-border space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Reset Link</p>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{t("forgotPassword.resetLinkLabel")}</p>
                     <p className="text-xs text-foreground break-all font-mono leading-relaxed">{resetLink}</p>
                   </div>
                   <Button
@@ -143,18 +145,18 @@ export default function ForgotPassword() {
                     {copied ? (
                       <>
                         <Check className="w-4 h-4" />
-                        Copied!
+                        {t("forgotPassword.copied")}
                       </>
                     ) : (
                       <>
                         <Copy className="w-4 h-4" />
-                        Copy Link
+                        {t("forgotPassword.copyLink")}
                       </>
                     )}
                   </Button>
                   <Link href={`/reset-password?token=${resetToken}`}>
                     <Button variant="outline" className="w-full h-11 rounded-xl">
-                      Go to Reset Password
+                      {t("forgotPassword.goToReset")}
                     </Button>
                   </Link>
                 </div>
@@ -163,7 +165,7 @@ export default function ForgotPassword() {
               {resetToken === "EMAIL_NOT_FOUND" && (
                 <Link href="/login">
                   <Button className="w-full mt-4 h-11 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm">
-                    Back to Login
+                    {t("forgotPassword.backToLogin")}
                   </Button>
                 </Link>
               )}

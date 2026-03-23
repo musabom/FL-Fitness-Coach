@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Activity, AlertCircle } from "lucide-react";
@@ -8,6 +10,7 @@ import { motion } from "framer-motion";
 
 export default function Login() {
   const { login } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +25,7 @@ export default function Login() {
           if (err?.status === 403 && err?.data?.error === "ACCOUNT_DEACTIVATED") {
             setError("ACCOUNT_DEACTIVATED");
           } else {
-            setError("Invalid email or password");
+            setError(t("login.invalidCredentials"));
           }
         }
       }
@@ -31,8 +34,11 @@ export default function Login() {
 
   return (
     <div className="mobile-container flex flex-col justify-center px-6 relative overflow-hidden">
-      {/* Background decoration */}
       <div className="absolute top-[-10%] left-[-20%] w-[140%] h-[50%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="absolute top-4 end-4">
+        <LanguageSwitcher />
+      </div>
       
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -47,8 +53,8 @@ export default function Login() {
         </div>
         
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Welcome back</h1>
-          <p className="text-muted-foreground">Sign in to your precision plan</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{t("login.welcomeBack")}</h1>
+          <p className="text-muted-foreground">{t("login.subtitle")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -56,10 +62,10 @@ export default function Login() {
             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-sm space-y-1">
               <div className="flex items-center gap-2 text-destructive font-semibold">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                Account Deactivated
+                {t("login.accountDeactivated")}
               </div>
-              <p className="text-muted-foreground text-xs pl-6">
-                Your account has been deactivated. Please contact your admin to restore access.
+              <p className="text-muted-foreground text-xs ps-6">
+                {t("login.deactivatedMessage")}
               </p>
             </div>
           ) : error ? (
@@ -70,7 +76,7 @@ export default function Login() {
           ) : null}
           
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">Email</label>
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("login.email")}</label>
             <Input 
               type="email" 
               placeholder="you@example.com" 
@@ -82,9 +88,9 @@ export default function Login() {
           
           <div className="space-y-1.5">
             <div className="flex items-center justify-between px-1">
-              <label className="text-sm font-medium text-muted-foreground">Password</label>
+              <label className="text-sm font-medium text-muted-foreground">{t("login.password")}</label>
               <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                Forgot password?
+                {t("login.forgotPassword")}
               </Link>
             </div>
             <Input 
@@ -102,14 +108,14 @@ export default function Login() {
             size="lg"
             disabled={login.isPending}
           >
-            {login.isPending ? "Signing in..." : "Sign In"}
+            {login.isPending ? t("login.signingIn") : t("login.signIn")}
           </Button>
         </form>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
+          {t("login.noAccount")}{" "}
           <Link href="/signup" className="text-primary font-medium hover:underline">
-            Create one
+            {t("login.createOne")}
           </Link>
         </div>
       </motion.div>

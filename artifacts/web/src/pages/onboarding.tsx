@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLanguage } from "@/context/language-context";
 import { useProfile } from "@/hooks/use-profile";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,7 @@ function getCustomWarnings(params: CustomParams, weightKg: number): string[] {
 }
 
 export default function Onboarding() {
+  const { t } = useLanguage();
   const { completeOnboarding, useGetAvailableGoals } = useProfile();
   const getGoalsMutation = useGetAvailableGoals();
   const { logout } = useAuth();
@@ -131,17 +133,17 @@ export default function Onboarding() {
     const f = Number(customParams.fatPerKg);
     const d = Number(customParams.deficitKcal);
     if (touchedCustomFields.protein && customParams.proteinPerKg && (p < SAFE_PROTEIN_MIN || p > SAFE_PROTEIN_MAX)) {
-      warnings.push(`Protein (${p}g/kg) is outside the safe range of ${SAFE_PROTEIN_MIN}–${SAFE_PROTEIN_MAX}g/kg`);
+      warnings.push(`${t("onboarding.proteinPerKg")} (${p}g/kg) ${t("onboarding.warningOutsideRange")} ${SAFE_PROTEIN_MIN}–${SAFE_PROTEIN_MAX}g/kg`);
     }
     if (touchedCustomFields.fat && customParams.fatPerKg && (f < SAFE_FAT_MIN || f > SAFE_FAT_MAX)) {
-      warnings.push(`Fat (${f}g/kg) is outside the safe range of ${SAFE_FAT_MIN}–${SAFE_FAT_MAX}g/kg`);
+      warnings.push(`${t("onboarding.fatPerKg")} (${f}g/kg) ${t("onboarding.warningOutsideRange")} ${SAFE_FAT_MIN}–${SAFE_FAT_MAX}g/kg`);
     }
     if (touchedCustomFields.deficit && customParams.deficitKcal && Math.abs(d) > SAFE_DEFICIT_ABS_MAX) {
-      const label = d > 0 ? `deficit of ${d} kcal` : `surplus of ${Math.abs(d)} kcal`;
-      warnings.push(`Calorie ${label} exceeds the safe limit of ±${SAFE_DEFICIT_ABS_MAX} kcal`);
+      const label = d > 0 ? `${t("onboarding.deficit")} ${d} kcal` : `${t("onboarding.surplus")} ${Math.abs(d)} kcal`;
+      warnings.push(`${label} ${t("onboarding.warningExceedsLimit")} ±${SAFE_DEFICIT_ABS_MAX} kcal`);
     }
     return warnings;
-  }, [touchedCustomFields, customParams, formData.goalMode]);
+  }, [touchedCustomFields, customParams, formData.goalMode, t]);
 
   const customPreview = useMemo(() => {
     if (formData.goalMode !== "custom") return null;
@@ -230,11 +232,11 @@ export default function Onboarding() {
       case 1:
         return (
           <div className="space-y-8">
-            <h2 className="text-3xl font-semibold tracking-tight">Your Body Profile</h2>
+            <h2 className="text-3xl font-semibold tracking-tight">{t("onboarding.step1Title")}</h2>
             
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">Height</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">{t("onboarding.height")}</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -249,7 +251,7 @@ export default function Onboarding() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">Current Weight</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">{t("onboarding.currentWeight")}</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -258,12 +260,12 @@ export default function Onboarding() {
                     value={formData.weightKg}
                     onChange={e => setFormData({ ...formData, weightKg: e.target.value })}
                   />
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-lg text-muted-foreground font-light">kg</span>
+                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-lg text-muted-foreground font-light">{t("onboarding.kg")}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">Target Weight</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">{t("onboarding.targetWeight")}</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -272,12 +274,12 @@ export default function Onboarding() {
                     value={formData.targetWeightKg}
                     onChange={e => setFormData({ ...formData, targetWeightKg: e.target.value })}
                   />
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-lg text-muted-foreground font-light">kg</span>
+                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-lg text-muted-foreground font-light">{t("onboarding.kg")}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">Age</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2 px-1">{t("onboarding.age")}</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -286,16 +288,16 @@ export default function Onboarding() {
                     value={formData.age}
                     onChange={e => setFormData({ ...formData, age: e.target.value })}
                   />
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-lg text-muted-foreground font-light">years</span>
+                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-lg text-muted-foreground font-light">{t("onboarding.years")}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-3 px-1">Biological Sex</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-3 px-1">{t("onboarding.biologicalSex")}</label>
                 <div className="space-y-3">
                   {[
-                    { id: "male", label: "Male" },
-                    { id: "female", label: "Female" }
+                    { id: "male", label: t("onboarding.male") },
+                    { id: "female", label: t("onboarding.female") }
                   ].map(opt => (
                     <OptionCard 
                       key={opt.id}
@@ -314,8 +316,8 @@ export default function Onboarding() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-semibold tracking-tight mb-2">What is your goal?</h2>
-              <p className="text-muted-foreground">Based on your target weight gap of {Math.abs(Number(formData.weightKg) - Number(formData.targetWeightKg)).toFixed(1)}kg</p>
+              <h2 className="text-3xl font-semibold tracking-tight mb-2">{t("onboarding.step2Title")}</h2>
+              <p className="text-muted-foreground">{t("onboarding.weightGapNote")} {Math.abs(Number(formData.weightKg) - Number(formData.targetWeightKg)).toFixed(1)}{t("onboarding.kg")}</p>
             </div>
             {goalsLoading ? (
               <div className="flex justify-center py-12">
@@ -326,8 +328,8 @@ export default function Onboarding() {
                 {availableGoals.map(opt => (
                   <OptionCard 
                     key={opt.mode}
-                    title={opt.label}
-                    description={opt.description}
+                    title={opt.mode === "custom" ? t("onboarding.customPlan") : opt.label}
+                    description={opt.mode === "custom" ? t("onboarding.customPlanDesc") : opt.description}
                     selected={formData.goalMode === opt.mode}
                     onClick={() => {
                       setFormData({ ...formData, goalMode: opt.mode });
@@ -344,11 +346,11 @@ export default function Onboarding() {
                     className="space-y-4 mt-2"
                   >
                     <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
-                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Deficit / Surplus</p>
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("onboarding.deficitSurplus")}</p>
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Calorie Deficit / Surplus</span>
-                          <span className="text-muted-foreground text-xs">+deficit / −surplus</span>
+                          <span>{t("onboarding.calDeficitSurplus")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.deficitNote")}</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -360,7 +362,7 @@ export default function Onboarding() {
                             onChange={e => setPreprogrammedDeficitKcal(e.target.value)}
                             className="pr-16"
                           />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kcal</span>
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{t("common.kcal")}</span>
                         </div>
                       </div>
                     </div>
@@ -374,12 +376,12 @@ export default function Onboarding() {
                     className="space-y-4 mt-2"
                   >
                     <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
-                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Custom Parameters</p>
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("onboarding.customParams")}</p>
 
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Protein per kg</span>
-                          <span className="text-muted-foreground text-xs">Safe: {SAFE_PROTEIN_MIN}–{SAFE_PROTEIN_MAX}g</span>
+                          <span>{t("onboarding.proteinPerKg")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.safe")} {SAFE_PROTEIN_MIN}–{SAFE_PROTEIN_MAX}g</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -389,7 +391,7 @@ export default function Onboarding() {
                             max="5"
                             value={customParams.proteinPerKg}
                             onChange={e => setCustomParams({ ...customParams, proteinPerKg: e.target.value })}
-                            onBlur={() => setTouchedCustomFields(t => ({ ...t, protein: true }))}
+                            onBlur={() => setTouchedCustomFields(tf => ({ ...tf, protein: true }))}
                             className="pr-16"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">g/kg</span>
@@ -398,8 +400,8 @@ export default function Onboarding() {
 
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Fat per kg</span>
-                          <span className="text-muted-foreground text-xs">Safe: {SAFE_FAT_MIN}–{SAFE_FAT_MAX}g</span>
+                          <span>{t("onboarding.fatPerKg")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.safe")} {SAFE_FAT_MIN}–{SAFE_FAT_MAX}g</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -409,7 +411,7 @@ export default function Onboarding() {
                             max="5"
                             value={customParams.fatPerKg}
                             onChange={e => setCustomParams({ ...customParams, fatPerKg: e.target.value })}
-                            onBlur={() => setTouchedCustomFields(t => ({ ...t, fat: true }))}
+                            onBlur={() => setTouchedCustomFields(tf => ({ ...tf, fat: true }))}
                             className="pr-16"
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">g/kg</span>
@@ -418,8 +420,8 @@ export default function Onboarding() {
 
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Deficit / Surplus</span>
-                          <span className="text-muted-foreground text-xs">+deficit / −surplus</span>
+                          <span>{t("onboarding.deficitSurplus")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.deficitNote")}</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -429,36 +431,36 @@ export default function Onboarding() {
                             max="1500"
                             value={customParams.deficitKcal}
                             onChange={e => setCustomParams({ ...customParams, deficitKcal: e.target.value })}
-                            onBlur={() => setTouchedCustomFields(t => ({ ...t, deficit: true }))}
+                            onBlur={() => setTouchedCustomFields(tf => ({ ...tf, deficit: true }))}
                             className="pr-16"
                           />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kcal</span>
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{t("common.kcal")}</span>
                         </div>
                       </div>
                     </div>
 
                     {customPreview && (
                       <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl">
-                        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Live Preview</p>
+                        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">{t("onboarding.livePreview")}</p>
                         <div className="grid grid-cols-4 gap-2 text-center">
                           <div>
                             <div className="text-lg font-semibold text-primary">{customPreview.calories}</div>
-                            <div className="text-xs text-muted-foreground">kcal</div>
+                            <div className="text-xs text-muted-foreground">{t("common.kcal")}</div>
                           </div>
                           <div>
                             <div className="text-lg font-semibold">{customPreview.proteinG}g</div>
-                            <div className="text-xs text-muted-foreground">protein</div>
+                            <div className="text-xs text-muted-foreground">{t("onboarding.protein")}</div>
                           </div>
                           <div>
                             <div className="text-lg font-semibold">{customPreview.fatG}g</div>
-                            <div className="text-xs text-muted-foreground">fat</div>
+                            <div className="text-xs text-muted-foreground">{t("onboarding.fat")}</div>
                           </div>
                           <div>
                             <div className="text-lg font-semibold">{customPreview.carbsG}g</div>
-                            <div className="text-xs text-muted-foreground">carbs</div>
+                            <div className="text-xs text-muted-foreground">{t("onboarding.carbs")}</div>
                           </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2 text-center">Est. TDEE ~{customPreview.tdee} kcal (calories will be recalculated after setting activity level)</p>
+                        <p className="text-xs text-muted-foreground mt-2 text-center">{t("onboarding.tdeeNote").replace("{tdee}", String(customPreview.tdee))}</p>
                       </div>
                     )}
                   </motion.div>
@@ -471,14 +473,14 @@ export default function Onboarding() {
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight">How active are you?</h2>
-            <p className="text-muted-foreground">Not including your workouts.</p>
+            <h2 className="text-3xl font-semibold tracking-tight">{t("onboarding.step3Title")}</h2>
+            <p className="text-muted-foreground">{t("onboarding.step3Subtitle")}</p>
             <div className="space-y-3">
               {[
-                { id: "sedentary", label: "Sedentary", desc: "Mostly sitting" },
-                { id: "lightly_active", label: "Lightly Active", desc: "On feet occasionally" },
-                { id: "moderately_active", label: "Moderately Active", desc: "On feet much of the day" },
-                { id: "very_active", label: "Very Active", desc: "Physical job or very active lifestyle" }
+                { id: "sedentary", label: t("onboarding.sedentary"), desc: t("onboarding.sedentaryDesc") },
+                { id: "lightly_active", label: t("onboarding.lightlyActive"), desc: t("onboarding.lightlyActiveDesc") },
+                { id: "moderately_active", label: t("onboarding.moderatelyActive"), desc: t("onboarding.moderatelyActiveDesc") },
+                { id: "very_active", label: t("onboarding.veryActive"), desc: t("onboarding.veryActiveDesc") }
               ].map(opt => (
                 <OptionCard 
                   key={opt.id}
@@ -555,7 +557,7 @@ export default function Onboarding() {
                 size="lg"
                 onClick={() => setTouchedCustomFields({ protein: false, fat: false, deficit: false })}
               >
-                Adjust values
+                {t("onboarding.adjustValues")}
               </Button>
               <Button
                 className="flex-1"
@@ -563,7 +565,7 @@ export default function Onboarding() {
                 onClick={() => { setSaveAnyway(true); setStep(s => s + 1); }}
                 disabled={completeOnboarding.isPending}
               >
-                Continue anyway
+                {t("onboarding.continueAnyway")}
               </Button>
             </div>
           </div>
@@ -577,9 +579,9 @@ export default function Onboarding() {
           >
             {completeOnboarding.isPending ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" /> Generating...
+                <Loader2 className="w-5 h-5 animate-spin" /> {t("onboarding.generating")}
               </span>
-            ) : step === totalSteps ? "Generate Plan" : "Continue"}
+            ) : step === totalSteps ? t("onboarding.generate") : t("onboarding.continue")}
           </Button>
         )}
       </div>

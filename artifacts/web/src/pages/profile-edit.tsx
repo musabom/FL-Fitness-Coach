@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { OptionCard } from "@/components/OptionCard";
 import { ChevronLeft, Check, Loader2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 interface ProfileFormData {
   heightCm: number;
@@ -76,6 +78,7 @@ function getCustomWarnings(params: CustomParams): string[] {
 }
 
 export default function ProfileEdit() {
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const { profile, isLoading, updateProfile, clientId, useGetAvailableGoals } = useProfile();
   const getGoalsMutation = useGetAvailableGoals();
@@ -214,36 +217,37 @@ export default function ProfileEdit() {
         <Link href="/dashboard" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted active:scale-95 transition-all">
           <ChevronLeft className="w-5 h-5" />
         </Link>
-        <h1 className="flex-1 text-lg font-semibold tracking-tight text-center pr-10">Edit Profile</h1>
+        <h1 className="flex-1 text-lg font-semibold tracking-tight text-center">{t("profile.editTitle")}</h1>
+        <LanguageSwitcher variant="icon-only" />
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 py-6 pb-40 space-y-8 scrollbar-none">
         {saved && (
           <div className="p-4 bg-primary/20 border border-primary/30 rounded-xl text-primary font-medium flex items-center gap-3">
             <Check className="w-5 h-5" />
-            Your plan has been updated! Redirecting...
+            {t("profile.savedMsg")}
           </div>
         )}
 
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Metrics</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.metrics")}</h2>
           
           {/* Maintenance Calories Display */}
           {formData && (
             <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl text-center">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Maintenance Calories</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t("profile.maintenanceCalories")}</p>
               <p className="text-4xl font-light tracking-tighter text-primary">
                 {Math.round(
                   calcBMR(formData.weightKg, formData.heightCm, formData.age, formData.gender) *
                   (ACTIVITY_MULTIPLIERS[formData.activityLevel] || 1.55)
                 )}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">kcal/day</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("dashboard.kcalPerDay")}</p>
             </div>
           )}
           
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Height (cm)</label>
+            <label className="text-sm font-medium">{t("profile.heightCm")}</label>
             <Input 
               type="number" 
               value={formData.heightCm} 
@@ -253,7 +257,7 @@ export default function ProfileEdit() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Current Weight</label>
+              <label className="text-sm font-medium">{t("profile.currentWeight")}</label>
               <Input 
                 type="number" 
                 value={formData.weightKg} 
@@ -261,7 +265,7 @@ export default function ProfileEdit() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-primary">Target Weight</label>
+              <label className="text-sm font-medium text-primary">{t("profile.targetWeight")}</label>
               <Input 
                 type="number" 
                 className="border-primary/50 bg-primary/5"
@@ -272,7 +276,7 @@ export default function ProfileEdit() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Age</label>
+            <label className="text-sm font-medium">{t("profile.age")}</label>
             <Input 
               type="number" 
               value={formData.age} 
@@ -282,37 +286,37 @@ export default function ProfileEdit() {
         </section>
 
         <section className="space-y-4 pt-4 border-t border-border">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Lifestyle</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.lifestyle")}</h2>
           
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Gender</label>
+            <label className="text-sm font-medium">{t("profile.gender")}</label>
             <select 
               className="flex h-14 w-full rounded-xl border border-card-border bg-input px-4 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={formData.gender}
               onChange={e => setFormData({...formData, gender: e.target.value})}
             >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
+              <option value="male">{t("profile.male")}</option>
+              <option value="female">{t("profile.female")}</option>
             </select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Activity Level</label>
+            <label className="text-sm font-medium">{t("profile.activityLevel")}</label>
             <select 
               className="flex h-14 w-full rounded-xl border border-card-border bg-input px-4 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={formData.activityLevel}
               onChange={e => setFormData({...formData, activityLevel: e.target.value})}
             >
-              <option value="sedentary">Sedentary</option>
-              <option value="lightly_active">Lightly Active</option>
-              <option value="moderately_active">Moderately Active</option>
-              <option value="very_active">Very Active</option>
+              <option value="sedentary">{t("profile.sedentary")}</option>
+              <option value="lightly_active">{t("profile.lightlyActive")}</option>
+              <option value="moderately_active">{t("profile.moderatelyActive")}</option>
+              <option value="very_active">{t("profile.veryActive")}</option>
             </select>
           </div>
         </section>
 
         <section className="space-y-4 pt-4 border-t border-border">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Goal Mode</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.goalMode")}</h2>
 
           {goalsLoading ? (
             <div className="flex justify-center py-4">
@@ -342,11 +346,11 @@ export default function ProfileEdit() {
                     className="space-y-4"
                   >
                     <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
-                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Deficit / Surplus</p>
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.deficitSurplus")}</p>
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Deficit / Surplus</span>
-                          <span className="text-muted-foreground text-xs">+deficit / −surplus</span>
+                          <span>{t("profile.deficitSurplus")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.deficitNote")}</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -372,12 +376,12 @@ export default function ProfileEdit() {
                     className="space-y-4"
                   >
                     <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
-                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Custom Parameters</p>
+                      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.customParams")}</p>
 
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Protein per kg</span>
-                          <span className="text-muted-foreground text-xs">Safe: {SAFE_PROTEIN_MIN}–{SAFE_PROTEIN_MAX}g</span>
+                          <span>{t("profile.proteinPerKg")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.safe")} {SAFE_PROTEIN_MIN}–{SAFE_PROTEIN_MAX}g</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -395,8 +399,8 @@ export default function ProfileEdit() {
 
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Fat per kg</span>
-                          <span className="text-muted-foreground text-xs">Safe: {SAFE_FAT_MIN}–{SAFE_FAT_MAX}g</span>
+                          <span>{t("profile.fatPerKg")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.safe")} {SAFE_FAT_MIN}–{SAFE_FAT_MAX}g</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -414,8 +418,8 @@ export default function ProfileEdit() {
 
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
-                          <span>Deficit / Surplus</span>
-                          <span className="text-muted-foreground text-xs">+deficit / −surplus</span>
+                          <span>{t("profile.deficitSurplus")}</span>
+                          <span className="text-muted-foreground text-xs">{t("onboarding.deficitNote")}</span>
                         </label>
                         <div className="relative">
                           <Input
@@ -427,33 +431,33 @@ export default function ProfileEdit() {
                             onChange={e => setCustomParams({ ...customParams, deficitKcal: e.target.value })}
                             className="pr-16"
                           />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">kcal</span>
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{t("common.kcal")}</span>
                         </div>
                       </div>
                     </div>
 
                     {customPreview && (
                       <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl">
-                        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Live Preview</p>
+                        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">{t("profile.livePreview")}</p>
                         <div className="grid grid-cols-4 gap-2 text-center">
                           <div>
                             <div className="text-lg font-semibold text-primary">{customPreview.calories}</div>
-                            <div className="text-xs text-muted-foreground">kcal</div>
+                            <div className="text-xs text-muted-foreground">{t("common.kcal")}</div>
                           </div>
                           <div>
                             <div className="text-lg font-semibold">{customPreview.proteinG}g</div>
-                            <div className="text-xs text-muted-foreground">protein</div>
+                            <div className="text-xs text-muted-foreground">{t("profile.protein")}</div>
                           </div>
                           <div>
                             <div className="text-lg font-semibold">{customPreview.fatG}g</div>
-                            <div className="text-xs text-muted-foreground">fat</div>
+                            <div className="text-xs text-muted-foreground">{t("profile.fat")}</div>
                           </div>
                           <div>
                             <div className="text-lg font-semibold">{customPreview.carbsG}g</div>
-                            <div className="text-xs text-muted-foreground">carbs</div>
+                            <div className="text-xs text-muted-foreground">{t("profile.carbs")}</div>
                           </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2 text-center">Est. TDEE ~{customPreview.tdee} kcal/day</p>
+                        <p className="text-xs text-muted-foreground mt-2 text-center">{t("onboarding.tdeeNote").replace("{tdee}", String(customPreview.tdee))}</p>
                       </div>
                     )}
                   </motion.div>
@@ -486,7 +490,7 @@ export default function ProfileEdit() {
                 size="lg"
                 onClick={() => setSaveAnyway(false)}
               >
-                Adjust values
+                {t("profile.adjustValues")}
               </Button>
               <Button
                 className="flex-1"
@@ -494,7 +498,7 @@ export default function ProfileEdit() {
                 onClick={() => { setSaveAnyway(true); handleSave(true); }}
                 disabled={updateProfile.isPending || saved}
               >
-                {updateProfile.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save anyway"}
+                {updateProfile.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : t("profile.saveAnyway")}
               </Button>
             </div>
           </div>
@@ -506,7 +510,7 @@ export default function ProfileEdit() {
             onClick={() => handleSave()}
             disabled={updateProfile.isPending || saved}
           >
-            {updateProfile.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Changes"}
+            {updateProfile.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : t("profile.saveChanges")}
           </Button>
         )}
       </div>

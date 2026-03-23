@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cairo:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
@@ -55,6 +55,11 @@
   input[type=number] {
     -moz-appearance: textfield;
   }
+}
+
+/* Arabic font support */
+:root[lang="ar"] body {
+  font-family: 'Cairo', sans-serif;
 }
 
 /* Mobile container constraints for desktop view */

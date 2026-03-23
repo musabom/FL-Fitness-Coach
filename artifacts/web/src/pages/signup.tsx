@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Activity, AlertCircle } from "lucide-react";
@@ -8,6 +10,7 @@ import { motion } from "framer-motion";
 
 export default function Signup() {
   const { signup } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -20,7 +23,7 @@ export default function Signup() {
     setError("");
     
     if (password !== passwordConfirm) {
-      setError("Passwords do not match");
+      setError(t("signup.passwordMismatch"));
       return;
     }
 
@@ -29,7 +32,7 @@ export default function Signup() {
       {
         onError: (err: unknown) => {
           const apiErr = err as { data?: { error?: string } };
-          setError(apiErr.data?.error || "Failed to create account");
+          setError(apiErr.data?.error || t("signup.failedToCreate"));
         }
       }
     );
@@ -38,6 +41,10 @@ export default function Signup() {
   return (
     <div className="mobile-container flex flex-col justify-center px-6 py-12 relative overflow-hidden">
       <div className="absolute top-[-10%] right-[-20%] w-[140%] h-[50%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="absolute top-4 end-4">
+        <LanguageSwitcher />
+      </div>
       
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -52,8 +59,8 @@ export default function Signup() {
         </div>
         
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Create account</h1>
-          <p className="text-muted-foreground">Start building your precision plan</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{t("signup.title")}</h1>
+          <p className="text-muted-foreground">{t("signup.subtitle")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -66,7 +73,9 @@ export default function Signup() {
           
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground px-1">First Name (Optional)</label>
+              <label className="text-sm font-medium text-muted-foreground px-1">
+                {t("signup.firstName")} <span className="text-xs opacity-60">({t("signup.optional")})</span>
+              </label>
               <Input 
                 type="text" 
                 placeholder="John" 
@@ -75,7 +84,9 @@ export default function Signup() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground px-1">Last Name (Optional)</label>
+              <label className="text-sm font-medium text-muted-foreground px-1">
+                {t("signup.lastName")} <span className="text-xs opacity-60">({t("signup.optional")})</span>
+              </label>
               <Input 
                 type="text" 
                 placeholder="Doe" 
@@ -86,7 +97,7 @@ export default function Signup() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">Email</label>
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.email")}</label>
             <Input 
               type="email" 
               placeholder="you@example.com" 
@@ -97,10 +108,10 @@ export default function Signup() {
           </div>
           
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">Password</label>
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.password")}</label>
             <Input 
               type="password" 
-              placeholder="Min 8 characters" 
+              placeholder={t("signup.minChars")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -109,10 +120,10 @@ export default function Signup() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">Confirm Password</label>
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.confirmPassword")}</label>
             <Input 
               type="password" 
-              placeholder="Min 8 characters" 
+              placeholder={t("signup.minChars")}
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
               required
@@ -126,14 +137,14 @@ export default function Signup() {
             size="lg"
             disabled={signup.isPending}
           >
-            {signup.isPending ? "Creating..." : "Create Account"}
+            {signup.isPending ? t("signup.creating") : t("signup.createAccount")}
           </Button>
         </form>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          {t("signup.alreadyHaveAccount")}{" "}
           <Link href="/login" className="text-primary font-medium hover:underline">
-            Sign in
+            {t("signup.signIn")}
           </Link>
         </div>
       </motion.div>

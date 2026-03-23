@@ -3,6 +3,8 @@ import { customFetch } from "@workspace/api-client-react";
 import { Loader2, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import BottomNav from "@/components/bottom-nav";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import {
   LineChart,
   Line,
@@ -74,6 +76,7 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default function Progress() {
+  const { t } = useLanguage();
   const { data, isLoading } = useQuery<ProgressData>({
     queryKey: ["progress"],
     queryFn: () => customFetch<ProgressData>(`${BASE}/progress`),
@@ -105,9 +108,12 @@ export default function Progress() {
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
       {/* Header */}
-      <header className="px-6 py-4 sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50">
-        <h1 className="text-xl font-semibold tracking-tight">Progress</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Last 30 days</p>
+      <header className="px-6 py-4 sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50 flex justify-between items-center">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{t("progress.title")}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("progress.subtitle")}</p>
+        </div>
+        <LanguageSwitcher variant="icon-only" />
       </header>
 
       <main className="px-6 pt-6 space-y-8">
@@ -116,10 +122,10 @@ export default function Progress() {
         <section className="space-y-3">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Weight</p>
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.weight")}</p>
               {currentWeight !== null && (
                 <p className="text-sm font-semibold text-foreground mt-0.5">
-                  Current: {currentWeight}kg
+                  {t("progress.current")} {currentWeight}{t("common.kg")}
                 </p>
               )}
             </div>
@@ -139,17 +145,17 @@ export default function Progress() {
                   <Minus className="w-3.5 h-3.5" />
                 )}
                 {weightChange < 0
-                  ? `Lost ${Math.abs(weightChange)}kg`
+                  ? `${t("progress.lost")} ${Math.abs(weightChange)}${t("common.kg")}`
                   : weightChange > 0
-                    ? `Gained ${weightChange}kg`
-                    : "No change"} since start
+                    ? `${t("progress.gained")} ${weightChange}${t("common.kg")}`
+                    : t("progress.noChange")} {t("progress.sinceStart")}
               </div>
             )}
           </div>
 
           <Card className="p-4 bg-[#1A1A1A] border-none">
             {weightHistory.length < 2 ? (
-              <EmptyState message="Update your weight a few times to see your trend here." />
+              <EmptyState message={t("progress.noWeightData")} />
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={weightHistory} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
@@ -187,11 +193,11 @@ export default function Progress() {
 
         {/* ── Chart 2: Meal Compliance ─────────────────────────────────────────── */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Meal Compliance</p>
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.mealCompliance")}</p>
 
           <Card className="p-4 bg-[#1A1A1A] border-none">
             {mealChartData.length === 0 ? (
-              <EmptyState message="Schedule meals in your Meal Plan to start tracking compliance." />
+              <EmptyState message={t("progress.noMealData")} />
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={mealChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
@@ -245,18 +251,18 @@ export default function Progress() {
 
           {mealChartData.length > 0 && (
             <p className="text-xs text-muted-foreground text-center">
-              Dashed line = planned &nbsp;·&nbsp; Solid teal = completed. Gap = missed meals.
+              {t("progress.dashTip")} {t("progress.meals")}.
             </p>
           )}
         </section>
 
         {/* ── Chart 3: Workout Compliance ──────────────────────────────────────── */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Workout Compliance</p>
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.workoutCompliance")}</p>
 
           <Card className="p-4 bg-[#1A1A1A] border-none">
             {workoutChartData.length === 0 ? (
-              <EmptyState message="Schedule workouts in your Workout Plan to start tracking compliance." />
+              <EmptyState message={t("progress.noWorkoutData")} />
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={workoutChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
@@ -310,14 +316,14 @@ export default function Progress() {
 
           {workoutChartData.length > 0 && (
             <p className="text-xs text-muted-foreground text-center">
-              Dashed line = planned &nbsp;·&nbsp; Solid teal = completed. Gap = missed exercises.
+              {t("progress.dashTip")} {t("progress.exercises")}.
             </p>
           )}
         </section>
 
         {/* ── Chart 4: Daily Deficit vs Maintenance Calories ────────────────────── */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Daily Deficit</p>
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.dailyDeficit")}</p>
 
           <Card className="p-4 bg-[#1A1A1A] border-none">
             <ResponsiveContainer width="100%" height={200}>
@@ -368,7 +374,7 @@ export default function Progress() {
           </Card>
 
           <p className="text-xs text-muted-foreground text-center">
-            Dashed line = maintenance calories &nbsp;·&nbsp; Solid teal = daily deficit.
+            {t("progress.maintenanceTip")}
           </p>
         </section>
 

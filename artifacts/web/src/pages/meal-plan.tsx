@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLanguage } from "@/context/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import {
@@ -331,6 +332,7 @@ function AddMealSheet({ date, existingMealIds, onClose, onAdd, isAdding }: {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MealPlan() {
+  const { t } = useLanguage();
   const [date, setDate] = useState(getTodayMuscat());
   const [showSheet, setShowSheet] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -534,7 +536,7 @@ export default function MealPlan() {
         </Link>
         <div className="flex items-center gap-2">
           <CalendarDays className="w-4 h-4 text-primary" />
-          <h1 className="text-base font-semibold">Meal Plan</h1>
+          <h1 className="text-base font-semibold">{t("mealPlan.title")}</h1>
         </div>
         {date !== today ? (
           <button onClick={() => setDate(today)} className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors">

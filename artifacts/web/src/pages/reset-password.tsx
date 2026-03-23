@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Activity, AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { customFetch } from "@workspace/api-client-react";
+import { useLanguage } from "@/context/language-context";
 
 export default function ResetPassword() {
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const token = new URLSearchParams(window.location.search).get("token") || "";
 
@@ -23,12 +25,12 @@ export default function ResetPassword() {
     setError("");
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError(t("resetPassword.minChars"));
       return;
     }
 
     if (password !== passwordConfirm) {
-      setError("Passwords do not match");
+      setError(t("signup.passwordMismatch"));
       return;
     }
 
@@ -43,7 +45,7 @@ export default function ResetPassword() {
       setSuccess(true);
     } catch (err: unknown) {
       const apiErr = err as { data?: { error?: string } };
-      setError(apiErr.data?.error || "Something went wrong. Please try again.");
+      setError(apiErr.data?.error || t("forgotPassword.somethingWentWrong"));
     } finally {
       setIsLoading(false);
     }
@@ -56,11 +58,11 @@ export default function ResetPassword() {
           <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-7 h-7 text-destructive" />
           </div>
-          <h1 className="text-xl font-bold mb-2">Invalid Link</h1>
-          <p className="text-muted-foreground text-sm mb-6">This reset link is missing a token. Please request a new one.</p>
+          <h1 className="text-xl font-bold mb-2">{t("resetPassword.invalidLink")}</h1>
+          <p className="text-muted-foreground text-sm mb-6">{t("resetPassword.invalidLinkMsg")}</p>
           <Link href="/forgot-password">
             <Button className="w-full h-11 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm">
-              Request New Link
+              {t("resetPassword.requestNew")}
             </Button>
           </Link>
         </div>
@@ -83,7 +85,7 @@ export default function ResetPassword() {
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
-                Back to login
+                {t("forgotPassword.backToLogin")}
               </Link>
 
               <div className="flex justify-center mb-8">
@@ -93,8 +95,8 @@ export default function ResetPassword() {
               </div>
 
               <div className="text-center mb-10">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Set new password</h1>
-                <p className="text-muted-foreground">Choose a strong password for your account</p>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{t("resetPassword.title")}</h1>
+                <p className="text-muted-foreground">{t("resetPassword.subtitle")}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,11 +108,11 @@ export default function ResetPassword() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-muted-foreground px-1">New Password</label>
+                  <label className="text-sm font-medium text-muted-foreground px-1">{t("resetPassword.newPassword")}</label>
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      placeholder="Min 8 characters"
+                      placeholder={t("resetPassword.minCharsPlaceholder")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -128,11 +130,11 @@ export default function ResetPassword() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-muted-foreground px-1">Confirm Password</label>
+                  <label className="text-sm font-medium text-muted-foreground px-1">{t("resetPassword.confirmPassword")}</label>
                   <div className="relative">
                     <Input
                       type={showConfirm ? "text" : "password"}
-                      placeholder="Repeat password"
+                      placeholder={t("resetPassword.repeatPassword")}
                       value={passwordConfirm}
                       onChange={(e) => setPasswordConfirm(e.target.value)}
                       required
@@ -151,7 +153,7 @@ export default function ResetPassword() {
 
                 {password.length > 0 && passwordConfirm.length > 0 && (
                   <div className={`text-xs px-1 ${password === passwordConfirm ? "text-primary" : "text-destructive"}`}>
-                    {password === passwordConfirm ? "✓ Passwords match" : "✗ Passwords don't match"}
+                    {password === passwordConfirm ? t("resetPassword.passwordsMatch") : t("resetPassword.passwordsDontMatch")}
                   </div>
                 )}
 
@@ -160,7 +162,7 @@ export default function ResetPassword() {
                   className="w-full mt-6 h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Resetting..." : "Reset Password"}
+                  {isLoading ? t("resetPassword.resetting") : t("resetPassword.submit")}
                 </Button>
               </form>
             </motion.div>
@@ -171,13 +173,13 @@ export default function ResetPassword() {
                   <CheckCircle className="w-8 h-8 text-primary" />
                 </div>
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Password reset!</h1>
-              <p className="text-muted-foreground text-sm mb-8">Your password has been updated successfully. You can now sign in with your new password.</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">{t("resetPassword.successTitle")}</h1>
+              <p className="text-muted-foreground text-sm mb-8">{t("resetPassword.successMsg")}</p>
               <Button
                 onClick={() => setLocation("/login")}
                 className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm"
               >
-                Sign In
+                {t("login.signIn")}
               </Button>
             </motion.div>
           )}

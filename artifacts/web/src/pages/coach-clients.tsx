@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
@@ -48,6 +50,7 @@ function goalLabel(mode: string | null): string {
 }
 
 export default function CoachClients() {
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const { setActiveClient } = useCoachClient();
   const [, setLocation] = useLocation();
@@ -79,12 +82,13 @@ export default function CoachClients() {
       {/* Header */}
       <header className="px-6 pt-12 pb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Clients</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("coachClients.title")}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {user?.fullName ?? user?.email}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           <Button
             variant="ghost"
             size="sm"
@@ -92,7 +96,7 @@ export default function CoachClients() {
             className="text-xs gap-1.5 text-muted-foreground"
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
-            My Plan
+            {t("coachClients.viewDashboard")}
           </Button>
           <Button
             variant="ghost"

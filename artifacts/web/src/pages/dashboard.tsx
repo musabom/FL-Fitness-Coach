@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { customFetch, getGetActivePlanQueryKey } from "@workspace/api-client-react";
 import BottomNav from "@/components/bottom-nav";
 import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
+import { useLanguage } from "@/context/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -121,6 +123,7 @@ export default function Dashboard() {
   const { plan, isLoading: planLoading } = usePlan();
   const { user, logout } = useAuth();
   const { activeClient, setActiveClient } = useCoachClient();
+  const { t, lang } = useLanguage();
   const buildUrl = useClientUrl();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -167,11 +170,11 @@ export default function Dashboard() {
   if (!plan) {
     return (
       <div className="mobile-container flex flex-col items-center justify-center px-6 text-center">
-        <h2 className="text-2xl font-bold mb-2">No active plan</h2>
+        <h2 className="text-2xl font-bold mb-2">{t("dashboard.noActivePlan")}</h2>
         <p className="text-muted-foreground mb-6">
           {isCoachView 
-            ? "This user hasn't completed onboarding yet." 
-            : "You need to complete onboarding to get your plan."}
+            ? t("dashboard.noActivePlanCoach")
+            : t("dashboard.noActivePlanMember")}
         </p>
         <div className="w-full space-y-3">
           {isCoachView && (
@@ -180,12 +183,12 @@ export default function Dashboard() {
               className="w-full"
               onClick={handleBackToManagement}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to {viewMode === "admin" ? "Admin" : "Clients"}
+              <ArrowLeft className="w-4 h-4 me-2" /> {t("common.back")}
             </Button>
           )}
           {!isCoachView && (
             <Link href="/onboarding" className="w-full">
-              <Button className="w-full">Start Onboarding</Button>
+              <Button className="w-full">{t("dashboard.startOnboarding")}</Button>
             </Link>
           )}
         </div>
@@ -194,18 +197,18 @@ export default function Dashboard() {
   }
 
   const goalLabels: Record<string, string> = {
-    recomposition: "Lose fat & preserve muscle",
-    cut: "Lose body fat",
-    lean_bulk: "Build lean muscle",
-    maintenance: "Maintain weight",
-    custom: "Custom Plan",
+    recomposition: t("dashboard.goalLabels.recomposition"),
+    cut: t("dashboard.goalLabels.cut"),
+    lean_bulk: t("dashboard.goalLabels.lean_bulk"),
+    maintenance: t("dashboard.goalLabels.maintenance"),
+    custom: t("dashboard.goalLabels.custom"),
   };
 
   const weightGapStr = plan.weightKg > plan.targetWeightKg
-    ? `You want to lose ${(plan.weightKg - plan.targetWeightKg).toFixed(1)} kg`
+    ? `${t("dashboard.weightGapLose")} ${(plan.weightKg - plan.targetWeightKg).toFixed(1)} ${t("common.kg")}`
     : plan.weightKg < plan.targetWeightKg
-      ? `You want to gain ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} kg`
-      : "You are at your target weight";
+      ? `${t("dashboard.weightGapGain")} ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} ${t("common.kg")}`
+      : t("dashboard.weightGapAtTarget");
 
   const handleBackToManagement = () => {
     const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
@@ -220,13 +223,13 @@ export default function Dashboard() {
         <div className="sticky top-0 z-20 bg-blue-600/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-white" />
-            <span className="text-sm font-semibold text-white">Viewing: {activeClient.name}</span>
+            <span className="text-sm font-semibold text-white">{t("dashboard.viewing")} {activeClient.name}</span>
           </div>
           <button
             onClick={handleBackToManagement}
             className="flex items-center gap-1 text-xs text-white/80 hover:text-white transition-colors"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("common.back")}
           </button>
         </div>
       )}
@@ -234,10 +237,11 @@ export default function Dashboard() {
       {/* Header */}
       <header className="px-6 py-4 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50" style={{ top: isCoachView ? "44px" : "0" }}>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          <h1 className="text-xl font-semibold tracking-tight">{t("dashboard.title")}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{new Date().toLocaleDateString(lang === "ar" ? 'ar-SA' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-3">
+          <LanguageSwitcher variant="icon-only" />
           {isCoachView && (
             <button
               onClick={handleBackToManagement}
@@ -275,7 +279,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
             <UserCheck className="w-4 h-4 text-primary flex-shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-primary">Your Coach</p>
+              <p className="text-xs font-semibold text-primary">{t("dashboard.yourCoach")}</p>
               <p className="text-sm text-foreground">{user.coachName}</p>
             </div>
           </div>
@@ -285,8 +289,8 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl px-4 py-3">
             <Bell className="w-4 h-4 text-yellow-500 flex-shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-yellow-500">Plan Updated</p>
-              <p className="text-sm text-foreground">Your coach updated your plan. Check your Meal Plan and Workout Plan.</p>
+              <p className="text-xs font-semibold text-yellow-500">{t("dashboard.planUpdated")}</p>
+              <p className="text-sm text-foreground">{t("dashboard.planUpdatedMsg")}</p>
             </div>
           </div>
         )}
@@ -297,13 +301,13 @@ export default function Dashboard() {
             onClick={() => setView("daily")}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "daily" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
           >
-            Daily
+            {t("dashboard.daily")}
           </button>
           <button
             onClick={() => setView("weekly")}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "weekly" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
           >
-            Weekly
+            {t("dashboard.weekly")}
           </button>
         </div>
 
@@ -313,14 +317,14 @@ export default function Dashboard() {
             {/* AM I ON TRACK? Card */}
             <section className="py-4">
               <Card className="p-5 bg-[#1A1A1A] border-none">
-                <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-4">Am I On Track?</h3>
+                <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-4">{t("dashboard.onTrack")}</h3>
 
                 {/* Column headers */}
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"></div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Consumed</div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Target</div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Variance</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.consumed")}</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.target")}</div>
+                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.variance")}</div>
                 </div>
 
                 {/* Table */}
@@ -328,7 +332,7 @@ export default function Dashboard() {
                   {/* Row 1: Calories */}
                   <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
                     <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">Calories</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.calories")}</span>
                     </div>
                     <div className="text-center text-sm">
                       <div className="font-bold text-foreground">{Math.round(consumed.calories)}<span className="text-[10px] text-muted-foreground ml-0.5">kcal</span></div>
@@ -352,7 +356,7 @@ export default function Dashboard() {
                   {/* Row 2: Protein */}
                   <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
                     <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">Protein</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.protein")}</span>
                     </div>
                     <div className="text-center text-sm">
                       <div className="font-bold text-foreground">{Math.round(consumed.protein_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
@@ -376,7 +380,7 @@ export default function Dashboard() {
                   {/* Row 3: Carbs */}
                   <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
                     <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">Carbs</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.carbs")}</span>
                     </div>
                     <div className="text-center text-sm">
                       <div className="font-bold text-foreground">{Math.round(consumed.carbs_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
@@ -400,7 +404,7 @@ export default function Dashboard() {
                   {/* Row 4: Fat */}
                   <div className="grid grid-cols-4 gap-2 py-2.5">
                     <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">Fats</span>
+                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.fats")}</span>
                     </div>
                     <div className="text-center text-sm">
                       <div className="font-bold text-foreground">{Math.round(consumed.fat_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
@@ -424,24 +428,24 @@ export default function Dashboard() {
 
                 {/* TODAY'S DEFICIT */}
                 <div className="mt-6 pt-4 border-t border-white/5 space-y-2.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Daily Deficit</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{t("dashboard.dailyDeficit")}</h4>
                   
                   {/* Maintenance (TDEE) */}
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Maintenance</span>
-                    <span className="font-bold text-foreground">{Math.round(plan.tdeeEstimated ?? 0)} kcal</span>
+                    <span className="text-muted-foreground">{t("dashboard.maintenance")}</span>
+                    <span className="font-bold text-foreground">{Math.round(plan.tdeeEstimated ?? 0)} {t("common.kcal")}</span>
                   </div>
 
                   {/* Consumed */}
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Consumed</span>
-                    <span className="font-bold text-foreground">{Math.round(consumed.calories ?? 0)} kcal</span>
+                    <span className="text-muted-foreground">{t("dashboard.consumed")}</span>
+                    <span className="font-bold text-foreground">{Math.round(consumed.calories ?? 0)} {t("common.kcal")}</span>
                   </div>
 
                   {/* Training Burn */}
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Training burn</span>
-                    <span className="font-bold text-foreground">{Math.round(training.burned_calories ?? 0)} kcal</span>
+                    <span className="text-muted-foreground">{t("dashboard.trainingBurn")}</span>
+                    <span className="font-bold text-foreground">{Math.round(training.burned_calories ?? 0)} {t("common.kcal")}</span>
                   </div>
 
                   {/* Divider */}
@@ -460,7 +464,7 @@ export default function Dashboard() {
                     
                     return (
                       <div className="flex justify-between items-center text-sm">
-                        <span className="font-semibold text-foreground">Total</span>
+                        <span className="font-semibold text-foreground">{t("dashboard.total")}</span>
                         <span className={`text-lg font-bold ${color}`}>
                           {dailyDeficit >= 0 ? "+" : ""}{Math.round(dailyDeficit)} kcal
                         </span>
@@ -474,7 +478,7 @@ export default function Dashboard() {
             {/* Daily Target — Hidden */}
             {false && (
             <section className="py-4 flex flex-col items-center">
-              <div className="text-xs font-semibold tracking-widest text-primary uppercase mb-2">Daily Target</div>
+              <div className="text-xs font-semibold tracking-widest text-primary uppercase mb-2">{t("dashboard.dailyTarget")}</div>
               <div className="text-5xl font-light tracking-tighter text-primary">{plan.calorieTarget}</div>
               <div className="text-xs text-muted-foreground mt-1">kcal</div>
               <div className="flex justify-center mt-4">
@@ -566,7 +570,7 @@ export default function Dashboard() {
                 onClick={() => setCollapsedTraining(!collapsedTraining)}
                 className="w-full flex items-center justify-between p-0"
               >
-                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Today's Training</p>
+                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("workoutPlan.title")}</p>
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedTraining ? "rotate-180" : ""}`} />
               </button>
               {!collapsedTraining && (
@@ -574,18 +578,18 @@ export default function Dashboard() {
                   <div className="flex gap-3">
                     <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                       <Zap className="w-4 h-4 text-muted-foreground mb-0.5" />
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Planned</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.planned")}</span>
                       <span className="text-2xl font-bold text-foreground">{Math.round(training.planned_calories)}</span>
-                      <span className="text-xs text-muted-foreground">kcal</span>
+                      <span className="text-xs text-muted-foreground">{t("common.kcal")}</span>
                     </div>
                     <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                       <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.burned")}</span>
                       <span className="text-2xl font-bold text-orange-400">{Math.round(training.burned_calories)}</span>
-                      <span className="text-xs text-muted-foreground">kcal</span>
+                      <span className="text-xs text-muted-foreground">{t("common.kcal")}</span>
                     </div>
                     <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Remaining</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">{t("dashboard.remaining")}</span>
                       <span className={`text-2xl font-bold ${training.planned_calories - training.burned_calories > 0 ? "text-primary" : "text-red-400"}`}>
                         {Math.round(Math.max(0, training.planned_calories - training.burned_calories))}
                       </span>
@@ -611,20 +615,20 @@ export default function Dashboard() {
                 onClick={() => setCollapsedWeight(!collapsedWeight)}
                 className="w-full flex items-center justify-between p-0"
               >
-                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Weight</p>
+                <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.weight")}</p>
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedWeight ? "rotate-180" : ""}`} />
               </button>
               {!collapsedWeight && (
                 <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Started</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.started")}</span>
                       <span className="text-2xl font-bold text-foreground">{Math.round((plan.startedWeightKg ?? plan.weightKg) * 10) / 10}</span>
-                      <span className="text-xs text-muted-foreground">kg</span>
-                      <p className="text-[10px] text-muted-foreground mt-1">Read-only</p>
+                      <span className="text-xs text-muted-foreground">{t("common.kg")}</span>
+                      <p className="text-[10px] text-muted-foreground mt-1">{t("dashboard.readOnly")}</p>
                     </div>
                     <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Current</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.current")}</span>
                       {!editingWeight ? (
                         <>
                           <span className="text-2xl font-bold text-foreground">{plan.weightKg}</span>
@@ -636,7 +640,7 @@ export default function Dashboard() {
                             }}
                             className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"
                           >
-                            <Edit2 className="w-3 h-3" /> Edit
+                            <Edit2 className="w-3 h-3" /> {t("common.edit")}
                           </button>
                         </>
                       ) : (
@@ -688,9 +692,9 @@ export default function Dashboard() {
                       )}
                     </div>
                     <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Target</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.targetWeight")}</span>
                       <span className="text-2xl font-bold text-foreground">{plan.targetWeightKg}</span>
-                      <span className="text-xs text-muted-foreground">kg</span>
+                      <span className="text-xs text-muted-foreground">{t("common.kg")}</span>
                     </div>
                   </div>
                 </Card>
@@ -699,20 +703,20 @@ export default function Dashboard() {
               <Card className="p-6 border-border">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="font-semibold text-base mb-1">Projected Timeline</h3>
+                    <h3 className="font-semibold text-base mb-1">{t("dashboard.projectedTimeline")}</h3>
                     <p className="text-sm text-muted-foreground">{weightGapStr}</p>
                   </div>
                 </div>
                 {plan.weeksEstimateLow !== null && plan.weeksEstimateHigh !== null ? (
                   <div className="text-3xl font-light">
-                    {plan.weeksEstimateLow} - {plan.weeksEstimateHigh} <span className="text-lg text-muted-foreground">weeks</span>
+                    {plan.weeksEstimateLow} - {plan.weeksEstimateHigh} <span className="text-lg text-muted-foreground">{t("dashboard.weeks")}</span>
                   </div>
                 ) : (
-                  <div className="text-xl font-light text-muted-foreground">Timeline N/A</div>
+                  <div className="text-xl font-light text-muted-foreground">{t("dashboard.timelineNA")}</div>
                 )}
                 {plan.goalMode === "recomposition" && (
                   <p className="text-xs text-muted-foreground mt-4 p-3 bg-muted rounded-lg border border-border/50">
-                    Your weight may not change much — recomposition replaces fat with muscle.
+                    {t("dashboard.recompositionNote")}
                   </p>
                 )}
               </Card>
@@ -731,16 +735,16 @@ export default function Dashboard() {
               <>
                 {/* Weekly totals */}
                 <section className="space-y-3">
-                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">This Week — Nutrition</p>
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.thisWeekNutrition")}</p>
                   <Card className="p-5 bg-[#1A1A1A] border-none space-y-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Consumed</div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{t("dashboard.consumed")}</div>
                         <div className="text-3xl font-bold text-primary">{Math.round(weeklyData.totals.calories)}</div>
-                        <div className="text-xs text-muted-foreground">/ {plan.calorieTarget * 7} kcal weekly</div>
+                        <div className="text-xs text-muted-foreground">/ {plan.calorieTarget * 7} {t("common.kcal")} {t("dashboard.weekly")}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{t("dashboard.remaining")}</div>
                         <div className={`text-2xl font-bold ${plan.calorieTarget * 7 - weeklyData.totals.calories < 0 ? "text-red-400" : "text-foreground"}`}>
                           {Math.round(Math.max(0, plan.calorieTarget * 7 - weeklyData.totals.calories))}
                         </div>
@@ -759,15 +763,15 @@ export default function Dashboard() {
                       <div className="text-xs text-muted-foreground grid grid-cols-3 gap-2">
                         <div className="text-center">
                           <div className="font-semibold text-foreground text-sm">{Math.round(weeklyData.totals.protein_g)}g</div>
-                          <div className="text-[10px]">Protein</div>
+                          <div className="text-[10px]">{t("dashboard.protein")}</div>
                         </div>
                         <div className="text-center">
                           <div className="font-semibold text-foreground text-sm">{Math.round(weeklyData.totals.carbs_g)}g</div>
-                          <div className="text-[10px]">Carbs</div>
+                          <div className="text-[10px]">{t("dashboard.carbs")}</div>
                         </div>
                         <div className="text-center">
                           <div className="font-semibold text-foreground text-sm">{Math.round(weeklyData.totals.fat_g)}g</div>
-                          <div className="text-[10px]">Fat</div>
+                          <div className="text-[10px]">{t("dashboard.fats")}</div>
                         </div>
                       </div>
                     </div>
@@ -776,19 +780,19 @@ export default function Dashboard() {
 
                 {/* Weekly training */}
                 <section className="space-y-3">
-                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">This Week — Training</p>
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.thisWeekTraining")}</p>
                   <Card className="p-5 bg-[#1A1A1A] border-none">
                     <div className="flex gap-3">
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                         <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Burned</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.totalBurned")}</span>
                         <span className="text-2xl font-bold text-orange-400">{Math.round(weeklyData.totals.burned_calories)}</span>
-                        <span className="text-xs text-muted-foreground">kcal</span>
+                        <span className="text-xs text-muted-foreground">{t("common.kcal")}</span>
                       </div>
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">Daily Avg</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider mt-5">{t("dashboard.dailyAvg")}</span>
                         <span className="text-2xl font-bold text-foreground">{Math.round(weeklyData.totals.burned_calories / 7)}</span>
-                        <span className="text-xs text-muted-foreground">kcal/day</span>
+                        <span className="text-xs text-muted-foreground">{t("dashboard.kcalPerDay")}</span>
                       </div>
                     </div>
                   </Card>
@@ -796,29 +800,29 @@ export default function Dashboard() {
 
                 {/* Weekly Calorie Balance */}
                 <section className="space-y-3">
-                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.calorieBalance")}</p>
                   <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
                     <div className="flex gap-3">
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.consumed")}</span>
                         <span className="text-2xl font-bold text-foreground">{Math.round(weeklyData.totals.calories)}</span>
-                        <span className="text-xs text-muted-foreground">kcal</span>
+                        <span className="text-xs text-muted-foreground">{t("common.kcal")}</span>
                       </div>
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Burned</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.burned")}</span>
                         <span className="text-2xl font-bold text-orange-400">{Math.round(weeklyData.totalBurned)}</span>
-                        <span className="text-xs text-muted-foreground">kcal</span>
+                        <span className="text-xs text-muted-foreground">{t("common.kcal")}</span>
                         <div className="text-[10px] text-muted-foreground mt-1 text-center">
-                          <div>{Math.round((weeklyData.tdee ?? 0) * 7)} static</div>
-                          {(weeklyData.totals.burned_calories ?? 0) > 0 && <div>+ {Math.round(weeklyData.totals.burned_calories)} workout</div>}
+                          <div>{Math.round((weeklyData.tdee ?? 0) * 7)} {t("dashboard.static")}</div>
+                          {(weeklyData.totals.burned_calories ?? 0) > 0 && <div>+ {Math.round(weeklyData.totals.burned_calories)} {t("dashboard.workout")}</div>}
                         </div>
                       </div>
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Net</span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.net")}</span>
                         <span className={`text-2xl font-bold ${weeklyData.balance < 0 ? "text-primary" : "text-red-400"}`}>
                           {weeklyData.balance < 0 ? "−" : "+"}{Math.abs(Math.round(weeklyData.balance))}
                         </span>
-                        <span className="text-xs text-muted-foreground">{weeklyData.balance < 0 ? "deficit" : "surplus"}</span>
+                        <span className="text-xs text-muted-foreground">{weeklyData.balance < 0 ? t("dashboard.deficit") : t("dashboard.surplus")}</span>
                       </div>
                     </div>
                   </Card>
@@ -826,7 +830,7 @@ export default function Dashboard() {
 
                 {/* Day-by-day chart */}
                 <section className="space-y-3">
-                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Day by Day</p>
+                  <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.dayByDay")}</p>
                   <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
                     {/* Legend */}
                     <div className="flex gap-4 text-xs text-muted-foreground">
@@ -841,10 +845,10 @@ export default function Dashboard() {
                         <div key={day.date} className="space-y-1">
                           <div className="flex justify-between items-center">
                             <span className={`text-xs font-medium ${isToday ? "text-primary" : "text-muted-foreground"}`}>
-                              {day.day}{isToday ? " (today)" : ""}
+                              {day.day}{isToday ? ` (${t("dashboard.today")})` : ""}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {Math.round(day.calories)} kcal · {Math.round(day.burned_calories)} burned
+                              {Math.round(day.calories)} {t("common.kcal")} · {Math.round(day.burned_calories)} {t("dashboard.burned")}
                             </span>
                           </div>
                           <div className="space-y-1">
@@ -873,15 +877,15 @@ export default function Dashboard() {
 
         {/* Quick Links — always visible */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Nutrition</p>
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("nutritionMeals.title")}</p>
           <Link href="/nutrition/meals">
             <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <UtensilsCrossed className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-sm">Meal Builder</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Create and manage your meals</div>
+                <div className="font-semibold text-sm">{t("nutritionMeals.title")}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("nutritionMeals.createMeal")}</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
@@ -892,8 +896,8 @@ export default function Dashboard() {
                 <CalendarDays className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-sm">Meal Plan</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Track meals day by day</div>
+                <div className="font-semibold text-sm">{t("mealPlan.title")}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("mealPlan.compliance")}</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
@@ -904,8 +908,8 @@ export default function Dashboard() {
                 <ShoppingCart className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-sm">Shopping List</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Weekly ingredients &amp; stock tracker</div>
+                <div className="font-semibold text-sm">{t("shoppingList.title")}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("shoppingList.subtitle")}</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
@@ -913,15 +917,15 @@ export default function Dashboard() {
         </section>
 
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Training</p>
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("workoutPlan.title")}</p>
           <Link href="/training/builder">
             <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Dumbbell className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-sm">Exercise Builder</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Build workouts &amp; track calorie burn</div>
+                <div className="font-semibold text-sm">{t("trainingBuilder.title")}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("trainingBuilder.createExercise")}</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>
@@ -932,8 +936,8 @@ export default function Dashboard() {
                 <ClipboardList className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-sm">Workout Plan</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Track today's scheduled workouts</div>
+                <div className="font-semibold text-sm">{t("workoutPlan.title")}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t("workoutPlan.addWorkout")}</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </Card>

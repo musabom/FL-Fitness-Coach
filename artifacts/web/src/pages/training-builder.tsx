@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLanguage } from "@/context/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -923,6 +924,7 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TrainingBuilder() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [customExerciseOpen, setCustomExerciseOpen] = useState(false);
@@ -962,7 +964,7 @@ export default function TrainingBuilder() {
         <div className="flex-1">
           <h1 className="font-semibold text-base flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-primary" />
-            Exercise Builder
+            {t("trainingBuilder.title")}
           </h1>
         </div>
         <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-xs font-medium">
