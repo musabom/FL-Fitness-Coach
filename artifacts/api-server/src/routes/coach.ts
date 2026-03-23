@@ -102,6 +102,80 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
   res.json(enriched);
 });
 
+// GET /coach/profile — get own coach profile
+router.get("/coach/profile", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const result = await pool.query(
+    `SELECT * FROM coach_profiles WHERE user_id = $1`,
+    [caller.userId]
+  );
+
+  if (result.rows.length === 0) {
+    res.json({
+      photoUrl: null,
+      specializations: [],
+      pricePerMonth: null,
+      bio: null,
+      activeOffer: null,
+      beforeAfterPhotos: [],
+    });
+    return;
+  }
+
+  const r = result.rows[0];
+  res.json({
+    photoUrl: r.photo_url,
+    specializations: r.specializations ?? [],
+    pricePerMonth: r.price_per_month ? Number(r.price_per_month) : null,
+    bio: r.bio,
+    activeOffer: r.active_offer,
+    beforeAfterPhotos: r.before_after_photos ?? [],
+  });
+});
+
+// PUT /coach/profile — upsert coach profile
+router.put("/coach/profile", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const { photoUrl, specializations, pricePerMonth, bio, activeOffer, beforeAfterPhotos } = req.body;
+
+  // Validate
+  if (bio && bio.length > 150) {
+    res.status(400).json({ error: "Bio must be 150 characters or fewer" });
+    return;
+  }
+  if (specializations && (!Array.isArray(specializations) || specializations.length > 3)) {
+    res.status(400).json({ error: "Specializations must be an array of 1-3 tags" });
+    return;
+  }
+
+  await pool.query(`
+    INSERT INTO coach_profiles (user_id, photo_url, specializations, price_per_month, bio, active_offer, before_after_photos, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    ON CONFLICT (user_id) DO UPDATE SET
+      photo_url = EXCLUDED.photo_url,
+      specializations = EXCLUDED.specializations,
+      price_per_month = EXCLUDED.price_per_month,
+      bio = EXCLUDED.bio,
+      active_offer = EXCLUDED.active_offer,
+      before_after_photos = EXCLUDED.before_after_photos,
+      updated_at = NOW()
+  `, [
+    caller.userId,
+    photoUrl ?? null,
+    specializations ?? [],
+    pricePerMonth ?? null,
+    bio ?? null,
+    activeOffer ?? null,
+    beforeAfterPhotos ?? [],
+  ]);
+
+  res.json({ message: "Profile updated" });
+});
+
 // Mark plan as coach-updated (called when coach saves any change to client data)
 router.post("/coach/clients/:clientId/mark-updated", async (req, res): Promise<void> => {
   const caller = await requireCoachOrAdmin(req, res);

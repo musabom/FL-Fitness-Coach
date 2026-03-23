@@ -7,7 +7,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCoachClient } from "@/context/coach-client-context";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut } from "lucide-react";
+import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface CoachClient {
@@ -89,6 +89,15 @@ export default function CoachClients() {
         </div>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation("/coach/profile")}
+            className="text-xs gap-1.5 text-muted-foreground"
+          >
+            <UserCircle2 className="w-3.5 h-3.5" />
+            {t("coaches.editProfile")}
+          </Button>
           <Button
             variant="ghost"
             size="sm"

@@ -26,6 +26,9 @@ import Progress from "./pages/progress";
 import CoachClients from "./pages/coach-clients";
 import AdminPanel from "./pages/admin-panel";
 import NotFound from "./pages/not-found";
+import CoachesBrowse from "./pages/coaches-browse";
+import CoachDetail from "./pages/coach-detail";
+import CoachProfileEditor from "./pages/coach-profile-editor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,10 +53,15 @@ if (typeof window !== "undefined") {
   });
 }
 
-const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password"];
+const AUTH_ONLY_ROUTES = ["/login", "/signup", "/forgot-password"];
 
 function isPublicRoute(loc: string) {
-  return PUBLIC_ROUTES.includes(loc) || loc.startsWith("/reset-password");
+  return (
+    AUTH_ONLY_ROUTES.includes(loc) ||
+    loc.startsWith("/reset-password") ||
+    loc === "/coaches" ||
+    loc.startsWith("/coaches/")
+  );
 }
 
 function ClickTracker() {
@@ -68,13 +76,14 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
+    // Unauthenticated: send to coaches browse (not login) for protected routes
     if (!user && !isPublicRoute(location)) {
-      setLocation("/login");
+      setLocation("/coaches");
       return;
     }
 
-    if (user && isPublicRoute(location)) {
-      // Route to role-specific home
+    // Authenticated users trying to access auth-only pages → redirect to role home
+    if (user && AUTH_ONLY_ROUTES.includes(location)) {
       if (user.role === "admin") {
         setLocation("/admin");
       } else if (user.role === "coach") {
@@ -96,7 +105,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Coaches with no profile still need onboarding (they were members first)
+    // Coaches with no profile still need onboarding
     if (user && user.role === "coach") {
       if (!user.hasProfile && location !== "/onboarding") {
         setLocation("/onboarding");
@@ -109,6 +118,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (user && user.role === "admin" && location === "/") {
       setLocation("/admin");
     }
+
+    // Unauthenticated on "/"  → coaches browse
+    if (!user && location === "/") {
+      setLocation("/coaches");
+    }
   }, [user, isLoading, location, setLocation]);
 
   if (isLoading) {
@@ -119,9 +133,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && !isPublicRoute(location)) return null;
-  if (user && user.role === "member" && !user.hasProfile && location !== "/onboarding") return null;
-  if (user && user.role === "coach" && !user.hasProfile && location !== "/onboarding") return null;
+  // Allow public routes (coaches browse, coach detail, auth pages) to render freely
+  if (isPublicRoute(location)) return <>{children}</>;
+  if (!user) return null;
+  if (user.role === "member" && !user.hasProfile && location !== "/onboarding") return null;
+  if (user.role === "coach" && !user.hasProfile && location !== "/onboarding") return null;
 
   return <>{children}</>;
 }
@@ -132,7 +148,11 @@ function Router() {
     <ClickTracker />
     <AuthGuard>
       <Switch>
-        {/* Public */}
+        {/* Public — coach browse (no auth required) */}
+        <Route path="/coaches" component={CoachesBrowse} />
+        <Route path="/coaches/:id" component={CoachDetail} />
+
+        {/* Auth pages */}
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
         <Route path="/forgot-password" component={ForgotPassword} />
@@ -146,6 +166,7 @@ function Router() {
 
         {/* Coach */}
         <Route path="/coach/clients" component={CoachClients} />
+        <Route path="/coach/profile" component={CoachProfileEditor} />
 
         {/* Member + Coach client view */}
         <Route path="/dashboard" component={Dashboard} />
