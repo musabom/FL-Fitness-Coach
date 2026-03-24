@@ -135,6 +135,12 @@ export default function CoachDetail() {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
+        <div className="mb-4">
+          <Button variant="outline" size="sm" onClick={() => setLocation("/coaches")} className="gap-2">
+            {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {t("coaches.backToBrowse")}
+          </Button>
+        </div>
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8">
           <div className="flex-shrink-0">
             {service.coachPhoto ? (
