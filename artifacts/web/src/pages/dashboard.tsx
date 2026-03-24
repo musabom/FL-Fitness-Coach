@@ -266,6 +266,17 @@ export default function Dashboard() {
               <Settings className="w-5 h-5 text-foreground" />
             </Link>
           )}
+          {!isCoachView && user?.role === "member" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/coaches")}
+              className="text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/50"
+            >
+              <Search className="w-3.5 h-3.5" />
+              {t("dashboard.browse")}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
