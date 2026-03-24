@@ -6,7 +6,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCoachClient } from "@/context/coach-client-context";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2, Star, RefreshCw } from "lucide-react";
+import { Loader2, ChevronRight, User, Dumbbell, Utensils, Target, LayoutDashboard, LogOut, UserCircle2, Star, RefreshCw, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface CoachClient {
@@ -18,6 +18,8 @@ interface CoachClient {
   targetWeightKg: number | null;
   mealCompliancePct: number | null;
   workoutCompliancePct: number | null;
+  subscriptionStartedAt: string | null;
+  subscriptionDaysLeft: number | null;
 }
 
 function ComplianceBadge({ pct, label, icon: Icon }: { pct: number | null; label: string; icon: React.ElementType }) {
@@ -208,6 +210,14 @@ export default function CoachClients() {
                   )}
                 </div>
               </div>
+              {client.subscriptionDaysLeft !== null && (
+                <div className={`mt-2 pt-2 border-t border-border/30 flex items-center gap-1.5 text-xs ${client.subscriptionDaysLeft <= 5 ? "text-destructive" : "text-muted-foreground"}`}>
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  <span>
+                    {client.subscriptionDaysLeft} {t("coachClients.subscriptionDaysLeft")}
+                  </span>
+                </div>
+              )}
             </motion.button>
           ))
         )}

@@ -131,7 +131,7 @@ router.post("/public/coaches/:id/subscribe", async (req, res): Promise<void> => 
   }
 
   await pool.query(
-    `UPDATE users SET coach_id = $1 WHERE id = $2`,
+    `UPDATE users SET coach_id = $1, subscription_started_at = NOW() WHERE id = $2`,
     [coachId, req.session.userId]
   );
 

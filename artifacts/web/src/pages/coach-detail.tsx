@@ -60,10 +60,11 @@ export default function CoachDetail() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setSubscribed(true);
+      await queryClient.refetchQueries({ queryKey: ["auth", "me"] });
       toast({ title: t("coaches.subscribeSuccess") });
-      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      setLocation("/coaches");
     },
     onError: (err: Error) => {
       toast({ title: err.message, variant: "destructive" });

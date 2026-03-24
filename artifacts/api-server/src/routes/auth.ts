@@ -133,7 +133,8 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   const extraRes = await pool.query(`
     SELECT
       c.id AS coach_id, c.full_name AS coach_name,
-      p.coach_updated_at
+      p.coach_updated_at,
+      u.subscription_started_at
     FROM users u
     LEFT JOIN users c ON c.id = u.coach_id
     LEFT JOIN LATERAL (
@@ -144,6 +145,13 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
   const extra = extraRes.rows[0];
 
+  let subscriptionDaysLeft: number | null = null;
+  if (extra?.subscription_started_at) {
+    const msPerDay = 86400000;
+    const daysElapsed = Math.floor((Date.now() - new Date(extra.subscription_started_at).getTime()) / msPerDay);
+    subscriptionDaysLeft = 30 - (daysElapsed % 30);
+  }
+
   res.json({
     id: user.id,
     email: user.email,
@@ -153,6 +161,8 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     coachId: extra?.coach_id ?? null,
     coachName: extra?.coach_name ?? null,
     coachUpdatedAt: extra?.coach_updated_at ?? null,
+    subscriptionStartedAt: extra?.subscription_started_at ?? null,
+    subscriptionDaysLeft,
   });
 });
 

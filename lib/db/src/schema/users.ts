@@ -13,6 +13,7 @@ export const usersTable = pgTable("users", {
   notificationPrefs: jsonb("notification_prefs"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   coachId: integer("coach_id"),
+  subscriptionStartedAt: timestamp("subscription_started_at", { withTimezone: true }),
   isActive: boolean("is_active").notNull().default(true),
 });
 

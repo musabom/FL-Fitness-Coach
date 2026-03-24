@@ -39,7 +39,8 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
   const clientsRes = await pool.query(`
     SELECT
       u.id, u.email, u.full_name,
-      up.goal_mode, up.weight_kg, up.target_weight_kg
+      up.goal_mode, up.weight_kg, up.target_weight_kg,
+      u.subscription_started_at
     FROM users u
     LEFT JOIN user_profiles up ON up.user_id = u.id
     WHERE u.coach_id = $1
@@ -93,6 +94,13 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
       // Table not yet available in this environment — skip compliance
     }
 
+    let subscriptionDaysLeft: number | null = null;
+    if (client.subscription_started_at) {
+      const msPerDay = 86400000;
+      const daysElapsed = Math.floor((Date.now() - new Date(client.subscription_started_at).getTime()) / msPerDay);
+      subscriptionDaysLeft = 30 - (daysElapsed % 30);
+    }
+
     enriched.push({
       id: client.id,
       email: client.email,
@@ -102,6 +110,8 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
       targetWeightKg: client.target_weight_kg,
       mealCompliancePct: mealCompliance,
       workoutCompliancePct: workoutCompliance,
+      subscriptionStartedAt: client.subscription_started_at ?? null,
+      subscriptionDaysLeft,
     });
   }
 

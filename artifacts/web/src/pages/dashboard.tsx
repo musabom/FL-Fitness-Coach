@@ -282,10 +282,23 @@ export default function Dashboard() {
         {!isCoachView && user?.coachName && (
           <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
             <UserCheck className="w-4 h-4 text-primary flex-shrink-0" />
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-primary">{t("dashboard.yourCoach")}</p>
               <p className="text-sm text-foreground">{user.coachName}</p>
+              {user.subscriptionDaysLeft !== null && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("dashboard.subscriptionCyclePrefix")} {user.subscriptionDaysLeft} {t("dashboard.subscriptionCycleSuffix")}
+                </p>
+              )}
             </div>
+            {user.subscriptionDaysLeft !== null && (
+              <div className="flex-shrink-0 text-center">
+                <p className={`text-lg font-bold ${user.subscriptionDaysLeft <= 5 ? "text-destructive" : "text-primary"}`}>
+                  {user.subscriptionDaysLeft}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{t("dashboard.daysLeft")}</p>
+              </div>
+            )}
           </div>
         )}
         {/* Member: coach updated plan banner */}

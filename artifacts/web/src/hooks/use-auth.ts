@@ -16,6 +16,8 @@ export interface AuthUser {
   coachId: number | null;
   coachName: string | null;
   coachUpdatedAt: string | null;
+  subscriptionStartedAt: string | null;
+  subscriptionDaysLeft: number | null;
 }
 
 const AUTH_KEY = ["auth", "me"];
