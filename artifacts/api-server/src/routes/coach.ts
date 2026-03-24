@@ -50,42 +50,48 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
   const enriched = [];
 
   for (const client of clients) {
-    const weightKg = Number(client.weight_kg) || 70;
+    // Today's meal compliance — guarded: table may not exist in all environments
+    let mealCompliance: number | null = null;
+    try {
+      const mealRes = await pool.query(`
+        SELECT
+          COUNT(DISTINCT mp.id)::int AS planned_portions,
+          COUNT(DISTINCT mpc.portion_id)::int AS completed_portions
+        FROM meals m
+        JOIN meal_portions mp ON mp.meal_id = m.id
+        LEFT JOIN meal_portion_completions mpc ON mpc.portion_id = mp.id AND mpc.completed_date = $2
+        WHERE m.user_id = $1
+          AND (m.scheduled_days IS NULL OR m.scheduled_days::jsonb @> $3::jsonb)
+      `, [client.id, dateStr, JSON.stringify([todayDay])]);
+      const mealRow = mealRes.rows[0];
+      if (mealRow?.planned_portions > 0) {
+        mealCompliance = Math.round((mealRow.completed_portions / mealRow.planned_portions) * 100);
+      }
+    } catch {
+      // Table not yet available in this environment — skip compliance
+    }
 
-    // Today's meal compliance
-    const mealRes = await pool.query(`
-      SELECT
-        COUNT(DISTINCT mp.id)::int AS planned_portions,
-        COUNT(DISTINCT mpc.portion_id)::int AS completed_portions
-      FROM meals m
-      JOIN meal_portions mp ON mp.meal_id = m.id
-      LEFT JOIN meal_portion_completions mpc ON mpc.portion_id = mp.id AND mpc.completed_date = $2
-      WHERE m.user_id = $1
-        AND (m.scheduled_days IS NULL OR m.scheduled_days::jsonb @> $3::jsonb)
-    `, [client.id, dateStr, JSON.stringify([todayDay])]);
-
-    const mealRow = mealRes.rows[0];
-    const mealCompliance = mealRow?.planned_portions > 0
-      ? Math.round((mealRow.completed_portions / mealRow.planned_portions) * 100)
-      : null;
-
-    // Today's workout compliance
-    const workoutRes = await pool.query(`
-      SELECT
-        COUNT(DISTINCT we.id)::int AS planned_exercises,
-        COUNT(DISTINCT ws_done.id)::int AS completed_exercises
-      FROM workouts w
-      JOIN workout_exercises we ON we.workout_id = w.id
-      LEFT JOIN workout_sessions ws ON ws.workout_id = w.id AND DATE(ws.completed_at) = $2
-      LEFT JOIN workout_session_exercises ws_done ON ws_done.session_id = ws.id AND ws_done.workout_exercise_id = we.id
-      WHERE w.user_id = $1
-        AND (w.scheduled_days IS NULL OR w.scheduled_days::jsonb @> $3::jsonb)
-    `, [client.id, dateStr, JSON.stringify([todayDay])]);
-
-    const workoutRow = workoutRes.rows[0];
-    const workoutCompliance = workoutRow?.planned_exercises > 0
-      ? Math.round((workoutRow.completed_exercises / workoutRow.planned_exercises) * 100)
-      : null;
+    // Today's workout compliance — guarded: table may not exist in all environments
+    let workoutCompliance: number | null = null;
+    try {
+      const workoutRes = await pool.query(`
+        SELECT
+          COUNT(DISTINCT we.id)::int AS planned_exercises,
+          COUNT(DISTINCT ws_done.id)::int AS completed_exercises
+        FROM workouts w
+        JOIN workout_exercises we ON we.workout_id = w.id
+        LEFT JOIN workout_sessions ws ON ws.workout_id = w.id AND DATE(ws.completed_at) = $2
+        LEFT JOIN workout_session_exercises ws_done ON ws_done.session_id = ws.id AND ws_done.workout_exercise_id = we.id
+        WHERE w.user_id = $1
+          AND (w.scheduled_days IS NULL OR w.scheduled_days::jsonb @> $3::jsonb)
+      `, [client.id, dateStr, JSON.stringify([todayDay])]);
+      const workoutRow = workoutRes.rows[0];
+      if (workoutRow?.planned_exercises > 0) {
+        workoutCompliance = Math.round((workoutRow.completed_exercises / workoutRow.planned_exercises) * 100);
+      }
+    } catch {
+      // Table not yet available in this environment — skip compliance
+    }
 
     enriched.push({
       id: client.id,
