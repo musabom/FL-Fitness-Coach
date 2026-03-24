@@ -233,7 +233,7 @@ export default function ShoppingList() {
   const scheduledItems = items.filter(i => i.weekly_quantity > 0);
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-foreground max-w-[430px] mx-auto flex flex-col">
+    <div className="min-h-screen bg-[#0F0F0F] text-foreground max-w-2xl mx-auto flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-safe-top pt-4 pb-4 border-b border-border/30">
         <Link href="/dashboard">

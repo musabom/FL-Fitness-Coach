@@ -29,7 +29,7 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-[#111111]/95 backdrop-blur-xl border-t border-border/40 flex z-50">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-[#111111]/95 backdrop-blur-xl border-t border-border/40 flex z-50">
       {activeClient && (
         <button
           onClick={handleBackToManagement}

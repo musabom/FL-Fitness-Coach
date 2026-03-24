@@ -712,7 +712,7 @@ export default function MealPlan() {
       </div>
 
       {/* Add Meal FAB */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(430px, 100vw) - 40px)" }}>
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(672px, 100vw) - 40px)" }}>
         <Button onClick={() => setShowSheet(true)} className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2">
           <Plus className="w-4 h-4" />
           Add Meal

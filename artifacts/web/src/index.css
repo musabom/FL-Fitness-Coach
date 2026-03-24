@@ -64,5 +64,5 @@
 
 /* Mobile container constraints for desktop view */
 .mobile-container {
-  @apply w-full max-w-[430px] mx-auto min-h-screen bg-background relative shadow-2xl shadow-black/50 border-x border-white/5;
+  @apply w-full max-w-2xl mx-auto min-h-screen bg-background relative shadow-2xl shadow-black/50 border-x border-white/5;
 }
