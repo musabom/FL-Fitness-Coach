@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import BottomNav from "@/components/bottom-nav";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -270,6 +271,7 @@ function FoodSearchSheet({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const buildUrl = useClientUrl();
   const [query, setQuery] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [selected, setSelected] = useState<FoodResult | null>(null);
@@ -294,7 +296,7 @@ function FoodSearchSheet({
 
   const addMutation = useMutation({
     mutationFn: () =>
-      customFetch(`${BASE}/meals/${mealId}/portions`, {
+      customFetch(buildUrl(`${BASE}/meals/${mealId}/portions`), {
         method: "POST",
         body: JSON.stringify({ food_id: selected!.id, quantity_g: Number(qty), food_source: selected!.source || "database" }),
         headers: { "Content-Type": "application/json" },
@@ -511,6 +513,7 @@ function PortionRow({ portion, mealId, onDelete, onUpdated }: {
   onDelete: () => void;
   onUpdated: () => void;
 }) {
+  const buildUrl = useClientUrl();
   const [editing, setEditing] = useState(false);
   const [qtyVal, setQtyVal] = useState(String(portion.quantity_g));
   const [showNote, setShowNote] = useState(false);
@@ -521,13 +524,13 @@ function PortionRow({ portion, mealId, onDelete, onUpdated }: {
   }, [portion.notes]);
 
   const deleteMutation = useMutation({
-    mutationFn: () => customFetch(`${BASE}/meals/${mealId}/portions/${portion.id}`, { method: "DELETE" }),
+    mutationFn: () => customFetch(buildUrl(`${BASE}/meals/${mealId}/portions/${portion.id}`), { method: "DELETE" }),
     onSuccess: onDelete,
   });
 
   const updateMutation = useMutation({
     mutationFn: (body: { quantity_g: number; notes?: string | null }) =>
-      customFetch(`${BASE}/meals/${mealId}/portions/${portion.id}`, {
+      customFetch(buildUrl(`${BASE}/meals/${mealId}/portions/${portion.id}`), {
         method: "PATCH",
         body: JSON.stringify(body),
         headers: { "Content-Type": "application/json" },
@@ -668,6 +671,7 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
   onRefresh: () => void;
   dailyCalorieTarget: number;
 }) {
+  const buildUrl = useClientUrl();
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(meal.meal_name);
   const [showSearch, setShowSearch] = useState(false);
@@ -675,7 +679,7 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
 
   const renameMutation = useMutation({
     mutationFn: (name: string) =>
-      customFetch(`${BASE}/meals/${meal.id}`, {
+      customFetch(buildUrl(`${BASE}/meals/${meal.id}`), {
         method: "PATCH",
         body: JSON.stringify({ meal_name: name }),
         headers: { "Content-Type": "application/json" },
@@ -685,7 +689,7 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
 
   const scheduleMutation = useMutation({
     mutationFn: (days: string[]) =>
-      customFetch(`${BASE}/meals/${meal.id}/schedule`, {
+      customFetch(buildUrl(`${BASE}/meals/${meal.id}/schedule`), {
         method: "POST",
         body: JSON.stringify({ days }),
         headers: { "Content-Type": "application/json" },
@@ -694,7 +698,7 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
   });
 
   const deleteMealMutation = useMutation({
-    mutationFn: () => customFetch(`${BASE}/meals/${meal.id}`, { method: "DELETE" }),
+    mutationFn: () => customFetch(buildUrl(`${BASE}/meals/${meal.id}`), { method: "DELETE" }),
     onSuccess: onRefresh,
   });
 
@@ -852,21 +856,23 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
 export default function NutritionMeals() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const { activeClient } = useCoachClient();
+  const buildUrl = useClientUrl();
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
 
   const mealsQuery = useQuery<Meal[]>({
-    queryKey: ["meals"],
-    queryFn: () => customFetch(`${BASE}/meals`),
+    queryKey: ["meals", activeClient?.id],
+    queryFn: () => customFetch(buildUrl(`${BASE}/meals`)),
   });
 
   const dailyQuery = useQuery<DailyTotals>({
-    queryKey: ["meals-daily-totals"],
-    queryFn: () => customFetch(`${BASE}/meals/daily-totals`),
+    queryKey: ["meals-daily-totals", activeClient?.id],
+    queryFn: () => customFetch(buildUrl(`${BASE}/meals/daily-totals`)),
   });
 
   const createMealMutation = useMutation({
     mutationFn: () =>
-      customFetch(`${BASE}/meals`, { method: "POST" }),
+      customFetch(buildUrl(`${BASE}/meals`), { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ["meals-daily-totals"] });

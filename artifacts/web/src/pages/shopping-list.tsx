@@ -10,6 +10,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import BottomNav from "@/components/bottom-nav";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -40,6 +41,7 @@ function StockEditor({
   const [val, setVal] = useState(String(Math.round(item.stock_g)));
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const buildUrl = useClientUrl();
   const ispiece = item.serving_unit === "per_piece";
 
   useEffect(() => {
@@ -52,7 +54,7 @@ function StockEditor({
 
   const saveMutation = useMutation({
     mutationFn: (qty: number) =>
-      customFetch(`${BASE}/shopping-list/stock`, {
+      customFetch(buildUrl(`${BASE}/shopping-list/stock`), {
         method: "PUT",
         body: JSON.stringify({
           food_id: item.food_id,
@@ -207,11 +209,13 @@ function ItemCard({ item }: { item: ShoppingItem }) {
 
 export default function ShoppingList() {
   const { t } = useLanguage();
+  const { activeClient } = useCoachClient();
+  const buildUrl = useClientUrl();
   const [filter, setFilter] = useState<"all" | "needed" | "sufficient">("all");
 
   const { data: items = [], isLoading, isError } = useQuery<ShoppingItem[]>({
-    queryKey: ["shopping-list"],
-    queryFn: () => customFetch(`${BASE}/shopping-list`),
+    queryKey: ["shopping-list", activeClient?.id],
+    queryFn: () => customFetch(buildUrl(`${BASE}/shopping-list`)),
   });
 
   // Filter items by weekly_quantity > 0 (only in meal plan)

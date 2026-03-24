@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import BottomNav from "@/components/bottom-nav";
 import { useLanguage } from "@/context/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 import {
   LineChart,
   Line,
@@ -77,9 +78,11 @@ function EmptyState({ message }: { message: string }) {
 
 export default function Progress() {
   const { t } = useLanguage();
+  const { activeClient } = useCoachClient();
+  const buildUrl = useClientUrl();
   const { data, isLoading } = useQuery<ProgressData>({
-    queryKey: ["progress"],
-    queryFn: () => customFetch<ProgressData>(`${BASE}/progress`),
+    queryKey: ["progress", activeClient?.id],
+    queryFn: () => customFetch<ProgressData>(buildUrl(`${BASE}/progress`)),
     refetchOnWindowFocus: false,
   });
 

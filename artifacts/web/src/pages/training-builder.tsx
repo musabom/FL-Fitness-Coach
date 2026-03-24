@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { getExerciseImageUrl } from "@/lib/exercise-images";
+import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 import BottomNav from "@/components/bottom-nav";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -241,6 +242,8 @@ interface AddExerciseSheetProps {
 function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: AddExerciseSheetProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { activeClient } = useCoachClient();
+  const buildUrl = useClientUrl();
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState<string>("all");
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
@@ -258,8 +261,8 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
   const [intensity, setIntensity] = useState("moderate");
 
   const { data: userProfile } = useQuery<any>({
-    queryKey: ["user-profile"],
-    queryFn: () => customFetch(`${BASE}/profile`),
+    queryKey: ["user-profile", activeClient?.id],
+    queryFn: () => customFetch(buildUrl(`${BASE}/profile`)),
     enabled: open,
   });
 
@@ -275,7 +278,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
   });
 
   const addMutation = useMutation({
-    mutationFn: (body: any) => customFetch(`${BASE}/workouts/${workoutId}/exercises`, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
+    mutationFn: (body: any) => customFetch(buildUrl(`${BASE}/workouts/${workoutId}/exercises`), { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
       queryClient.invalidateQueries({ queryKey: ["workouts-today"] });
@@ -608,6 +611,7 @@ interface EditExerciseSheetProps {
 function EditExerciseSheet({ we, workoutId, open, onClose }: EditExerciseSheetProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const buildUrl = useClientUrl();
   const [sets, setSets] = useState(String(we.sets));
   const [repsMin, setRepsMin] = useState(String(we.reps_min));
   const [repsMax, setRepsMax] = useState(String(we.reps_max));
@@ -618,7 +622,7 @@ function EditExerciseSheet({ we, workoutId, open, onClose }: EditExerciseSheetPr
   const [intensity, setIntensity] = useState(we.effort_level || "moderate");
 
   const saveMutation = useMutation({
-    mutationFn: (body: any) => customFetch(`${BASE}/workouts/${workoutId}/exercises/${we.id}`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
+    mutationFn: (body: any) => customFetch(buildUrl(`${BASE}/workouts/${workoutId}/exercises/${we.id}`), { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
       queryClient.invalidateQueries({ queryKey: ["workouts-today"] });
@@ -723,10 +727,11 @@ interface ExerciseRowProps {
 function ExerciseRow({ we, workoutId, isFirst, isLast, onMoveUp, onMoveDown }: ExerciseRowProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const buildUrl = useClientUrl();
   const [editOpen, setEditOpen] = useState(false);
 
   const deleteMutation = useMutation({
-    mutationFn: () => customFetch(`${BASE}/workouts/${workoutId}/exercises/${we.id}`, { method: "DELETE" }),
+    mutationFn: () => customFetch(buildUrl(`${BASE}/workouts/${workoutId}/exercises/${we.id}`), { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
       queryClient.invalidateQueries({ queryKey: ["workouts-today"] });
@@ -782,6 +787,7 @@ interface WorkoutCardProps {
 function WorkoutCard({ workout }: WorkoutCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const buildUrl = useClientUrl();
   const [expanded, setExpanded] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -791,24 +797,24 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
   useEffect(() => { if (renaming) nameRef.current?.focus(); }, [renaming]);
 
   const renameMutation = useMutation({
-    mutationFn: (workout_name: string) => customFetch(`${BASE}/workouts/${workout.id}`, { method: "PATCH", body: JSON.stringify({ workout_name }), headers: { "Content-Type": "application/json" } }),
+    mutationFn: (workout_name: string) => customFetch(buildUrl(`${BASE}/workouts/${workout.id}`), { method: "PATCH", body: JSON.stringify({ workout_name }), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["workouts"] }); setRenaming(false); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => customFetch(`${BASE}/workouts/${workout.id}`, { method: "DELETE" }),
+    mutationFn: () => customFetch(buildUrl(`${BASE}/workouts/${workout.id}`), { method: "DELETE" }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["workouts"] }); queryClient.invalidateQueries({ queryKey: ["workouts-today"] }); },
     onError: () => toast({ title: "Failed to delete workout", variant: "destructive" }),
   });
 
   const scheduleMutation = useMutation({
-    mutationFn: (days: string[]) => customFetch(`${BASE}/workouts/${workout.id}/schedule`, { method: "POST", body: JSON.stringify({ days }), headers: { "Content-Type": "application/json" } }),
+    mutationFn: (days: string[]) => customFetch(buildUrl(`${BASE}/workouts/${workout.id}/schedule`), { method: "POST", body: JSON.stringify({ days }), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["workouts"] }); queryClient.invalidateQueries({ queryKey: ["workouts-today"] }); },
   });
 
   const reorderMutation = useMutation({
     mutationFn: ({ exId, order_index }: { exId: number; order_index: number }) =>
-      customFetch(`${BASE}/workouts/${workout.id}/exercises/${exId}`, { method: "PATCH", body: JSON.stringify({ order_index }), headers: { "Content-Type": "application/json" } }),
+      customFetch(buildUrl(`${BASE}/workouts/${workout.id}/exercises/${exId}`), { method: "PATCH", body: JSON.stringify({ order_index }), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workouts"] }),
   });
 
@@ -927,22 +933,24 @@ export default function TrainingBuilder() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { activeClient } = useCoachClient();
+  const buildUrl = useClientUrl();
   const [customExerciseOpen, setCustomExerciseOpen] = useState(false);
 
   const today = todayDayName();
 
   const { data: workouts = [], isLoading } = useQuery<Workout[]>({
-    queryKey: ["workouts"],
-    queryFn: () => customFetch(`${BASE}/workouts`),
+    queryKey: ["workouts", activeClient?.id],
+    queryFn: () => customFetch(buildUrl(`${BASE}/workouts`)),
   });
 
   const { data: todayWorkouts = [] } = useQuery<Workout[]>({
-    queryKey: ["workouts-today", today],
-    queryFn: () => customFetch(`${BASE}/workouts/day/${today}`),
+    queryKey: ["workouts-today", today, activeClient?.id],
+    queryFn: () => customFetch(buildUrl(`${BASE}/workouts/day/${today}`)),
   });
 
   const createMutation = useMutation({
-    mutationFn: () => customFetch(`${BASE}/workouts`, { method: "POST" }),
+    mutationFn: () => customFetch(buildUrl(`${BASE}/workouts`), { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
       toast({ title: "Workout created" });
