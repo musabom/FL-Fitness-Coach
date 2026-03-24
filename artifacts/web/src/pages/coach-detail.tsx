@@ -120,7 +120,7 @@ export default function CoachDetail() {
       <header className="border-b border-border sticky top-0 z-50 bg-background/90 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={handleBack}>
+            <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0">
               {isRTL ? <ChevronRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
             </Button>
             <div className="flex items-center gap-2">
@@ -130,17 +130,17 @@ export default function CoachDetail() {
               <span className="font-bold">BodyPro</span>
             </div>
           </div>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setLocation("/coaches")} className="hidden sm:inline-flex gap-2">
+              {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              {t("coaches.backToBrowse")}
+            </Button>
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="mb-4">
-          <Button variant="outline" size="sm" onClick={() => setLocation("/coaches")} className="gap-2">
-            {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            {t("coaches.backToBrowse")}
-          </Button>
-        </div>
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8">
           <div className="flex-shrink-0">
             {service.coachPhoto ? (
