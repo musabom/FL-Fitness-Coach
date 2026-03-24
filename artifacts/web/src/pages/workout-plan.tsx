@@ -279,7 +279,7 @@ function AddWorkoutSheet({ date, existingWorkoutIds, onClose, onAdd, isAdding }:
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ maxWidth: 430, margin: "0 auto" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ maxWidth: 672, margin: "0 auto" }}>
       <div className="flex-1 bg-black/60" onClick={onClose} />
       <div className="bg-[#111111] border-t border-border/40 rounded-t-2xl flex flex-col max-h-[70vh]">
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border/30">
@@ -289,7 +289,7 @@ function AddWorkoutSheet({ date, existingWorkoutIds, onClose, onAdd, isAdding }:
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
+        <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2 pb-20">
           {(isLoading || isAdding) && (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />

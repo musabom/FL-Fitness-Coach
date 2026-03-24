@@ -147,7 +147,7 @@ function CreateCustomExerciseSheet({ open, onClose }: CreateCustomExerciseSheetP
           <h2 className="font-semibold text-sm">Create Custom Exercise</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
-        <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-3">
+        <div className="overflow-y-auto flex-1 px-4 pb-20 space-y-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Exercise Name *</label>
             <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Cable Flyes" className="bg-[#1A1A1A] border-border/40 text-sm" />
@@ -426,7 +426,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
               ))}
             </div>
             {/* Exercise list */}
-            <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-2">
+            <div className="overflow-y-auto flex-1 px-4 pb-20 space-y-2">
               {exercisesLoading && <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
               {!exercisesLoading && exercises.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-8 gap-4">
@@ -467,7 +467,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
             </div>
           </>
         ) : (
-          <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-4">
+          <div className="overflow-y-auto flex-1 px-4 pb-20 space-y-4">
             {/* Exercise image */}
             {getExerciseImageUrl(selectedExercise.exercise_name) && (
               <img

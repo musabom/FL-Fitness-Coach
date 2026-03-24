@@ -133,7 +133,7 @@ function CreateCustomFoodForm({
     (servingUnit === "per_100g" || (servingUnit === "per_piece" && servingWeightG));
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
+    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0 pb-20">
       {/* Back button */}
       <button
         onClick={onBack}
@@ -362,7 +362,7 @@ function FoodSearchSheet({
 
         {/* Results list - scrollable below search */}
         {!selected && !showCreateForm && (
-          <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
+          <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0 pb-20">
             {isFetching && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>}
             {!isFetching && debouncedQ && !foods?.length && (
               <div className="space-y-3 py-6">
@@ -438,7 +438,7 @@ function FoodSearchSheet({
 
         {/* Quantity input after selection */}
         {selected && !showCreateForm && (
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0 pb-20">
             <button
               onClick={() => setSelected(null)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
