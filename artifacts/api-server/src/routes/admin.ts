@@ -399,7 +399,7 @@ router.get("/admin/foods", async (req, res): Promise<void> => {
 
   const q = (req.query["q"] as string) ?? "";
   const result = await pool.query(`
-    SELECT id, food_name, food_group, serving_unit, calories, protein_g, carbs_g, fat_g, fibre_g
+    SELECT id, food_name, food_group, serving_unit, calories, protein_g, carbs_g, fat_g, fibre_g, dietary_tags
     FROM foods
     WHERE food_name ILIKE $1
     ORDER BY food_name

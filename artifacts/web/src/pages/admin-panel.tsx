@@ -60,6 +60,8 @@ interface AdminFood {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fibre_g: number | null;
+  dietary_tags: string[] | null;
 }
 
 interface AdminExercise {
@@ -68,6 +70,7 @@ interface AdminExercise {
   exercise_type: string;
   muscle_group: string | null;
   equipment: string | null;
+  description: string | null;
 }
 
 interface OverviewStats {
@@ -688,6 +691,8 @@ function ContentTab() {
         serving_unit: data["serving_unit"] || "per_100g",
         calories: Number(data["calories"]), protein_g: Number(data["protein_g"]),
         carbs_g: Number(data["carbs_g"]), fat_g: Number(data["fat_g"]),
+        fibre_g: data["fibre_g"] ? Number(data["fibre_g"]) : undefined,
+        dietary_tags: data["dietary_tags"] ? data["dietary_tags"].split(",").map(t => t.trim()).filter(Boolean) : [],
       };
       if (editing && "food_name" in editing)
         return customFetch(`/api/admin/foods/${editing.id}`, { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
@@ -698,7 +703,7 @@ function ContentTab() {
 
   const saveExerciseMutation = useMutation({
     mutationFn: (data: Record<string, string>) => {
-      const body = { name: data["name"], exercise_type: data["exercise_type"] || "strength", muscle_group: data["muscle_group"], equipment: data["equipment"] };
+      const body = { name: data["name"], exercise_type: data["exercise_type"] || "strength", muscle_group: data["muscle_group"], equipment: data["equipment"], description: data["description"] || undefined };
       if (editing && "name" in editing)
         return customFetch(`/api/admin/exercises/${editing.id}`, { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
       return customFetch("/api/admin/exercises", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
@@ -713,7 +718,10 @@ function ContentTab() {
   const openEdit = (item: AdminFood | AdminExercise) => {
     setEditing(item); setAdding(false);
     const f: Record<string, string> = {};
-    Object.entries(item).forEach(([k, v]) => { f[k] = String(v ?? ""); });
+    Object.entries(item).forEach(([k, v]) => {
+      if (Array.isArray(v)) f[k] = v.join(", ");
+      else f[k] = String(v ?? "");
+    });
     setForm(f);
   };
 
@@ -740,6 +748,9 @@ function ContentTab() {
           <Plus className="w-4 h-4" /> Add
         </Button>
       </div>
+      {!editing && !adding && (
+        <p className="text-xs text-muted-foreground">{isFood ? foods.length : exercises.length} {isFood ? "foods" : "exercises"} shown</p>
+      )}
 
       {(editing || adding) && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -747,17 +758,21 @@ function ContentTab() {
           {isFood ? (
             <>
               <Input placeholder="Food name *" value={form["food_name"] ?? ""} onChange={e => setForm({ ...form, food_name: e.target.value })} />
-              <Input placeholder="Food group" value={form["food_group"] ?? ""} onChange={e => setForm({ ...form, food_group: e.target.value })} />
-              <select className="w-full h-10 rounded-xl bg-background border border-input px-3 text-sm" value={form["serving_unit"] ?? "per_100g"} onChange={e => setForm({ ...form, serving_unit: e.target.value })}>
-                <option value="per_100g">Per 100g</option>
-                <option value="per_piece">Per piece</option>
-              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Food group (e.g. Proteins)" value={form["food_group"] ?? ""} onChange={e => setForm({ ...form, food_group: e.target.value })} />
+                <select className="h-10 rounded-xl bg-background border border-input px-3 text-sm" value={form["serving_unit"] ?? "per_100g"} onChange={e => setForm({ ...form, serving_unit: e.target.value })}>
+                  <option value="per_100g">Per 100g</option>
+                  <option value="per_piece">Per piece</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Input placeholder="Calories *" type="number" value={form["calories"] ?? ""} onChange={e => setForm({ ...form, calories: e.target.value })} />
                 <Input placeholder="Protein (g)" type="number" value={form["protein_g"] ?? ""} onChange={e => setForm({ ...form, protein_g: e.target.value })} />
                 <Input placeholder="Carbs (g)" type="number" value={form["carbs_g"] ?? ""} onChange={e => setForm({ ...form, carbs_g: e.target.value })} />
                 <Input placeholder="Fat (g)" type="number" value={form["fat_g"] ?? ""} onChange={e => setForm({ ...form, fat_g: e.target.value })} />
+                <Input placeholder="Fibre (g)" type="number" value={form["fibre_g"] ?? ""} onChange={e => setForm({ ...form, fibre_g: e.target.value })} />
               </div>
+              <Input placeholder="Dietary tags (e.g. halal, vegan, gluten-free)" value={form["dietary_tags"] ?? ""} onChange={e => setForm({ ...form, dietary_tags: e.target.value })} />
               <div className="flex gap-2">
                 <Button className="flex-1 h-9 bg-primary text-black hover:bg-primary/90" onClick={() => saveFoodMutation.mutate(form)} disabled={saveFoodMutation.isPending}>
                   {saveFoodMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
@@ -768,12 +783,20 @@ function ContentTab() {
           ) : (
             <>
               <Input placeholder="Exercise name *" value={form["name"] ?? ""} onChange={e => setForm({ ...form, name: e.target.value })} />
-              <select className="w-full h-10 rounded-xl bg-background border border-input px-3 text-sm" value={form["exercise_type"] ?? "strength"} onChange={e => setForm({ ...form, exercise_type: e.target.value })}>
-                <option value="strength">Strength</option>
-                <option value="cardio">Cardio</option>
-              </select>
-              <Input placeholder="Muscle group" value={form["muscle_group"] ?? ""} onChange={e => setForm({ ...form, muscle_group: e.target.value })} />
-              <Input placeholder="Equipment" value={form["equipment"] ?? ""} onChange={e => setForm({ ...form, equipment: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <select className="h-10 rounded-xl bg-background border border-input px-3 text-sm" value={form["exercise_type"] ?? "strength"} onChange={e => setForm({ ...form, exercise_type: e.target.value })}>
+                  <option value="strength">Strength</option>
+                  <option value="cardio">Cardio</option>
+                  <option value="hiit">HIIT</option>
+                  <option value="core">Core</option>
+                  <option value="flexibility">Flexibility</option>
+                  <option value="mobility">Mobility</option>
+                  <option value="olympic">Olympic Lifting</option>
+                </select>
+                <Input placeholder="Muscle group (e.g. Chest)" value={form["muscle_group"] ?? ""} onChange={e => setForm({ ...form, muscle_group: e.target.value })} />
+              </div>
+              <Input placeholder="Equipment (e.g. Barbell, Dumbbell)" value={form["equipment"] ?? ""} onChange={e => setForm({ ...form, equipment: e.target.value })} />
+              <Input placeholder="Description (optional)" value={form["description"] ?? ""} onChange={e => setForm({ ...form, description: e.target.value })} />
               <div className="flex gap-2">
                 <Button className="flex-1 h-9 bg-primary text-black hover:bg-primary/90" onClick={() => saveExerciseMutation.mutate(form)} disabled={saveExerciseMutation.isPending}>
                   {saveExerciseMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
@@ -790,12 +813,28 @@ function ContentTab() {
           <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
         ) : isFood ? (
           foods.map(food => (
-            <div key={food.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">{food.food_name}</p>
-                <p className="text-xs text-muted-foreground">{food.calories} kcal · {food.serving_unit === "per_piece" ? "per piece" : "per 100g"}</p>
+            <div key={food.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium">{food.food_name}</p>
+                  {food.food_group && (
+                    <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md">{food.food_group}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {food.calories} kcal · P {food.protein_g}g · C {food.carbs_g}g · F {food.fat_g}g
+                  {food.fibre_g ? ` · Fibre ${food.fibre_g}g` : ""}
+                  {" · "}{food.serving_unit === "per_piece" ? "per piece" : "per 100g"}
+                </p>
+                {food.dietary_tags && food.dietary_tags.length > 0 && (
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {food.dietary_tags.map(tag => (
+                      <span key={tag} className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md">{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 shrink-0">
                 <button onClick={() => openEdit(food)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
@@ -807,12 +846,25 @@ function ContentTab() {
           ))
         ) : (
           exercises.map(ex => (
-            <div key={ex.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">{ex.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{ex.exercise_type}{ex.muscle_group ? ` · ${ex.muscle_group}` : ""}</p>
+            <div key={ex.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium">{ex.name}</p>
+                  <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md capitalize">{ex.exercise_type}</span>
+                </div>
+                <div className="flex gap-2 mt-0.5 flex-wrap">
+                  {ex.muscle_group && (
+                    <p className="text-xs text-muted-foreground">💪 {ex.muscle_group}</p>
+                  )}
+                  {ex.equipment && (
+                    <p className="text-xs text-muted-foreground">🏋️ {ex.equipment}</p>
+                  )}
+                </div>
+                {ex.description && (
+                  <p className="text-xs text-muted-foreground/70 mt-0.5 truncate max-w-[220px]">{ex.description}</p>
+                )}
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 shrink-0">
                 <button onClick={() => openEdit(ex)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
