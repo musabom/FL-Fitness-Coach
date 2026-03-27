@@ -341,17 +341,17 @@ router.post("/admin/foods", async (req, res): Promise<void> => {
   const adminId = await requireAdmin(req, res);
   if (!adminId) return;
 
-  const { food_name, food_group, serving_unit, calories, protein_g, carbs_g, fat_g, fibre_g } = req.body;
+  const { food_name, food_group, cooking_method, serving_unit, weigh_when, calories, protein_g, carbs_g, fat_g, fibre_g } = req.body;
   if (!food_name || !serving_unit || calories === undefined) {
     res.status(400).json({ error: "food_name, serving_unit, and calories are required" });
     return;
   }
 
   const result = await pool.query(`
-    INSERT INTO foods (food_name, food_group, serving_unit, calories, protein_g, carbs_g, fat_g, fibre_g)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO foods (food_name, food_group, cooking_method, serving_unit, weigh_when, calories, protein_g, carbs_g, fat_g, fibre_g)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *
-  `, [food_name, food_group ?? null, serving_unit, calories, protein_g ?? 0, carbs_g ?? 0, fat_g ?? 0, fibre_g ?? 0]);
+  `, [food_name, food_group ?? 'other', cooking_method ?? 'raw', serving_unit, weigh_when ?? 'raw', calories, protein_g ?? 0, carbs_g ?? 0, fat_g ?? 0, fibre_g ?? 0]);
 
   res.status(201).json(result.rows[0]);
 });
@@ -361,21 +361,23 @@ router.put("/admin/foods/:id", async (req, res): Promise<void> => {
   if (!adminId) return;
 
   const id = parseInt(req.params["id"], 10);
-  const { food_name, food_group, serving_unit, calories, protein_g, carbs_g, fat_g, fibre_g } = req.body;
+  const { food_name, food_group, cooking_method, serving_unit, weigh_when, calories, protein_g, carbs_g, fat_g, fibre_g } = req.body;
 
   const result = await pool.query(`
     UPDATE foods
     SET food_name = COALESCE($1, food_name),
         food_group = COALESCE($2, food_group),
-        serving_unit = COALESCE($3, serving_unit),
-        calories = COALESCE($4, calories),
-        protein_g = COALESCE($5, protein_g),
-        carbs_g = COALESCE($6, carbs_g),
-        fat_g = COALESCE($7, fat_g),
-        fibre_g = COALESCE($8, fibre_g)
-    WHERE id = $9
+        cooking_method = COALESCE($3, cooking_method),
+        serving_unit = COALESCE($4, serving_unit),
+        weigh_when = COALESCE($5, weigh_when),
+        calories = COALESCE($6, calories),
+        protein_g = COALESCE($7, protein_g),
+        carbs_g = COALESCE($8, carbs_g),
+        fat_g = COALESCE($9, fat_g),
+        fibre_g = COALESCE($10, fibre_g)
+    WHERE id = $11
     RETURNING *
-  `, [food_name, food_group, serving_unit, calories, protein_g, carbs_g, fat_g, fibre_g, id]);
+  `, [food_name, food_group, cooking_method, serving_unit, weigh_when, calories, protein_g, carbs_g, fat_g, fibre_g, id]);
 
   if (result.rows.length === 0) {
     res.status(404).json({ error: "Food not found" });
@@ -417,10 +419,10 @@ router.get("/admin/exercises", async (req, res): Promise<void> => {
 
   const q = (req.query["q"] as string) ?? "";
   const result = await pool.query(`
-    SELECT id, name, exercise_type, muscle_group, equipment, met_value, description
+    SELECT id, exercise_name, exercise_type, muscle_primary, equipment, met_value
     FROM exercises
-    WHERE name ILIKE $1
-    ORDER BY name
+    WHERE exercise_name ILIKE $1
+    ORDER BY exercise_name
     LIMIT 100
   `, [`%${q}%`]);
 
@@ -431,17 +433,17 @@ router.post("/admin/exercises", async (req, res): Promise<void> => {
   const adminId = await requireAdmin(req, res);
   if (!adminId) return;
 
-  const { name, exercise_type, muscle_group, equipment, met_value, description } = req.body;
-  if (!name || !exercise_type) {
-    res.status(400).json({ error: "name and exercise_type are required" });
+  const { exercise_name, exercise_type, muscle_primary, equipment, met_value } = req.body;
+  if (!exercise_name || !exercise_type || !muscle_primary) {
+    res.status(400).json({ error: "exercise_name, exercise_type, and muscle_primary are required" });
     return;
   }
 
   const result = await pool.query(`
-    INSERT INTO exercises (name, exercise_type, muscle_group, equipment, met_value, description)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO exercises (exercise_name, exercise_type, muscle_primary, equipment, met_value)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *
-  `, [name, exercise_type, muscle_group ?? null, equipment ?? null, met_value ?? null, description ?? null]);
+  `, [exercise_name, exercise_type, muscle_primary, equipment ?? 'bodyweight', met_value ?? null]);
 
   res.status(201).json(result.rows[0]);
 });
@@ -451,19 +453,18 @@ router.put("/admin/exercises/:id", async (req, res): Promise<void> => {
   if (!adminId) return;
 
   const id = parseInt(req.params["id"], 10);
-  const { name, exercise_type, muscle_group, equipment, met_value, description } = req.body;
+  const { exercise_name, exercise_type, muscle_primary, equipment, met_value } = req.body;
 
   const result = await pool.query(`
     UPDATE exercises
-    SET name = COALESCE($1, name),
+    SET exercise_name = COALESCE($1, exercise_name),
         exercise_type = COALESCE($2, exercise_type),
-        muscle_group = COALESCE($3, muscle_group),
+        muscle_primary = COALESCE($3, muscle_primary),
         equipment = COALESCE($4, equipment),
-        met_value = COALESCE($5, met_value),
-        description = COALESCE($6, description)
-    WHERE id = $7
+        met_value = COALESCE($5, met_value)
+    WHERE id = $6
     RETURNING *
-  `, [name, exercise_type, muscle_group, equipment, met_value, description, id]);
+  `, [exercise_name, exercise_type, muscle_primary, equipment, met_value, id]);
 
   if (result.rows.length === 0) {
     res.status(404).json({ error: "Exercise not found" });

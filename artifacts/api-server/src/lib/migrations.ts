@@ -649,4 +649,16 @@ async function runMigrationsInternal(): Promise<void> {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_click_logs_created_at ON click_logs(created_at)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_click_logs_user_id ON click_logs(user_id)`);
+
+  // ── Plans: extended columns ───────────────────────────────────────────────────
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS summary_text TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_height_cm INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_age INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_gender TEXT NOT NULL DEFAULT 'male'`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_activity_level TEXT`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS training_split TEXT`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS weeks_in_deficit INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS diet_break_due BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS trigger TEXT NOT NULL DEFAULT 'onboarding'`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE`);
 }

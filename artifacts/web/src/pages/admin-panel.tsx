@@ -66,11 +66,11 @@ interface AdminFood {
 
 interface AdminExercise {
   id: number;
-  name: string;
+  exercise_name: string;
   exercise_type: string;
-  muscle_group: string | null;
+  muscle_primary: string;
   equipment: string | null;
-  description: string | null;
+  met_value: number | null;
 }
 
 interface OverviewStats {
@@ -703,8 +703,8 @@ function ContentTab() {
 
   const saveExerciseMutation = useMutation({
     mutationFn: (data: Record<string, string>) => {
-      const body = { name: data["name"], exercise_type: data["exercise_type"] || "strength", muscle_group: data["muscle_group"], equipment: data["equipment"], description: data["description"] || undefined };
-      if (editing && "name" in editing)
+      const body = { exercise_name: data["exercise_name"], exercise_type: data["exercise_type"] || "strength", muscle_primary: data["muscle_primary"], equipment: data["equipment"], met_value: data["met_value"] ? Number(data["met_value"]) : undefined };
+      if (editing && "exercise_name" in editing)
         return customFetch(`/api/admin/exercises/${editing.id}`, { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
       return customFetch("/api/admin/exercises", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
     },
@@ -782,7 +782,7 @@ function ContentTab() {
             </>
           ) : (
             <>
-              <Input placeholder="Exercise name *" value={form["name"] ?? ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+              <Input placeholder="Exercise name *" value={form["exercise_name"] ?? ""} onChange={e => setForm({ ...form, exercise_name: e.target.value })} />
               <div className="grid grid-cols-2 gap-2">
                 <select className="h-10 rounded-xl bg-background border border-input px-3 text-sm" value={form["exercise_type"] ?? "strength"} onChange={e => setForm({ ...form, exercise_type: e.target.value })}>
                   <option value="strength">Strength</option>
@@ -793,10 +793,12 @@ function ContentTab() {
                   <option value="mobility">Mobility</option>
                   <option value="olympic">Olympic Lifting</option>
                 </select>
-                <Input placeholder="Muscle group (e.g. Chest)" value={form["muscle_group"] ?? ""} onChange={e => setForm({ ...form, muscle_group: e.target.value })} />
+                <Input placeholder="Primary muscle *" value={form["muscle_primary"] ?? ""} onChange={e => setForm({ ...form, muscle_primary: e.target.value })} />
               </div>
-              <Input placeholder="Equipment (e.g. Barbell, Dumbbell)" value={form["equipment"] ?? ""} onChange={e => setForm({ ...form, equipment: e.target.value })} />
-              <Input placeholder="Description (optional)" value={form["description"] ?? ""} onChange={e => setForm({ ...form, description: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Equipment (e.g. Barbell)" value={form["equipment"] ?? ""} onChange={e => setForm({ ...form, equipment: e.target.value })} />
+                <Input placeholder="MET value (e.g. 6.0)" type="number" step="0.1" value={form["met_value"] ?? ""} onChange={e => setForm({ ...form, met_value: e.target.value })} />
+              </div>
               <div className="flex gap-2">
                 <Button className="flex-1 h-9 bg-primary text-black hover:bg-primary/90" onClick={() => saveExerciseMutation.mutate(form)} disabled={saveExerciseMutation.isPending}>
                   {saveExerciseMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
@@ -849,20 +851,18 @@ function ContentTab() {
             <div key={ex.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium">{ex.name}</p>
+                  <p className="text-sm font-medium">{ex.exercise_name}</p>
                   <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md capitalize">{ex.exercise_type}</span>
                 </div>
                 <div className="flex gap-2 mt-0.5 flex-wrap">
-                  {ex.muscle_group && (
-                    <p className="text-xs text-muted-foreground">💪 {ex.muscle_group}</p>
-                  )}
+                  <p className="text-xs text-muted-foreground">💪 {ex.muscle_primary}</p>
                   {ex.equipment && (
                     <p className="text-xs text-muted-foreground">🏋️ {ex.equipment}</p>
                   )}
+                  {ex.met_value && (
+                    <p className="text-xs text-muted-foreground">⚡ MET {ex.met_value}</p>
+                  )}
                 </div>
-                {ex.description && (
-                  <p className="text-xs text-muted-foreground/70 mt-0.5 truncate max-w-[220px]">{ex.description}</p>
-                )}
               </div>
               <div className="flex gap-1 shrink-0">
                 <button onClick={() => openEdit(ex)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">

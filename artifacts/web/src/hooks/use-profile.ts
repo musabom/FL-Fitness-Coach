@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-  useCompleteOnboarding, 
+import {
+  useCompleteOnboarding,
   useGetAvailableGoals,
   getGetActivePlanQueryKey,
 } from "@workspace/api-client-react";
@@ -8,6 +8,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useCoachClient } from "@/context/coach-client-context";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/\//g, "/");
 
@@ -20,6 +21,7 @@ export function useProfile() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { clientId } = useCoachClient();
+  const { toast } = useToast();
 
   const profileQuery = useQuery({
     queryKey: ["profile", clientId ?? "self"],
@@ -52,7 +54,21 @@ export function useProfile() {
         } else {
           setLocation("/dashboard");
         }
-      }
+      },
+      onError: (error: any) => {
+        const message = error?.data?.error ?? error?.message ?? "Something went wrong";
+        // If profile already exists, just go to dashboard
+        if (message.includes("already exists")) {
+          queryClient.clear();
+          setLocation("/dashboard");
+          return;
+        }
+        toast({
+          title: "Could not save plan",
+          description: message,
+          variant: "destructive",
+        });
+      },
     }
   });
 

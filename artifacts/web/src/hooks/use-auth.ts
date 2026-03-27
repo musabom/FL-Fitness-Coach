@@ -65,7 +65,7 @@ export function useAuth() {
       }
     },
     retry: false,
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes — allows re-fetch after onboarding completes
     refetchOnWindowFocus: false,
     refetchOnMount: true,
     refetchOnReconnect: false,
