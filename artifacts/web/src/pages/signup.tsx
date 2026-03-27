@@ -104,20 +104,20 @@ export default function Signup() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.email")}</label>
-            <Input 
-              type="email" 
-              placeholder="you@example.com" 
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.email")} <span className="text-destructive">*</span></label>
+            <Input
+              type="email"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
-          
+
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.password")}</label>
-            <Input 
-              type="password" 
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.password")} <span className="text-destructive">*</span></label>
+            <Input
+              type="password"
               placeholder={t("signup.minChars")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -127,9 +127,9 @@ export default function Signup() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.confirmPassword")}</label>
-            <Input 
-              type="password" 
+            <label className="text-sm font-medium text-muted-foreground px-1">{t("signup.confirmPassword")} <span className="text-destructive">*</span></label>
+            <Input
+              type="password"
               placeholder={t("signup.minChars")}
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
