@@ -630,4 +630,23 @@ async function runMigrationsInternal(): Promise<void> {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_coach ON coach_services(coach_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_active ON coach_services(is_active)`);
+
+  // ── Click Logs ───────────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS click_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      session_id TEXT,
+      event_type TEXT NOT NULL DEFAULT 'click',
+      element_tag TEXT,
+      element_text TEXT,
+      element_id TEXT,
+      element_class TEXT,
+      page TEXT,
+      metadata JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_click_logs_created_at ON click_logs(created_at)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_click_logs_user_id ON click_logs(user_id)`);
 }
