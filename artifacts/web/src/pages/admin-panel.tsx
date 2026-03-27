@@ -903,13 +903,57 @@ interface LogsResponse {
   limit: number;
 }
 
+interface ActiveSessionsData {
+  active_sessions: number;
+  active_users: number;
+  total_events: number;
+  sessions_last_hour: number;
+}
+
+interface TopPage {
+  page: string;
+  visits: number;
+  unique_sessions: number;
+  unique_users: number;
+}
+
+interface TopButton {
+  label: string;
+  page: string;
+  clicks: number;
+  unique_sessions: number;
+}
+
 function LogsTab() {
+  const [view, setView] = useState<"insights" | "raw">("insights");
+  const [days, setDays] = useState(7);
   const [page, setPage] = useState(1);
   const [filterUserId, setFilterUserId] = useState("");
   const [filterPage, setFilterPage] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Insights queries
+  const activeQuery = useQuery<ActiveSessionsData>({
+    queryKey: ["admin", "logs", "active"],
+    queryFn: () => customFetch<ActiveSessionsData>("/api/admin/logs/insights/active-sessions"),
+    refetchInterval: 30000,
+    enabled: view === "insights",
+  });
+
+  const topPagesQuery = useQuery<TopPage[]>({
+    queryKey: ["admin", "logs", "top-pages", days],
+    queryFn: () => customFetch<TopPage[]>(`/api/admin/logs/insights/top-pages?days=${days}`),
+    enabled: view === "insights",
+  });
+
+  const topButtonsQuery = useQuery<TopButton[]>({
+    queryKey: ["admin", "logs", "top-buttons", days],
+    queryFn: () => customFetch<TopButton[]>(`/api/admin/logs/insights/top-buttons?days=${days}`),
+    enabled: view === "insights",
+  });
+
+  // Raw logs query
   const params = new URLSearchParams({ page: String(page), limit: "50" });
   if (filterUserId) params.set("userId", filterUserId);
 
@@ -917,10 +961,11 @@ function LogsTab() {
     queryKey: ["admin", "logs", page, filterUserId],
     queryFn: () => customFetch<LogsResponse>(`/api/admin/logs?${params}`),
     refetchInterval: 15000,
+    enabled: view === "raw",
   });
 
   const clearMutation = useMutation({
-    mutationFn: () => customFetch("/api/admin/logs?olderThanDays=7", { method: "DELETE" }),
+    mutationFn: () => customFetch("/api/admin/logs?olderThanDays=30", { method: "DELETE" }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "logs"] });
       toast({ title: `Cleared ${data?.deleted ?? 0} old log entries` });
@@ -940,74 +985,194 @@ function LogsTab() {
     div: "bg-gray-500/20 text-gray-400",
   };
 
+  const active = activeQuery.data;
+  const topPages = topPagesQuery.data ?? [];
+  const topButtons = topButtonsQuery.data ?? [];
+  const maxPageVisits = topPages[0]?.visits ?? 1;
+  const maxButtonClicks = topButtons[0]?.clicks ?? 1;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold">{total.toLocaleString()} total events</span>
-        </div>
-        <Button variant="outline" size="sm" className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-          onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending}>
-          {clearMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Clear >7d"}
-        </Button>
-      </div>
-
+      {/* View toggle */}
       <div className="flex gap-2">
-        <Input placeholder="Filter by user ID..." value={filterUserId}
-          onChange={e => { setFilterUserId(e.target.value); setPage(1); }} className="h-8 text-xs" />
-        <Input placeholder="Filter by page..." value={filterPage}
-          onChange={e => setFilterPage(e.target.value)} className="h-8 text-xs" />
+        <button onClick={() => setView("insights")}
+          className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${view === "insights" ? "bg-primary text-black" : "bg-card border border-border text-muted-foreground"}`}>
+          <TrendingUp className="w-4 h-4 inline mr-1.5" />Insights
+        </button>
+        <button onClick={() => setView("raw")}
+          className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${view === "raw" ? "bg-primary text-black" : "bg-card border border-border text-muted-foreground"}`}>
+          <MousePointerClick className="w-4 h-4 inline mr-1.5" />Raw Logs
+        </button>
       </div>
 
-      {logsQuery.isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-      ) : displayedLogs.length === 0 ? (
-        <div className="text-center py-8 text-sm text-muted-foreground">No events found</div>
-      ) : (
-        <div className="space-y-2">
-          {displayedLogs.map(log => (
-            <div key={log.id} className="bg-card border border-border rounded-xl p-3 space-y-1.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <MousePointerClick className="w-3.5 h-3.5 text-primary shrink-0" />
-                  {log.elementTag && (
-                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${tagColor[log.elementTag] ?? "bg-muted text-muted-foreground"}`}>
-                      {log.elementTag}
-                    </span>
-                  )}
-                  {log.elementText && (
-                    <span className="text-xs font-medium truncate max-w-[160px]">{log.elementText}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
-                  <Clock className="w-3 h-3" />
-                  {new Date(log.createdAt).toLocaleString()}
-                </div>
+      {view === "insights" ? (
+        <>
+          {/* Active Today cards */}
+          {activeQuery.isLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+          ) : active ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-card border border-border rounded-xl p-4">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Active Sessions (24h)</p>
+                <p className="text-2xl font-bold text-primary mt-1">{Number(active.active_sessions).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{Number(active.sessions_last_hour)} in last hour</p>
               </div>
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
-                {log.page && <span className="font-mono bg-muted px-1.5 py-0.5 rounded truncate max-w-[160px]">{log.page}</span>}
-                {(log.userName || log.userEmail) && (
-                  <span className="flex items-center gap-1"><User className="w-3 h-3" />{log.userName || log.userEmail}</span>
-                )}
-                {!log.userId && <span className="text-amber-500">anonymous</span>}
-                {log.elementId && <span className="font-mono text-[10px] text-muted-foreground">#{log.elementId}</span>}
+              <div className="bg-card border border-border rounded-xl p-4">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Active Users (24h)</p>
+                <p className="text-2xl font-bold text-blue-400 mt-1">{Number(active.active_users).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{Number(active.total_events).toLocaleString()} total events</p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ) : null}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <span className="text-xs text-muted-foreground">Page {page} / {totalPages}</span>
-          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
+          {/* Day range selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Period:</span>
+            {[7, 14, 30].map(d => (
+              <button key={d} onClick={() => setDays(d)}
+                className={`text-xs px-3 py-1 rounded-lg transition-colors ${days === d ? "bg-primary text-black" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                {d}d
+              </button>
+            ))}
+          </div>
+
+          {/* Top Pages */}
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <Activity className="w-4 h-4 text-primary" />Top Pages (last {days}d)
+            </p>
+            {topPagesQuery.isLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-primary" /></div>
+            ) : topPages.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">No data yet</p>
+            ) : (
+              <div className="space-y-2.5">
+                {topPages.map((p, i) => (
+                  <div key={p.page} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground w-4">{i + 1}</span>
+                        <span className="text-xs font-mono font-medium truncate max-w-[180px]">{p.page || "/"}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span>{Number(p.unique_users)} users</span>
+                        <span className="font-semibold text-foreground">{Number(p.visits).toLocaleString()} visits</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(Number(p.visits) / maxPageVisits) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Top Buttons */}
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <MousePointerClick className="w-4 h-4 text-primary" />Most Clicked (last {days}d)
+            </p>
+            {topButtonsQuery.isLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-primary" /></div>
+            ) : topButtons.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">No data yet</p>
+            ) : (
+              <div className="space-y-2.5">
+                {topButtons.map((b, i) => (
+                  <div key={`${b.label}-${b.page}-${i}`} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate max-w-[160px]">{b.label}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[160px]">{b.page}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground shrink-0">
+                        <span>{Number(b.unique_sessions)} sessions</span>
+                        <span className="font-semibold text-foreground">{Number(b.clicks).toLocaleString()} clicks</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${(Number(b.clicks) / maxButtonClicks) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">{total.toLocaleString()} total events</span>
+            </div>
+            <Button variant="outline" size="sm" className="text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => clearMutation.mutate()} disabled={clearMutation.isPending}>
+              {clearMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Clear >30d"}
+            </Button>
+          </div>
+
+          <div className="flex gap-2">
+            <Input placeholder="Filter by user ID..." value={filterUserId}
+              onChange={e => { setFilterUserId(e.target.value); setPage(1); }} className="h-8 text-xs" />
+            <Input placeholder="Filter by page..." value={filterPage}
+              onChange={e => setFilterPage(e.target.value)} className="h-8 text-xs" />
+          </div>
+
+          {logsQuery.isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : displayedLogs.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">No events found</div>
+          ) : (
+            <div className="space-y-2">
+              {displayedLogs.map(log => (
+                <div key={log.id} className="bg-card border border-border rounded-xl p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <MousePointerClick className="w-3.5 h-3.5 text-primary shrink-0" />
+                      {log.elementTag && (
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${tagColor[log.elementTag] ?? "bg-muted text-muted-foreground"}`}>
+                          {log.elementTag}
+                        </span>
+                      )}
+                      {log.elementText && (
+                        <span className="text-xs font-medium truncate max-w-[160px]">{log.elementText}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+                      <Clock className="w-3 h-3" />
+                      {new Date(log.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+                    {log.page && <span className="font-mono bg-muted px-1.5 py-0.5 rounded truncate max-w-[160px]">{log.page}</span>}
+                    {(log.userName || log.userEmail) && (
+                      <span className="flex items-center gap-1"><User className="w-3 h-3" />{log.userName || log.userEmail}</span>
+                    )}
+                    {!log.userId && <span className="text-amber-500">anonymous</span>}
+                    {log.elementId && <span className="font-mono text-[10px] text-muted-foreground">#{log.elementId}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">Page {page} / {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

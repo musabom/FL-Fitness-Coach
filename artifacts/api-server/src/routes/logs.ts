@@ -97,6 +97,67 @@ router.get("/admin/logs", async (req, res): Promise<void> => {
   }
 });
 
+// ── Insights endpoints ────────────────────────────────────────────────────────
+
+async function requireAdminLog(req: import("express").Request, res: import("express").Response): Promise<boolean> {
+  if (!req.session.userId) { res.status(401).json({ error: "Not authenticated" }); return false; }
+  const r = await pool.query(`SELECT role FROM users WHERE id = $1`, [req.session.userId]);
+  if (r.rows[0]?.role !== "admin") { res.status(403).json({ error: "Admin only" }); return false; }
+  return true;
+}
+
+router.get("/admin/logs/insights/active-sessions", async (req, res): Promise<void> => {
+  if (!await requireAdminLog(req, res)) return;
+  const result = await pool.query(`
+    SELECT
+      COUNT(DISTINCT session_id) AS active_sessions,
+      COUNT(DISTINCT user_id)   AS active_users,
+      COUNT(*)                  AS total_events,
+      (SELECT COUNT(DISTINCT session_id) FROM click_logs WHERE created_at >= NOW() - INTERVAL '1 hour') AS sessions_last_hour
+    FROM click_logs
+    WHERE created_at >= NOW() - INTERVAL '24 hours'
+  `);
+  res.json(result.rows[0]);
+});
+
+router.get("/admin/logs/insights/top-pages", async (req, res): Promise<void> => {
+  if (!await requireAdminLog(req, res)) return;
+  const days = parseInt(req.query["days"] as string || "7", 10);
+  const result = await pool.query(`
+    SELECT
+      page,
+      COUNT(*)                  AS visits,
+      COUNT(DISTINCT session_id) AS unique_sessions,
+      COUNT(DISTINCT user_id)   AS unique_users
+    FROM click_logs
+    WHERE page IS NOT NULL
+      AND created_at >= NOW() - ($1 || ' days')::INTERVAL
+    GROUP BY page
+    ORDER BY visits DESC
+    LIMIT 10
+  `, [days]);
+  res.json(result.rows);
+});
+
+router.get("/admin/logs/insights/top-buttons", async (req, res): Promise<void> => {
+  if (!await requireAdminLog(req, res)) return;
+  const days = parseInt(req.query["days"] as string || "7", 10);
+  const result = await pool.query(`
+    SELECT
+      COALESCE(element_text, element_id, element_tag) AS label,
+      page,
+      COUNT(*) AS clicks,
+      COUNT(DISTINCT session_id) AS unique_sessions
+    FROM click_logs
+    WHERE element_text IS NOT NULL
+      AND created_at >= NOW() - ($1 || ' days')::INTERVAL
+    GROUP BY label, page
+    ORDER BY clicks DESC
+    LIMIT 10
+  `, [days]);
+  res.json(result.rows);
+});
+
 router.delete("/admin/logs", async (req, res): Promise<void> => {
   try {
     if (!req.session.userId) {
