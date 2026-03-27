@@ -586,7 +586,22 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id)`);
 
+  // ── Auth Flexibility ─────────────────────────────────────────────────────────
+  // Make provider/provider_id nullable to support password-based auth
+  await pool.query(`ALTER TABLE users ALTER COLUMN provider DROP NOT NULL`);
+  await pool.query(`ALTER TABLE users ALTER COLUMN provider_id DROP NOT NULL`);
+
   // ── Role System ──────────────────────────────────────────────────────────────
+  // Add core user columns if missing (needed for local/password auth)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) NOT NULL DEFAULT 'member'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) NOT NULL DEFAULT 'free'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_consent BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB NOT NULL DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_started_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`);
+
   // coach_id: which coach is assigned to this user (member)
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_coach_id ON users(coach_id)`);

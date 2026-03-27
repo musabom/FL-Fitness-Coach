@@ -805,15 +805,26 @@ export default function AdminPanel() {
             <h1 className="text-2xl font-bold tracking-tight">{t("adminPanel.title")}</h1>
           </div>
           <p className="text-sm text-muted-foreground mb-2">{user?.email}</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => logout.mutate()}
-            className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 h-7 px-2"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            {t("common.signOut")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/coaches")}
+              className="text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/50 h-7 px-2"
+            >
+              <Search className="w-3.5 h-3.5" />
+              {t("dashboard.browse")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => logout.mutate()}
+              className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 h-7 px-2"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              {t("common.signOut")}
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
