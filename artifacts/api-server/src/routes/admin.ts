@@ -150,11 +150,18 @@ router.get("/admin/coaches", async (req, res): Promise<void> => {
 
   const coaches = await pool.query(`
     SELECT u.id, u.email, u.full_name, u.role,
-      COUNT(c.id)::int AS client_count
+      COUNT(c.id)::int AS client_count,
+      COALESCE(cs.price, 0)::numeric AS service_price,
+      (COUNT(c.id) * COALESCE(cs.price, 0))::numeric AS estimated_revenue
     FROM users u
-    LEFT JOIN users c ON c.coach_id = u.id
+    LEFT JOIN users c ON c.coach_id = u.id AND c.role = 'member' AND c.is_active = true
+    LEFT JOIN LATERAL (
+      SELECT price FROM coach_services
+      WHERE coach_id = u.id AND is_active = true
+      ORDER BY created_at DESC LIMIT 1
+    ) cs ON true
     WHERE u.role = 'coach'
-    GROUP BY u.id
+    GROUP BY u.id, cs.price
     ORDER BY u.full_name
   `);
 
@@ -226,6 +233,106 @@ router.delete("/admin/coaches/:coachId/clients/:clientId", async (req, res): Pro
   const clientId = parseInt(req.params["clientId"], 10);
   await pool.query(`UPDATE users SET coach_id = NULL WHERE id = $1`, [clientId]);
   res.json({ message: "Client removed from coach" });
+});
+
+// ── Overview Stats ────────────────────────────────────────────────────────────
+
+router.get("/admin/overview", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const [members, coaches, newThisMonth, unassigned, revenue] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'member' AND is_active = true`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'coach' AND is_active = true`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'member' AND created_at >= date_trunc('month', NOW())`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'member' AND is_active = true AND coach_id IS NULL`),
+    pool.query(`
+      SELECT COALESCE(SUM(cs.price * sub.client_count), 0)::numeric AS total
+      FROM (
+        SELECT u.coach_id, COUNT(*)::int AS client_count
+        FROM users u
+        WHERE u.role = 'member' AND u.is_active = true AND u.coach_id IS NOT NULL
+        GROUP BY u.coach_id
+      ) sub
+      JOIN LATERAL (
+        SELECT price FROM coach_services
+        WHERE coach_id = sub.coach_id AND is_active = true
+        ORDER BY created_at DESC LIMIT 1
+      ) cs ON true
+    `),
+  ]);
+
+  res.json({
+    totalMembers: members.rows[0].count,
+    totalCoaches: coaches.rows[0].count,
+    newMembersThisMonth: newThisMonth.rows[0].count,
+    unassignedMembers: unassigned.rows[0].count,
+    estimatedMonthlyRevenue: Number(revenue.rows[0].total),
+  });
+});
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+router.get("/admin/reports/growth", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const result = await pool.query(`
+    SELECT
+      to_char(date_trunc('month', created_at), 'Mon YY') AS month,
+      date_trunc('month', created_at) AS month_date,
+      COUNT(*)::int AS new_members
+    FROM users
+    WHERE role = 'member' AND created_at >= NOW() - INTERVAL '6 months'
+    GROUP BY month_date, month
+    ORDER BY month_date ASC
+  `);
+
+  res.json(result.rows);
+});
+
+router.get("/admin/reports/coaches", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const result = await pool.query(`
+    SELECT
+      u.id,
+      COALESCE(u.full_name, split_part(u.email, '@', 1)) AS name,
+      COUNT(m.id)::int AS client_count,
+      COALESCE(cs.price, 0)::numeric AS service_price,
+      (COUNT(m.id) * COALESCE(cs.price, 0))::numeric AS estimated_revenue
+    FROM users u
+    LEFT JOIN users m ON m.coach_id = u.id AND m.role = 'member' AND m.is_active = true
+    LEFT JOIN LATERAL (
+      SELECT price FROM coach_services
+      WHERE coach_id = u.id AND is_active = true
+      ORDER BY created_at DESC LIMIT 1
+    ) cs ON true
+    WHERE u.role = 'coach' AND u.is_active = true
+    GROUP BY u.id, u.full_name, u.email, cs.price
+    ORDER BY estimated_revenue DESC, client_count DESC
+  `);
+
+  res.json(result.rows);
+});
+
+router.get("/admin/reports/goals", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const result = await pool.query(`
+    SELECT
+      COALESCE(up.goal_mode, 'not_set') AS goal_mode,
+      COUNT(*)::int AS count
+    FROM users u
+    LEFT JOIN user_profiles up ON up.user_id = u.id
+    WHERE u.role = 'member' AND u.is_active = true
+    GROUP BY up.goal_mode
+    ORDER BY count DESC
+  `);
+
+  res.json(result.rows);
 });
 
 // ── Foods Management ─────────────────────────────────────────────────────────
