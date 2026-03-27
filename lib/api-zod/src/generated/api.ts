@@ -26,7 +26,8 @@ export const SignupBody = zod.object({
   email: zod.string().email(),
   password: zod.string().min(signupBodyPasswordMin),
   passwordConfirm: zod.string().min(signupBodyPasswordConfirmMin),
-  fullName: zod.string().optional(),
+  firstName: zod.string().min(1, "First name is required"),
+  lastName: zod.string().min(1, "Last name is required"),
 });
 
 /**

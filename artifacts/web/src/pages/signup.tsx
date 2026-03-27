@@ -22,6 +22,11 @@ export default function Signup() {
     e.preventDefault();
     setError("");
     
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First name and last name are required");
+      return;
+    }
+
     if (password !== passwordConfirm) {
       setError(t("signup.passwordMismatch"));
       return;
@@ -74,24 +79,26 @@ export default function Signup() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-muted-foreground px-1">
-                {t("signup.firstName")} <span className="text-xs opacity-60">({t("signup.optional")})</span>
+                {t("signup.firstName")} <span className="text-destructive">*</span>
               </label>
-              <Input 
-                type="text" 
-                placeholder="John" 
+              <Input
+                type="text"
+                placeholder="John"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                required
               />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-muted-foreground px-1">
-                {t("signup.lastName")} <span className="text-xs opacity-60">({t("signup.optional")})</span>
+                {t("signup.lastName")} <span className="text-destructive">*</span>
               </label>
-              <Input 
-                type="text" 
-                placeholder="Doe" 
+              <Input
+                type="text"
+                placeholder="Doe"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                required
               />
             </div>
           </div>
