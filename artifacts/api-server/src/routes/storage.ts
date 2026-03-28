@@ -75,7 +75,28 @@ router.use("/storage/public-objects", async (req: Request, res: Response) => {
   }
 });
 
-/** GET /storage/objects/... — serve uploaded object entities */
+/** POST /storage/uploads/direct — multipart upload for local dev (no GCS required) */
+router.post("/storage/uploads/direct", upload.single("file"), (req: Request, res: Response) => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file provided" });
+    return;
+  }
+  const objectPath = `/objects/local/${req.file.filename}`;
+  res.json({ objectPath });
+});
+
+/** GET /storage/objects/local/... — serve local-disk uploads (must be before the GCS handler) */
+router.use("/storage/objects/local", (req: Request, res: Response) => {
+  const filename = path.basename(req.path);
+  const filePath = path.join(LOCAL_UPLOADS_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+  res.sendFile(filePath);
+});
+
+/** GET /storage/objects/... — serve uploaded object entities via GCS */
 router.use("/storage/objects", async (req: Request, res: Response) => {
   const objectPath = `/objects${req.path}`;
   try {
@@ -96,28 +117,6 @@ router.use("/storage/objects", async (req: Request, res: Response) => {
       res.status(500).json({ error: "Failed to serve object" });
     }
   }
-});
-
-/** POST /storage/uploads/direct — multipart upload for local dev (no GCS required) */
-router.post("/storage/uploads/direct", upload.single("file"), (req: Request, res: Response) => {
-  if (!req.file) {
-    res.status(400).json({ error: "No file provided" });
-    return;
-  }
-  // Return a path like /objects/local/<filename> so getObjectUrl() builds the right URL
-  const objectPath = `/objects/local/${req.file.filename}`;
-  res.json({ objectPath });
-});
-
-/** GET /storage/objects/local/... — serve local-disk uploads */
-router.use("/storage/objects/local", (req: Request, res: Response) => {
-  const filename = path.basename(req.path);
-  const filePath = path.join(LOCAL_UPLOADS_DIR, filename);
-  if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: "File not found" });
-    return;
-  }
-  res.sendFile(filePath);
 });
 
 export default router;
