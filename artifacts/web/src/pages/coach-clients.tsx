@@ -311,7 +311,7 @@ export default function CoachClients() {
               <div className="bg-card border border-card-border rounded-2xl p-3 flex items-center gap-3">
                 <DollarSign className="w-5 h-5 text-primary flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold">{stats?.monthlyRevenue ?? 0} AED</p>
+                  <p className="text-sm font-semibold">{stats?.monthlyRevenue ?? 0} OMR</p>
                   <p className="text-xs text-muted-foreground">Est. monthly revenue</p>
                 </div>
                 {stats?.goalCounts && Object.keys(stats.goalCounts).length > 0 && (
@@ -365,7 +365,7 @@ export default function CoachClients() {
                 >
                   <p className="text-sm font-semibold truncate">{s.title}</p>
                   {s.price !== null && (
-                    <p className="text-xs text-primary font-medium mt-0.5">{s.price} AED</p>
+                    <p className="text-xs text-primary font-medium mt-0.5">{s.price} OMR</p>
                   )}
                   {s.specializations.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{s.specializations.slice(0, 2).join(" · ")}</p>

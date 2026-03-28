@@ -352,7 +352,7 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
   const clients = clientsRes.rows;
   const totalClients = clients.length;
 
-  // Revenue estimate: clients * 100 AED/month (placeholder — replace with real subscription data)
+  // Revenue estimate: clients * 100 OMR/month (placeholder — replace with real subscription data)
   const monthlyRevenue = totalClients * 100;
 
   // Clients expiring within 5 days
