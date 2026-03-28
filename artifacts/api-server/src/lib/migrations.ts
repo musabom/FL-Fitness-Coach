@@ -679,4 +679,49 @@ async function runMigrationsInternal(): Promise<void> {
   // ── Per-client service tagging ───────────────────────────────────────────────
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_id INTEGER REFERENCES coach_services(id) ON DELETE SET NULL`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_service_id ON users(service_id)`);
+
+  // ── Weekly check-ins ─────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS client_checkins (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      coach_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      week_date DATE NOT NULL,
+      weight_kg REAL,
+      energy_level INTEGER CHECK (energy_level BETWEEN 1 AND 5),
+      sleep_quality INTEGER CHECK (sleep_quality BETWEEN 1 AND 5),
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(client_id, week_date)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_checkins_client ON client_checkins(client_id, week_date DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_checkins_coach ON client_checkins(coach_id, week_date DESC)`);
+
+  // ── Coach messages ────────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coach_messages (
+      id SERIAL PRIMARY KEY,
+      coach_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      from_coach BOOLEAN NOT NULL DEFAULT TRUE,
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_thread ON coach_messages(coach_id, client_id, created_at DESC)`);
+
+  // ── Coach invite tokens ───────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coach_invite_tokens (
+      id SERIAL PRIMARY KEY,
+      coach_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_invite_tokens_coach ON coach_invite_tokens(coach_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_invite_tokens_token ON coach_invite_tokens(token)`);
 }

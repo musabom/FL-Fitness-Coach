@@ -6,7 +6,7 @@ import { useLocation, Link } from "wouter";
 import {
   Settings, LogOut, Loader2, ChevronRight, ChevronDown,
   UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap, Edit2, Check, X,
-  ArrowLeft, UserCheck, Bell, Search, AlertTriangle, RotateCcw,
+  ArrowLeft, UserCheck, Bell, Search, AlertTriangle, RotateCcw, CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -110,6 +110,86 @@ function MiniStatPill({ label, value, unit, color }: { label: string; value: num
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className="text-lg font-bold" style={{ color }}>{Math.round(value)}</span>
       <span className="text-[10px] text-muted-foreground">{unit}</span>
+    </div>
+  );
+}
+
+// ── Weekly Check-in Card (member sends weekly update to coach) ────────────────
+function WeeklyCheckinCard({ coachId }: { coachId: number }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [weight, setWeight] = useState("");
+  const [energy, setEnergy] = useState(3);
+  const [sleep, setSleep] = useState(3);
+  const [notes, setNotes] = useState("");
+
+  const lastCheckin = useQuery<{ week_date: string; weight_kg: number | null }[]>({
+    queryKey: ["checkins", "me"],
+    queryFn: () => customFetch("/api/checkins/me"),
+  });
+
+  const submit = useMutation({
+    mutationFn: () => customFetch("/api/checkins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weightKg: weight ? parseFloat(weight) : null, energyLevel: energy, sleepQuality: sleep, notes: notes.trim() || null }),
+    }),
+    onSuccess: () => {
+      setOpen(false); setWeight(""); setNotes(""); setEnergy(3); setSleep(3);
+      qc.invalidateQueries({ queryKey: ["checkins", "me"] });
+      toast({ title: "Check-in submitted!", description: "Your coach will review it." });
+    },
+    onError: () => toast({ title: "Failed to submit", variant: "destructive" }),
+  });
+
+  const lastWeek = lastCheckin.data?.[0];
+  const thisMonday = (() => {
+    const now = new Date(); const day = now.getDay(); const diff = day === 0 ? -6 : 1 - day;
+    const m = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+    return m.toISOString().split("T")[0];
+  })();
+  const alreadyCheckedIn = lastWeek?.week_date === thisMonday;
+
+  return (
+    <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <ClipboardList className="w-4 h-4 text-primary" />
+        </div>
+        <div className="flex-1 text-left">
+          <p className="text-sm font-semibold">Weekly Check-in</p>
+          <p className="text-xs text-muted-foreground">
+            {alreadyCheckedIn ? "✅ Submitted this week" : "Send your coach a weekly update"}
+          </p>
+        </div>
+        {open ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3 border-t border-border/30 pt-3">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Current weight (kg)</p>
+            <Input value={weight} onChange={e => setWeight(e.target.value)} type="number" placeholder="e.g. 82.5" className="h-9 text-sm" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Energy level: {["😫","😔","😐","🙂","💪"][energy-1]}</p>
+            <input type="range" min={1} max={5} value={energy} onChange={e => setEnergy(Number(e.target.value))} className="w-full accent-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Sleep quality: {["😩","😪","😐","😌","😴"][sleep-1]}</p>
+            <input type="range" min={1} max={5} value={sleep} onChange={e => setSleep(Number(e.target.value))} className="w-full accent-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Notes for your coach</p>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="How are you feeling? Any struggles?" rows={2}
+              className="w-full text-sm bg-background border border-border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <Button onClick={() => submit.mutate()} disabled={submit.isPending} className="w-full gap-2">
+            {submit.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+            {alreadyCheckedIn ? "Update this week's check-in" : "Submit check-in"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -404,6 +484,9 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+        {/* Member: weekly check-in + message coach */}
+        {!isCoachView && user?.coachId && <WeeklyCheckinCard coachId={user.coachId} />}
+
         {/* Member: no coach yet — Find a Coach CTA */}
         {!isCoachView && user?.role === "member" && !user?.coachId && (
           <button

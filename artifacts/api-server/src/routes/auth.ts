@@ -45,6 +45,34 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     fullName: fullName,
   }).returning();
 
+  // Handle coach invite token — auto-assign coach if valid token provided
+  const inviteToken = parsed.data.inviteToken as string | undefined;
+  let coachId: number | null = null;
+  let coachName: string | null = null;
+  if (inviteToken) {
+    try {
+      const tokenRes = await pool.query(
+        `SELECT coach_invite_tokens.coach_id, users.full_name
+         FROM coach_invite_tokens
+         JOIN users ON users.id = coach_invite_tokens.coach_id
+         WHERE coach_invite_tokens.token = $1`,
+        [inviteToken]
+      );
+      if (tokenRes.rows.length > 0) {
+        coachId = tokenRes.rows[0].coach_id;
+        coachName = tokenRes.rows[0].full_name;
+        await pool.query(
+          `UPDATE users SET coach_id = $1, subscription_status = 'active', subscription_started_at = NOW() WHERE id = $2`,
+          [coachId, user.id]
+        );
+        await pool.query(
+          `UPDATE coach_invite_tokens SET used_count = used_count + 1 WHERE token = $1`,
+          [inviteToken]
+        );
+      }
+    } catch { /* token lookup failed — ignore */ }
+  }
+
   req.session.userId = user.id;
 
   res.status(201).json({
@@ -53,8 +81,8 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     fullName: user.fullName,
     role: user.role,
     hasProfile: false,
-    coachId: null,
-    coachName: null,
+    coachId,
+    coachName,
     coachUpdatedAt: null,
   });
 });

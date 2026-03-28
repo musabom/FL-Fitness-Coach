@@ -552,4 +552,216 @@ router.post("/coach/clients/:clientId/mark-updated", async (req, res): Promise<v
   res.json({ message: "Plan marked as coach-updated" });
 });
 
+// ── Assign service to client ──────────────────────────────────────────────────
+router.put("/coach/clients/:id/service", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") { res.status(403).json({ error: "Not your client" }); return; }
+  const { serviceId } = req.body;
+  if (serviceId !== null && serviceId !== undefined) {
+    const svcCheck = await pool.query(`SELECT id FROM coach_services WHERE id = $1 AND coach_id = $2`, [serviceId, caller.userId]);
+    if (svcCheck.rows.length === 0) { res.status(404).json({ error: "Service not found" }); return; }
+  }
+  await pool.query(`UPDATE users SET service_id = $1 WHERE id = $2`, [serviceId ?? null, clientId]);
+  res.json({ message: "Service assigned" });
+});
+
+// ── Weight history for a client ───────────────────────────────────────────────
+router.get("/coach/clients/:id/weight-history", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") { res.status(403).json({ error: "Not your client" }); return; }
+  const r = await pool.query(
+    `SELECT weight_kg, recorded_at FROM weight_history WHERE user_id = $1 ORDER BY recorded_at ASC LIMIT 90`,
+    [clientId]
+  );
+  res.json(r.rows.map(row => ({ weightKg: row.weight_kg, date: row.recorded_at })));
+});
+
+// ── Check-ins ─────────────────────────────────────────────────────────────────
+// GET /coach/clients/:id/checkins — coach views check-ins for a client
+router.get("/coach/clients/:id/checkins", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") { res.status(403).json({ error: "Not your client" }); return; }
+  const r = await pool.query(
+    `SELECT id, week_date, weight_kg, energy_level, sleep_quality, notes, created_at
+     FROM client_checkins WHERE client_id = $1 ORDER BY week_date DESC LIMIT 12`,
+    [clientId]
+  );
+  res.json(r.rows);
+});
+
+// POST /checkins — member submits weekly check-in
+router.post("/checkins", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const { weightKg, energyLevel, sleepQuality, notes } = req.body;
+  // Get this member's coach
+  const userRes = await pool.query(`SELECT coach_id FROM users WHERE id = $1`, [caller.userId]);
+  const coachId = userRes.rows[0]?.coach_id;
+  if (!coachId) { res.status(400).json({ error: "No coach assigned" }); return; }
+  // Get current ISO week date (Monday)
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+  const weekDate = monday.toISOString().split("T")[0];
+  const r = await pool.query(
+    `INSERT INTO client_checkins (client_id, coach_id, week_date, weight_kg, energy_level, sleep_quality, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (client_id, week_date) DO UPDATE SET
+       weight_kg = EXCLUDED.weight_kg,
+       energy_level = EXCLUDED.energy_level,
+       sleep_quality = EXCLUDED.sleep_quality,
+       notes = EXCLUDED.notes,
+       created_at = NOW()
+     RETURNING *`,
+    [caller.userId, coachId, weekDate, weightKg ?? null, energyLevel ?? null, sleepQuality ?? null, notes ?? null]
+  );
+  res.json(r.rows[0]);
+});
+
+// GET /checkins/me — member views their own check-ins
+router.get("/checkins/me", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const r = await pool.query(
+    `SELECT id, week_date, weight_kg, energy_level, sleep_quality, notes, created_at
+     FROM client_checkins WHERE client_id = $1 ORDER BY week_date DESC LIMIT 12`,
+    [caller.userId]
+  );
+  res.json(r.rows);
+});
+
+// ── Messaging ─────────────────────────────────────────────────────────────────
+// GET /coach/clients/:id/messages
+router.get("/coach/clients/:id/messages", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") { res.status(403).json({ error: "Not your client" }); return; }
+  // Mark messages from client as read
+  await pool.query(
+    `UPDATE coach_messages SET read_at = NOW() WHERE coach_id = $1 AND client_id = $2 AND from_coach = FALSE AND read_at IS NULL`,
+    [caller.userId, clientId]
+  );
+  const r = await pool.query(
+    `SELECT id, content, from_coach, read_at, created_at FROM coach_messages
+     WHERE coach_id = $1 AND client_id = $2 ORDER BY created_at ASC LIMIT 100`,
+    [caller.userId, clientId]
+  );
+  res.json(r.rows);
+});
+
+// POST /coach/clients/:id/messages — coach sends message
+router.post("/coach/clients/:id/messages", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") { res.status(403).json({ error: "Not your client" }); return; }
+  const { content } = req.body;
+  if (!content?.trim()) { res.status(400).json({ error: "Message content required" }); return; }
+  const r = await pool.query(
+    `INSERT INTO coach_messages (coach_id, client_id, content, from_coach) VALUES ($1, $2, $3, TRUE) RETURNING *`,
+    [caller.userId, clientId, content.trim()]
+  );
+  res.json(r.rows[0]);
+});
+
+// GET /messages/me — member gets their messages with coach
+router.get("/messages/me", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const userRes = await pool.query(`SELECT coach_id FROM users WHERE id = $1`, [caller.userId]);
+  const coachId = userRes.rows[0]?.coach_id;
+  if (!coachId) { res.json([]); return; }
+  // Mark coach messages as read
+  await pool.query(
+    `UPDATE coach_messages SET read_at = NOW() WHERE coach_id = $1 AND client_id = $2 AND from_coach = TRUE AND read_at IS NULL`,
+    [coachId, caller.userId]
+  );
+  const r = await pool.query(
+    `SELECT id, content, from_coach, read_at, created_at FROM coach_messages
+     WHERE coach_id = $1 AND client_id = $2 ORDER BY created_at ASC LIMIT 100`,
+    [coachId, caller.userId]
+  );
+  res.json(r.rows);
+});
+
+// POST /messages/me — member sends message to coach
+router.post("/messages/me", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const userRes = await pool.query(`SELECT coach_id FROM users WHERE id = $1`, [caller.userId]);
+  const coachId = userRes.rows[0]?.coach_id;
+  if (!coachId) { res.status(400).json({ error: "No coach assigned" }); return; }
+  const { content } = req.body;
+  if (!content?.trim()) { res.status(400).json({ error: "Message content required" }); return; }
+  const r = await pool.query(
+    `INSERT INTO coach_messages (coach_id, client_id, content, from_coach) VALUES ($1, $2, $3, FALSE) RETURNING *`,
+    [coachId, caller.userId, content.trim()]
+  );
+  res.json(r.rows[0]);
+});
+
+// ── Invite Link ───────────────────────────────────────────────────────────────
+router.get("/coach/invite-link", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  let tokenRes = await pool.query(`SELECT token FROM coach_invite_tokens WHERE coach_id = $1 LIMIT 1`, [caller.userId]);
+  if (tokenRes.rows.length === 0) {
+    const token = `c_${caller.userId}_${Math.random().toString(36).slice(2, 10)}`;
+    await pool.query(`INSERT INTO coach_invite_tokens (coach_id, token) VALUES ($1, $2)`, [caller.userId, token]);
+    tokenRes = await pool.query(`SELECT token FROM coach_invite_tokens WHERE coach_id = $1 LIMIT 1`, [caller.userId]);
+  }
+  const token = tokenRes.rows[0].token;
+  const baseUrl = (req.headers.origin as string) || `http://localhost:5173`;
+  res.json({ token, inviteUrl: `${baseUrl}/signup?coach=${token}` });
+});
+
+// ── Unread message counts ─────────────────────────────────────────────────────
+router.get("/coach/unread-counts", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const r = await pool.query(
+    `SELECT client_id, COUNT(*)::int as unread FROM coach_messages
+     WHERE coach_id = $1 AND from_coach = FALSE AND read_at IS NULL
+     GROUP BY client_id`,
+    [caller.userId]
+  );
+  const counts: Record<number, number> = {};
+  for (const row of r.rows) counts[row.client_id] = row.unread;
+  res.json(counts);
+});
+
+// ── Plan status for client ────────────────────────────────────────────────────
+router.get("/coach/clients/:id/plan-status", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") { res.status(403).json({ error: "Not your client" }); return; }
+  const r = await pool.query(
+    `SELECT coach_updated_at, created_at FROM plans WHERE user_id = $1 ORDER BY version DESC LIMIT 1`,
+    [clientId]
+  );
+  const plan = r.rows[0];
+  res.json({ coachUpdatedAt: plan?.coach_updated_at ?? null, planCreatedAt: plan?.created_at ?? null });
+});
+
 export default router;

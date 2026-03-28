@@ -12,7 +12,7 @@ import {
   LayoutDashboard, LogOut, UserCircle2, RefreshCw, Clock,
   Users, AlertTriangle, TrendingUp, Search, X,
   StickyNote, Plus, Trash2, ChevronDown, ChevronUp, Briefcase,
-  CalendarClock, UserMinus, Bell,
+  CalendarClock, UserMinus, Bell, Link, MessageCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -264,6 +264,18 @@ export default function CoachClients() {
   });
   const services = (servicesQuery.data ?? []).filter(s => s.isActive);
 
+  const inviteQuery = useQuery<{ token: string; inviteUrl: string }>({
+    queryKey: ["coach", "invite-link"],
+    queryFn: () => customFetch("/api/coach/invite-link"),
+  });
+
+  const unreadQuery = useQuery<Record<string, number>>({
+    queryKey: ["coach", "unread"],
+    queryFn: () => customFetch("/api/coach/unread-counts"),
+    refetchInterval: 30_000,
+  });
+  const unreadCounts = unreadQuery.data ?? {};
+
   const allClients = clientsQuery.data ?? [];
   const stats = statsQuery.data;
 
@@ -292,8 +304,7 @@ export default function CoachClients() {
   const inactiveCount = allClients.filter(c => c.isInactive).length;
 
   const handleSelectClient = (client: CoachClient) => {
-    setActiveClient({ id: client.id, name: client.fullName || client.email, email: client.email, mode: "coach" });
-    setLocation("/dashboard");
+    setLocation(`/coach/clients/${client.id}`);
   };
 
   const handleMyDashboard = () => {
@@ -311,6 +322,17 @@ export default function CoachClients() {
         </div>
         <div className="flex items-center gap-1.5">
           <LanguageSwitcher />
+          <button
+            onClick={() => {
+              if (inviteQuery.data?.inviteUrl) {
+                navigator.clipboard.writeText(inviteQuery.data.inviteUrl);
+              }
+            }}
+            className="p-2 rounded-xl hover:bg-primary/10 text-primary"
+            title="Copy invite link"
+          >
+            <Link className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setLocation("/coach/profile")}
             className="p-2 rounded-xl hover:bg-muted text-muted-foreground"
@@ -606,10 +628,15 @@ export default function CoachClients() {
                 {!client.isInactive && (
                   <button
                     onClick={() => handleSelectClient(client)}
-                    className="p-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex-shrink-0"
-                    title="View client dashboard"
+                    className="relative p-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex-shrink-0"
+                    title="View client detail"
                   >
                     <ChevronRight className="w-4 h-4" />
+                    {(unreadCounts[client.id] ?? 0) > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                        {unreadCounts[client.id]}
+                      </span>
+                    )}
                   </button>
                 )}
               </div>

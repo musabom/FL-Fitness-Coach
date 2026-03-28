@@ -30,6 +30,7 @@ import CoachesBrowse from "./pages/coaches-browse";
 import CoachDetail from "./pages/coach-detail";
 import CoachProfileEditor from "./pages/coach-profile-editor";
 import CoachServicesPage from "./pages/coach-services";
+import CoachClientDetail from "./pages/coach-client-detail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -183,6 +184,7 @@ function Router() {
 
         {/* Coach */}
         <Route path="/coach/clients" component={CoachClients} />
+        <Route path="/coach/clients/:id" component={CoachClientDetail} />
         <Route path="/coach/profile" component={CoachProfileEditor} />
         <Route path="/coach/services" component={CoachServicesPage} />
 
