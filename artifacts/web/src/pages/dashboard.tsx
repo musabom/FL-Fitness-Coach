@@ -168,6 +168,12 @@ export default function Dashboard() {
     );
   }
 
+  const handleBackToManagement = () => {
+    const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
+    setActiveClient(null);
+    setLocation(backPath);
+  };
+
   if (!plan) {
     return (
       <div className="mobile-container flex flex-col items-center justify-center px-6 text-center">
@@ -210,12 +216,6 @@ export default function Dashboard() {
     : plan.weightKg < plan.targetWeightKg
       ? `${t("dashboard.weightGapGain")} ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} ${t("common.kg")}`
       : t("dashboard.weightGapAtTarget");
-
-  const handleBackToManagement = () => {
-    const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
-    setActiveClient(null);
-    setLocation(backPath);
-  };
 
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
