@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
 import {
   Settings, LogOut, Loader2, ChevronRight, ChevronDown,
   UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap, Edit2, Check, X,
-  ArrowLeft, UserCheck, Bell, Search,
+  ArrowLeft, UserCheck, Bell, Search, AlertTriangle, RotateCcw,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { customFetch, getGetActivePlanQueryKey } from "@workspace/api-client-react";
@@ -127,9 +128,30 @@ export default function Dashboard() {
   const buildUrl = useClientUrl();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const today = todayStr();
   const viewMode = activeClient?.mode ?? null;
   const isCoachView = !!activeClient;
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const cancelSubscription = useMutation({
+    mutationFn: () => customFetch("/api/subscription/cancel", { method: "POST" }),
+    onSuccess: () => {
+      setShowCancelConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ["auth-user"] });
+      toast({ title: "Subscription cancelled", description: "You'll keep full access until the end of your current period." });
+    },
+    onError: () => toast({ title: "Failed to cancel", variant: "destructive" }),
+  });
+
+  const reactivateSubscription = useMutation({
+    mutationFn: () => customFetch("/api/subscription/reactivate", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth-user"] });
+      toast({ title: "Subscription reactivated!", description: "Your subscription is now active again." });
+    },
+    onError: () => toast({ title: "Failed to reactivate", variant: "destructive" }),
+  });
 
 
   const { data: todayData, refetch: refetchToday } = useQuery<TodayData>({
@@ -167,6 +189,12 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const handleBackToManagement = () => {
+    const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
+    setActiveClient(null);
+    setLocation(backPath);
+  };
 
   if (!plan) {
     return (
@@ -210,12 +238,6 @@ export default function Dashboard() {
     : plan.weightKg < plan.targetWeightKg
       ? `${t("dashboard.weightGapGain")} ${(plan.targetWeightKg - plan.weightKg).toFixed(1)} ${t("common.kg")}`
       : t("dashboard.weightGapAtTarget");
-
-  const handleBackToManagement = () => {
-    const backPath = viewMode === "admin" ? "/admin" : "/coach/clients";
-    setActiveClient(null);
-    setLocation(backPath);
-  };
 
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
@@ -291,25 +313,85 @@ export default function Dashboard() {
       <main className="px-6 pt-6 space-y-6">
         {/* Member: coach assigned banner */}
         {!isCoachView && user?.coachName && (
-          <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-2xl px-4 py-3">
-            <UserCheck className="w-4 h-4 text-primary flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-primary">{t("dashboard.yourCoach")}</p>
-              <p className="text-sm text-foreground">{user.coachName}</p>
-              {user.subscriptionDaysLeft !== null && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {t("dashboard.subscriptionCyclePrefix")} {user.subscriptionDaysLeft} {t("dashboard.subscriptionCycleSuffix")}
-                </p>
-              )}
-            </div>
-            {user.subscriptionDaysLeft !== null && (
-              <div className="flex-shrink-0 text-center">
-                <p className={`text-lg font-bold ${user.subscriptionDaysLeft <= 5 ? "text-destructive" : "text-primary"}`}>
-                  {user.subscriptionDaysLeft}
-                </p>
-                <p className="text-[10px] text-muted-foreground">{t("dashboard.daysLeft")}</p>
+          <div className="space-y-2">
+            {/* Cancelling warning banner */}
+            {(user as any).subscriptionStatus === "cancelling" && (
+              <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl px-4 py-3">
+                <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-yellow-500">Cancellation Scheduled</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your coach will continue serving you for {user.subscriptionDaysLeft ?? "—"} more day{user.subscriptionDaysLeft === 1 ? "" : "s"}.
+                  </p>
+                </div>
+                <button
+                  onClick={() => reactivateSubscription.mutate()}
+                  disabled={reactivateSubscription.isPending}
+                  className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline flex-shrink-0"
+                >
+                  {reactivateSubscription.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                  Reactivate
+                </button>
               </div>
             )}
+
+            {/* Coach info card */}
+            <div className={`rounded-2xl px-4 py-3 border ${(user as any).subscriptionStatus === "cancelling" ? "bg-muted/30 border-border" : "bg-primary/10 border-primary/20"}`}>
+              <div className="flex items-center gap-3">
+                <UserCheck className={`w-4 h-4 flex-shrink-0 ${(user as any).subscriptionStatus === "cancelling" ? "text-muted-foreground" : "text-primary"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${(user as any).subscriptionStatus === "cancelling" ? "text-muted-foreground" : "text-primary"}`}>{t("dashboard.yourCoach")}</p>
+                  <p className="text-sm text-foreground">{user.coachName}</p>
+                  {user.subscriptionDaysLeft !== null && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("dashboard.subscriptionCyclePrefix")} {user.subscriptionDaysLeft} {t("dashboard.subscriptionCycleSuffix")}
+                    </p>
+                  )}
+                </div>
+                {user.subscriptionDaysLeft !== null && (
+                  <div className="flex-shrink-0 text-center">
+                    <p className={`text-lg font-bold ${user.subscriptionDaysLeft <= 5 ? "text-destructive" : (user as any).subscriptionStatus === "cancelling" ? "text-muted-foreground" : "text-primary"}`}>
+                      {user.subscriptionDaysLeft}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{t("dashboard.daysLeft")}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Cancel / confirm buttons */}
+              {(user as any).subscriptionStatus !== "cancelling" && (
+                <div className="mt-3 pt-3 border-t border-border/30">
+                  {showCancelConfirm ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Your coach is obligated to serve you until the end of this period. Are you sure?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => cancelSubscription.mutate()}
+                          disabled={cancelSubscription.isPending}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 rounded-xl py-2 transition-colors"
+                        >
+                          {cancelSubscription.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                          Yes, cancel subscription
+                        </button>
+                        <button
+                          onClick={() => setShowCancelConfirm(false)}
+                          className="flex-1 text-xs font-medium text-muted-foreground bg-muted hover:bg-muted/80 rounded-xl py-2 transition-colors"
+                        >
+                          Keep subscription
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      Cancel subscription
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {/* Member: coach updated plan banner */}

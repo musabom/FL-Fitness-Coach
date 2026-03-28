@@ -104,7 +104,9 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
     }
 
     // Churned: subscription_status is 'free' but they have a coach (was paying, now lapsed)
+    // 'cancelling' = still active, leaving at end of period — coach must serve them
     const isChurned = client.subscription_status === "free" && client.subscription_started_at !== null;
+    const isCancelling = client.subscription_status === "cancelling";
 
     enriched.push({
       id: client.id,
@@ -122,6 +124,7 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
       servicePrice: client.service_price ? Number(client.service_price) : null,
       serviceTitle: client.service_title ?? null,
       isChurned,
+      isCancelling,
     });
   }
 

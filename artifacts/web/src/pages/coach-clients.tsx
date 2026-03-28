@@ -37,6 +37,7 @@ interface CoachClient {
   servicePrice: number | null;
   serviceTitle: string | null;
   isChurned: boolean;
+  isCancelling: boolean;
 }
 
 interface CoachService {
@@ -596,7 +597,10 @@ export default function CoachClients() {
                 {client.isChurned && (
                   <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">Churned</span>
                 )}
-                {!client.isChurned && isAtRisk(client) && (
+                {!client.isChurned && client.isCancelling && (
+                  <span className="text-xs text-yellow-600 font-medium bg-yellow-500/10 px-2 py-0.5 rounded-full">Leaving</span>
+                )}
+                {!client.isChurned && !client.isCancelling && isAtRisk(client) && (
                   <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">At risk</span>
                 )}
                 {!client.isChurned && (
