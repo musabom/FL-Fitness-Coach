@@ -790,6 +790,7 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
   const buildUrl = useClientUrl();
   const [expanded, setExpanded] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [customExerciseOpen, setCustomExerciseOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(workout.workout_name);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -923,6 +924,7 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
       </Card>
 
       <AddExerciseSheet workoutId={workout.id} open={addOpen} onClose={() => setAddOpen(false)} onOpenCustomExercise={() => { setAddOpen(false); setCustomExerciseOpen(true); }} />
+      <CreateCustomExerciseSheet open={customExerciseOpen} onClose={() => setCustomExerciseOpen(false)} />
     </>
   );
 }
