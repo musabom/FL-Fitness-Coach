@@ -21,7 +21,7 @@ const multerStorage = multer.diskStorage({
     cb(null, `${randomUUID()}${ext}`);
   },
 });
-const upload = multer({ storage: multerStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multerStorage, limits: { fileSize: 2 * 1024 * 1024 } });
 
 const RequestUploadUrlBody = z.object({
   name: z.string(),
