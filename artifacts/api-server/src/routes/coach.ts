@@ -352,8 +352,19 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
   const clients = clientsRes.rows;
   const totalClients = clients.length;
 
-  // Revenue estimate: clients * 100 OMR/month (placeholder — replace with real subscription data)
-  const monthlyRevenue = totalClients * 100;
+  // Real revenue: sum of active service prices × number of active clients
+  // Since there is no per-client service link yet, use the average price of the coach's active services
+  const servicesRes = await pool.query(
+    `SELECT COALESCE(SUM(price), 0) as total_price, COUNT(*) as service_count
+     FROM coach_services WHERE coach_id = $1 AND is_active = true`,
+    [caller.userId]
+  );
+  const svcRow = servicesRes.rows[0];
+  const serviceCount = parseInt(svcRow?.service_count ?? "0");
+  const avgServicePrice = serviceCount > 0
+    ? parseFloat(svcRow?.total_price ?? "0") / serviceCount
+    : 0;
+  const monthlyRevenue = Math.round(totalClients * avgServicePrice * 1000) / 1000;
 
   // Clients expiring within 5 days
   const now = Date.now();
@@ -365,6 +376,14 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
     return daysLeft <= 5;
   }).length;
 
+  // Clients renewing within the next 7 days
+  const renewingThisWeek = clients.filter(c => {
+    if (!c.subscription_started_at) return false;
+    const daysElapsed = Math.floor((now - new Date(c.subscription_started_at).getTime()) / msPerDay);
+    const daysLeft = 30 - (daysElapsed % 30);
+    return daysLeft <= 7;
+  }).length;
+
   // Goal distribution
   const goalCounts: Record<string, number> = {};
   for (const c of clients) {
@@ -372,7 +391,7 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
     goalCounts[g] = (goalCounts[g] ?? 0) + 1;
   }
 
-  res.json({ totalClients, monthlyRevenue, expiringSoon, goalCounts });
+  res.json({ totalClients, monthlyRevenue, expiringSoon, renewingThisWeek, goalCounts });
 });
 
 // GET /coach/clients/:id/notes — get notes for a client

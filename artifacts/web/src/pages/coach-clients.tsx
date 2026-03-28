@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import {
   Loader2, ChevronRight, User, Dumbbell, Utensils, Target,
   LayoutDashboard, LogOut, UserCircle2, Star, RefreshCw, Clock,
-  Users, AlertTriangle, DollarSign, Search, X,
-  StickyNote, Plus, Trash2, ChevronDown, ChevronUp, Briefcase,
+  Users, AlertTriangle, TrendingUp, Search, X,
+  StickyNote, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, CalendarClock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -42,6 +42,7 @@ interface CoachStats {
   totalClients: number;
   monthlyRevenue: number;
   expiringSoon: number;
+  renewingThisWeek: number;
   goalCounts: Record<string, number>;
 }
 
@@ -308,22 +309,33 @@ export default function CoachClients() {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden mt-2"
             >
-              <div className="bg-card border border-card-border rounded-2xl p-3 flex items-center gap-3">
-                <DollarSign className="w-5 h-5 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold">{stats?.monthlyRevenue ?? 0} OMR</p>
-                  <p className="text-xs text-muted-foreground">Est. monthly revenue</p>
-                </div>
-                {stats?.goalCounts && Object.keys(stats.goalCounts).length > 0 && (
-                  <div className="ml-auto flex flex-wrap gap-1 justify-end">
-                    {Object.entries(stats.goalCounts).map(([g, n]) => (
-                      <span key={g} className="text-xs bg-primary/10 text-primary rounded-full px-2 py-0.5">
-                        {goalLabel(g)}: {n}
-                      </span>
-                    ))}
+              <div className="flex gap-2">
+                {/* Revenue card */}
+                <div className="flex-1 bg-card border border-card-border rounded-2xl p-3 flex items-center gap-3">
+                  <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">{stats?.monthlyRevenue ?? 0} OMR</p>
+                    <p className="text-xs text-muted-foreground">Monthly revenue</p>
                   </div>
-                )}
+                </div>
+                {/* Renewals card */}
+                <div className={`flex-1 bg-card border rounded-2xl p-3 flex items-center gap-3 ${(stats?.renewingThisWeek ?? 0) > 0 ? "border-yellow-500/40" : "border-card-border"}`}>
+                  <CalendarClock className={`w-5 h-5 flex-shrink-0 ${(stats?.renewingThisWeek ?? 0) > 0 ? "text-yellow-500" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${(stats?.renewingThisWeek ?? 0) > 0 ? "text-yellow-500" : ""}`}>{stats?.renewingThisWeek ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Renewing this week</p>
+                  </div>
+                </div>
               </div>
+              {stats?.goalCounts && Object.keys(stats.goalCounts).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {Object.entries(stats.goalCounts).map(([g, n]) => (
+                    <span key={g} className="text-xs bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                      {goalLabel(g)}: {n}
+                    </span>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
