@@ -2,9 +2,26 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod/v4";
 import { Readable } from "stream";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+
+// Local disk upload dir — used when Replit Object Storage is not available
+const LOCAL_UPLOADS_DIR = path.join(process.cwd(), "local_uploads");
+if (!fs.existsSync(LOCAL_UPLOADS_DIR)) fs.mkdirSync(LOCAL_UPLOADS_DIR, { recursive: true });
+
+const multerStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, LOCAL_UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `${randomUUID()}${ext}`);
+  },
+});
+const upload = multer({ storage: multerStorage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 const RequestUploadUrlBody = z.object({
   name: z.string(),
@@ -79,6 +96,28 @@ router.use("/storage/objects", async (req: Request, res: Response) => {
       res.status(500).json({ error: "Failed to serve object" });
     }
   }
+});
+
+/** POST /storage/uploads/direct — multipart upload for local dev (no GCS required) */
+router.post("/storage/uploads/direct", upload.single("file"), (req: Request, res: Response) => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file provided" });
+    return;
+  }
+  // Return a path like /objects/local/<filename> so getObjectUrl() builds the right URL
+  const objectPath = `/objects/local/${req.file.filename}`;
+  res.json({ objectPath });
+});
+
+/** GET /storage/objects/local/... — serve local-disk uploads */
+router.use("/storage/objects/local", (req: Request, res: Response) => {
+  const filename = path.basename(req.path);
+  const filePath = path.join(LOCAL_UPLOADS_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+  res.sendFile(filePath);
 });
 
 export default router;
