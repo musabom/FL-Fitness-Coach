@@ -78,10 +78,10 @@ export default function Onboarding() {
   const totalSteps = 3;
 
   const [formData, setFormData] = useState<OnboardingFormData>({
-    heightCm: "170",
-    weightKg: "80",
-    targetWeightKg: "75",
-    age: "28",
+    heightCm: "",
+    weightKg: "",
+    targetWeightKg: "",
+    age: "",
     gender: "",
     goalMode: "",
     activityLevel: "",
@@ -240,7 +240,7 @@ export default function Onboarding() {
                 <div className="relative">
                   <Input 
                     type="number" 
-                    className="text-2xl h-16 pl-6 pr-20 font-light"
+                    className="text-2xl h-16 pl-6 pr-20 font-light placeholder:text-muted-foreground/30 placeholder:font-light"
                     placeholder="170"
                     value={formData.heightCm}
                     onChange={e => setFormData({ ...formData, heightCm: e.target.value })}
@@ -255,7 +255,7 @@ export default function Onboarding() {
                 <div className="relative">
                   <Input 
                     type="number" 
-                    className="text-2xl h-16 pl-6 pr-20 font-light"
+                    className="text-2xl h-16 pl-6 pr-20 font-light placeholder:text-muted-foreground/30 placeholder:font-light"
                     placeholder="80"
                     value={formData.weightKg}
                     onChange={e => setFormData({ ...formData, weightKg: e.target.value })}
@@ -269,7 +269,7 @@ export default function Onboarding() {
                 <div className="relative">
                   <Input 
                     type="number" 
-                    className="text-2xl h-16 pl-6 pr-20 font-light"
+                    className="text-2xl h-16 pl-6 pr-20 font-light placeholder:text-muted-foreground/30 placeholder:font-light"
                     placeholder="75"
                     value={formData.targetWeightKg}
                     onChange={e => setFormData({ ...formData, targetWeightKg: e.target.value })}
@@ -283,7 +283,7 @@ export default function Onboarding() {
                 <div className="relative">
                   <Input 
                     type="number" 
-                    className="text-2xl h-16 pl-6 pr-20 font-light"
+                    className="text-2xl h-16 pl-6 pr-20 font-light placeholder:text-muted-foreground/30 placeholder:font-light"
                     placeholder="28"
                     value={formData.age}
                     onChange={e => setFormData({ ...formData, age: e.target.value })}

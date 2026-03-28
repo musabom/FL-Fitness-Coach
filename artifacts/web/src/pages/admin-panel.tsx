@@ -10,7 +10,7 @@ import {
   Loader2, Users, Dumbbell, Utensils, ChevronDown, ChevronUp,
   Shield, UserCheck, User, X, Plus, Search, LogOut, Pencil, Trash2,
   Eye, Activity, Clock, MousePointerClick, ChevronLeft, ChevronRight,
-  Check, TrendingUp, DollarSign, UserX, BarChart2,
+  Check, TrendingUp, DollarSign, UserX, BarChart2, RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCoachClient } from "@/context/coach-client-context";
@@ -38,9 +38,8 @@ interface AdminCoach {
   email: string;
   full_name: string | null;
   client_count: number;
-  service_price: number;
   estimated_revenue: number;
-  clients: Array<{ id: number; email: string; full_name: string | null }>;
+  clients: Array<{ id: number; email: string; full_name: string | null; service_title?: string | null; service_price?: number | null; subscription_status?: string }>;
 }
 
 interface AdminMember {
@@ -74,6 +73,7 @@ interface AdminExercise {
 }
 
 interface OverviewStats {
+  totalUsers: number;
   totalMembers: number;
   totalCoaches: number;
   newMembersThisMonth: number;
@@ -135,10 +135,13 @@ function StatCard({
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 function OverviewTab() {
-  const { data, isLoading } = useQuery<OverviewStats>({
+  const qc = useQueryClient();
+  const { data, isLoading, isFetching } = useQuery<OverviewStats>({
     queryKey: ["admin", "overview"],
     queryFn: () => customFetch<OverviewStats>("/api/admin/overview"),
-    refetchInterval: 30000,
+    refetchInterval: 15000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   if (isLoading) {
@@ -155,8 +158,20 @@ function OverviewTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">Live overview</p>
+        <button
+          onClick={() => qc.invalidateQueries({ queryKey: ["admin", "overview"] })}
+          disabled={isFetching}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+        >
+          <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
-        <StatCard icon={Users} label="Total Members" value={stats.totalMembers} sub="active accounts" />
+        <StatCard icon={Users} label="Total Users" value={stats.totalUsers ?? (stats.totalMembers + stats.totalCoaches)} sub="all active accounts" />
+        <StatCard icon={Users} label="Total Members" value={stats.totalMembers} sub="active members" color="text-primary" />
         <StatCard icon={UserCheck} label="Active Coaches" value={stats.totalCoaches} sub="on platform" color="text-blue-400" />
         <StatCard icon={TrendingUp} label="New This Month" value={stats.newMembersThisMonth} sub="new signups" color="text-green-400" />
         <StatCard icon={UserX} label="Unassigned" value={stats.unassignedMembers} sub="no coach yet" color="text-amber-400" />
@@ -375,10 +390,33 @@ function CoachesTab() {
   const [expandedCoach, setExpandedCoach] = useState<number | null>(null);
   const [assigningTo, setAssigningTo] = useState<number | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
+  const [editingPct, setEditingPct] = useState(false);
+  const [pctInput, setPctInput] = useState("");
 
   const coachesQuery = useQuery<AdminCoach[]>({
     queryKey: ["admin", "coaches"],
     queryFn: () => customFetch<AdminCoach[]>("/api/admin/coaches"),
+  });
+
+  const settingsQuery = useQuery<{ platformCommissionPct: number }>({
+    queryKey: ["admin", "platform-settings"],
+    queryFn: () => customFetch("/api/admin/platform-settings"),
+    staleTime: 0,
+  });
+
+  const updateCommissionMutation = useMutation({
+    mutationFn: (platformCommissionPct: number) =>
+      customFetch("/api/admin/platform-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platformCommissionPct }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "platform-settings"] });
+      setEditingPct(false);
+      toast({ title: "Commission rate updated" });
+    },
+    onError: () => toast({ title: "Failed to update commission", variant: "destructive" }),
   });
 
   const membersQuery = useQuery<AdminMember[]>({
@@ -400,22 +438,105 @@ function CoachesTab() {
   });
 
   const coaches = coachesQuery.data ?? [];
+  const commissionPct = settingsQuery.data?.platformCommissionPct ?? 10;
+  const coachPct = 100 - commissionPct;
+
   const members = (membersQuery.data ?? []).filter(m =>
     !m.coach_id &&
     `${m.email} ${m.full_name ?? ""}`.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
-  const totalRevenue = coaches.reduce((sum, c) => sum + (c.estimated_revenue ?? 0), 0);
+  const totalGross = coaches.reduce((sum, c) => sum + Number(c.estimated_revenue ?? 0), 0);
+  const totalPlatform = totalGross * commissionPct / 100;
+  const totalCoachPayout = totalGross - totalPlatform;
+
+  function startEditPct() {
+    setPctInput(String(commissionPct));
+    setEditingPct(true);
+  }
+  function savePct() {
+    const val = parseFloat(pctInput);
+    if (isNaN(val) || val < 0 || val > 100) {
+      toast({ title: "Enter a valid percentage (0–100)", variant: "destructive" });
+      return;
+    }
+    updateCommissionMutation.mutate(val);
+  }
 
   return (
     <div className="space-y-3">
-      {coaches.length > 0 && (
-        <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Total Est. Revenue</p>
-            <p className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString()} OMR</p>
+
+      {/* ── Commission rate setting ── */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Platform Commission</p>
+          {!editingPct && (
+            <button onClick={startEditPct} className="flex items-center gap-1 text-xs text-primary hover:underline">
+              <Pencil className="w-3 h-3" /> Edit
+            </button>
+          )}
+        </div>
+        {editingPct ? (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-1 bg-muted rounded-lg px-3 py-1.5">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={pctInput}
+                onChange={e => setPctInput(e.target.value)}
+                className="bg-transparent w-16 text-sm font-semibold focus:outline-none"
+                autoFocus
+              />
+              <span className="text-sm text-muted-foreground">% platform</span>
+              <span className="text-xs text-muted-foreground ml-1">→ {(100 - parseFloat(pctInput || "0")).toFixed(1)}% coach</span>
+            </div>
+            <Button size="sm" className="h-8 text-xs px-3" onClick={savePct} disabled={updateCommissionMutation.isPending}>
+              {updateCommissionMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 text-xs px-2" onClick={() => setEditingPct(false)}>Cancel</Button>
           </div>
-          <DollarSign className="w-8 h-8 text-primary/20" />
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-muted/40 rounded-xl p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-0.5">Platform</p>
+              <p className="text-xl font-bold text-primary">{commissionPct}%</p>
+            </div>
+            <div className="text-muted-foreground text-sm font-bold">+</div>
+            <div className="flex-1 bg-muted/40 rounded-xl p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-0.5">Coach</p>
+              <p className="text-xl font-bold text-green-400">{coachPct}%</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Revenue totals ── */}
+      {coaches.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Monthly Revenue Breakdown</p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Total gross</span>
+            <span className="text-sm font-bold">{totalGross.toLocaleString()} OMR</span>
+          </div>
+          <div className="w-full h-2 rounded-full overflow-hidden bg-muted flex">
+            <div className="h-full bg-primary transition-all" style={{ width: `${commissionPct}%` }} />
+            <div className="h-full bg-green-500 transition-all" style={{ width: `${coachPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+              <span className="text-xs text-muted-foreground">Platform ({commissionPct}%)</span>
+            </div>
+            <span className="text-xs font-semibold text-primary">{totalPlatform.toFixed(2)} OMR</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+              <span className="text-xs text-muted-foreground">Coaches ({coachPct}%)</span>
+            </div>
+            <span className="text-xs font-semibold text-green-400">{totalCoachPayout.toFixed(2)} OMR</span>
+          </div>
         </div>
       )}
 
@@ -424,7 +545,11 @@ function CoachesTab() {
       ) : coaches.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground text-sm">No coaches yet. Promote a member to Coach from the Members tab.</div>
       ) : (
-        coaches.map(coach => (
+        coaches.map(coach => {
+          const gross = Number(coach.estimated_revenue ?? 0);
+          const platformCut = gross * commissionPct / 100;
+          const coachEarnings = gross - platformCut;
+          return (
           <div key={coach.id} className="bg-card border border-border rounded-xl">
             <button
               className="w-full flex items-center justify-between p-4"
@@ -436,9 +561,9 @@ function CoachesTab() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{coach.client_count} clients</span>
-                {coach.service_price > 0 && (
+                {gross > 0 && (
                   <span className="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">
-                    {coach.estimated_revenue} OMR
+                    {gross.toLocaleString()} OMR
                   </span>
                 )}
                 {expandedCoach === coach.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -447,10 +572,21 @@ function CoachesTab() {
 
             {expandedCoach === coach.id && (
               <div className="border-t border-border px-4 pb-4 pt-3 space-y-2">
-                {coach.service_price > 0 && (
-                  <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2 mb-3">
-                    <span className="text-xs text-muted-foreground">Service price</span>
-                    <span className="text-xs font-semibold text-primary">{coach.service_price} OMR/mo</span>
+                {/* Revenue breakdown for this coach */}
+                {gross > 0 && (
+                  <div className="bg-muted/30 rounded-xl p-3 mb-3 space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Gross revenue</span>
+                      <span className="font-semibold">{gross.toFixed(2)} OMR</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Platform ({commissionPct}%)</span>
+                      <span className="font-semibold text-primary">− {platformCut.toFixed(2)} OMR</span>
+                    </div>
+                    <div className="border-t border-border/50 pt-1.5 flex justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Coach payout ({coachPct}%)</span>
+                      <span className="font-bold text-green-400">{coachEarnings.toFixed(2)} OMR</span>
+                    </div>
                   </div>
                 )}
                 {coach.clients.length === 0 && (
@@ -461,6 +597,9 @@ function CoachesTab() {
                     <div>
                       <p className="text-sm">{client.full_name || "—"}</p>
                       <p className="text-xs text-muted-foreground">{client.email}</p>
+                      {client.service_title && (
+                        <p className="text-xs text-primary/70 mt-0.5">{client.service_title} · {client.service_price} OMR</p>
+                      )}
                     </div>
                     <button
                       onClick={() => removeMutation.mutate({ coachId: coach.id, clientId: client.id })}
@@ -503,7 +642,8 @@ function CoachesTab() {
               </div>
             )}
           </div>
-        ))
+          );
+        })
       )}
     </div>
   );
@@ -1233,7 +1373,8 @@ export default function AdminPanel() {
             <Shield className="w-5 h-5 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">{t("adminPanel.title")}</h1>
           </div>
-          <p className="text-sm text-muted-foreground mb-2">{user?.email}</p>
+          <p className="text-sm font-medium text-foreground/80 mt-0.5">{user?.fullName ?? user?.email}</p>
+          <p className="text-xs text-muted-foreground mb-2">{user?.fullName ? user?.email : ""}</p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setLocation("/coaches")}
               className="text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/50 h-7 px-2">
