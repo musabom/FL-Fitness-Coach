@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ArrowLeft, Camera, Loader2 } from "lucide-react";
@@ -36,15 +36,18 @@ export default function CoachProfileEditor() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const { isLoading } = useQuery<CoachProfileData>({
+  const { isLoading, data: profileData } = useQuery<CoachProfileData>({
     queryKey: ["/api/coach/profile"],
     queryFn: fetchCoachProfile,
-    onSuccess: (data) => {
-      setFullName(data.fullName ?? "");
-      setPhotoUrl(data.photoUrl);
-      setBio(data.bio ?? "");
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (profileData) {
+      setFullName(profileData.fullName ?? "");
+      setPhotoUrl(profileData.photoUrl ?? null);
+      setBio(profileData.bio ?? "");
+    }
+  }, [profileData]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import {
   Loader2, ChevronRight, User, Dumbbell, Utensils, Target,
   LayoutDashboard, LogOut, UserCircle2, Star, RefreshCw, Clock,
-  Users, TrendingUp, AlertTriangle, DollarSign, Search, X,
-  StickyNote, Plus, Trash2, ChevronDown, ChevronUp,
+  Users, AlertTriangle, DollarSign, Search, X,
+  StickyNote, Plus, Trash2, ChevronDown, ChevronUp, Briefcase,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -28,6 +28,14 @@ interface CoachClient {
   workoutCompliancePct: number | null;
   subscriptionStartedAt: string | null;
   subscriptionDaysLeft: number | null;
+}
+
+interface CoachService {
+  id: number;
+  title: string;
+  price: number | null;
+  specializations: string[];
+  isActive: boolean;
 }
 
 interface CoachStats {
@@ -202,6 +210,12 @@ export default function CoachClients() {
     refetchInterval: 60_000,
   });
 
+  const servicesQuery = useQuery<CoachService[]>({
+    queryKey: ["coach", "services"],
+    queryFn: () => customFetch<CoachService[]>("/api/coach/services"),
+  });
+  const services = (servicesQuery.data ?? []).filter(s => s.isActive);
+
   const allClients = clientsQuery.data ?? [];
   const stats = statsQuery.data;
 
@@ -241,13 +255,6 @@ export default function CoachClients() {
         </div>
         <div className="flex items-center gap-1.5">
           <LanguageSwitcher />
-          <button
-            onClick={() => setLocation("/coach/services")}
-            className="p-2 rounded-xl hover:bg-muted text-muted-foreground"
-            title="Manage Services"
-          >
-            <Star className="w-4.5 h-4.5" />
-          </button>
           <button
             onClick={() => setLocation("/coach/profile")}
             className="p-2 rounded-xl hover:bg-muted text-muted-foreground"
@@ -320,6 +327,60 @@ export default function CoachClients() {
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      {/* My Services Strip */}
+      <div className="pb-2">
+        <div className="px-5 flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">My Services</span>
+            {services.length > 0 && (
+              <span className="text-xs bg-primary/20 text-primary rounded-full px-1.5 py-0.5 font-medium">{services.length}</span>
+            )}
+          </div>
+          <button
+            onClick={() => setLocation("/coach/services")}
+            className="text-xs text-primary font-medium hover:underline"
+          >
+            Manage →
+          </button>
+        </div>
+        <div className="flex gap-2.5 overflow-x-auto px-5 pb-1 scrollbar-hide">
+          {services.length === 0 ? (
+            <button
+              onClick={() => setLocation("/coach/services")}
+              className="flex-shrink-0 flex items-center gap-2 border border-dashed border-border rounded-2xl px-4 py-3 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm">Add your first service</span>
+            </button>
+          ) : (
+            <>
+              {services.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setLocation("/coach/services")}
+                  className="flex-shrink-0 bg-card border border-card-border rounded-2xl px-4 py-3 text-left min-w-[160px] max-w-[200px] hover:border-primary/50 active:scale-[0.97] transition-all"
+                >
+                  <p className="text-sm font-semibold truncate">{s.title}</p>
+                  {s.price !== null && (
+                    <p className="text-xs text-primary font-medium mt-0.5">{s.price} AED</p>
+                  )}
+                  {s.specializations.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{s.specializations.slice(0, 2).join(" · ")}</p>
+                  )}
+                </button>
+              ))}
+              <button
+                onClick={() => setLocation("/coach/services")}
+                className="flex-shrink-0 flex items-center justify-center w-12 h-full border border-dashed border-border rounded-2xl hover:border-primary hover:text-primary text-muted-foreground transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* My Progress Banner */}
