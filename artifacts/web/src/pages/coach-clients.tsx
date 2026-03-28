@@ -9,13 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Loader2, ChevronRight, User, Dumbbell, Utensils, Target,
-  LayoutDashboard, LogOut, UserCircle2, Star, RefreshCw, Clock,
+  LayoutDashboard, LogOut, UserCircle2, RefreshCw, Clock,
   Users, AlertTriangle, TrendingUp, Search, X,
-  StickyNote, Plus, Trash2, ChevronDown, ChevronUp, Briefcase, CalendarClock,
+  StickyNote, Plus, Trash2, ChevronDown, ChevronUp, Briefcase,
+  CalendarClock, UserMinus, Bell,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
 
 interface CoachClient {
   id: number;
@@ -28,6 +32,11 @@ interface CoachClient {
   workoutCompliancePct: number | null;
   subscriptionStartedAt: string | null;
   subscriptionDaysLeft: number | null;
+  subscriptionStatus: string;
+  serviceId: number | null;
+  servicePrice: number | null;
+  serviceTitle: string | null;
+  isChurned: boolean;
 }
 
 interface CoachService {
@@ -43,7 +52,15 @@ interface CoachStats {
   monthlyRevenue: number;
   expiringSoon: number;
   renewingThisWeek: number;
+  churnedCount: number;
   goalCounts: Record<string, number>;
+}
+
+interface RevenueMonth {
+  month: string;
+  label: string;
+  revenue: number;
+  newClients: number;
 }
 
 interface ClientNote {
@@ -84,7 +101,7 @@ function isAtRisk(client: CoachClient) {
   return false;
 }
 
-type FilterTab = "all" | "at-risk" | "expiring";
+type FilterTab = "all" | "at-risk" | "expiring" | "churned";
 
 // ── Notes drawer ──────────────────────────────────────────────────────────────
 function NotesDrawer({ client, onClose }: { client: CoachClient; onClose: () => void }) {
@@ -127,7 +144,6 @@ function NotesDrawer({ client, onClose }: { client: CoachClient; onClose: () => 
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
       className="fixed inset-x-0 bottom-0 z-50 bg-background border-t border-border rounded-t-3xl shadow-2xl max-h-[75vh] flex flex-col"
     >
-      {/* Handle */}
       <div className="flex justify-center pt-3 pb-1">
         <div className="w-10 h-1 bg-border rounded-full" />
       </div>
@@ -142,7 +158,6 @@ function NotesDrawer({ client, onClose }: { client: CoachClient; onClose: () => 
         </button>
       </div>
 
-      {/* Notes list */}
       <div className="flex-1 overflow-y-auto px-5 space-y-2 pb-2">
         {notesQuery.isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
@@ -164,7 +179,6 @@ function NotesDrawer({ client, onClose }: { client: CoachClient; onClose: () => 
         ))}
       </div>
 
-      {/* Add note input */}
       <div className="px-5 pb-6 pt-3 border-t border-border flex gap-2">
         <Input
           value={text}
@@ -184,6 +198,38 @@ function NotesDrawer({ client, onClose }: { client: CoachClient; onClose: () => 
         </Button>
       </div>
     </motion.div>
+  );
+}
+
+// ── Revenue History Chart ─────────────────────────────────────────────────────
+function RevenueChart() {
+  const { data, isLoading } = useQuery<RevenueMonth[]>({
+    queryKey: ["coach", "revenue-history"],
+    queryFn: () => customFetch<RevenueMonth[]>("/api/coach/revenue-history"),
+  });
+
+  if (isLoading) return <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-primary" /></div>;
+  if (!data || data.every(m => m.revenue === 0)) return (
+    <div className="text-center py-4 text-xs text-muted-foreground">No subscription history yet</div>
+  );
+
+  return (
+    <div className="mt-2 bg-card border border-card-border rounded-2xl p-3">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">New Revenue by Month (OMR)</p>
+      <ResponsiveContainer width="100%" height={100}>
+        <BarChart data={data} margin={{ top: 0, right: 0, left: -28, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+          <Tooltip
+            contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+            formatter={(v: number) => [`${v} OMR`, "Revenue"]}
+            labelStyle={{ color: "var(--foreground)" }}
+          />
+          <Bar dataKey="revenue" fill="var(--primary)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -220,6 +266,11 @@ export default function CoachClients() {
   const allClients = clientsQuery.data ?? [];
   const stats = statsQuery.data;
 
+  // Renewal alert: clients expiring in ≤3 days
+  const urgentRenewals = allClients.filter(c =>
+    !c.isChurned && c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 3
+  );
+
   const filteredClients = allClients
     .filter(c => {
       if (search) {
@@ -229,12 +280,15 @@ export default function CoachClients() {
       return true;
     })
     .filter(c => {
-      if (filterTab === "at-risk") return isAtRisk(c);
-      if (filterTab === "expiring") return c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 5;
-      return true;
+      if (filterTab === "at-risk") return !c.isChurned && isAtRisk(c);
+      if (filterTab === "expiring") return !c.isChurned && c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 5;
+      if (filterTab === "churned") return c.isChurned;
+      return !c.isChurned; // "all" hides churned — they're in their own tab
     });
 
-  const atRiskCount = allClients.filter(isAtRisk).length;
+  const activeClients = allClients.filter(c => !c.isChurned);
+  const atRiskCount = activeClients.filter(isAtRisk).length;
+  const churnedCount = allClients.filter(c => c.isChurned).length;
 
   const handleSelectClient = (client: CoachClient) => {
     setActiveClient({ id: client.id, name: client.fullName || client.email, email: client.email, mode: "coach" });
@@ -273,6 +327,28 @@ export default function CoachClients() {
         </div>
       </header>
 
+      {/* Renewal Alert Banner */}
+      <AnimatePresence>
+        {urgentRenewals.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-5 mb-2"
+          >
+            <div className="bg-destructive/10 border border-destructive/30 rounded-2xl px-4 py-2.5 flex items-center gap-3">
+              <Bell className="w-4 h-4 text-destructive flex-shrink-0" />
+              <p className="text-xs text-destructive font-medium flex-1">
+                {urgentRenewals.length === 1
+                  ? `${urgentRenewals[0].fullName || urgentRenewals[0].email} renews in ${urgentRenewals[0].subscriptionDaysLeft}d — follow up!`
+                  : `${urgentRenewals.length} clients renewing within 3 days — follow up!`
+                }
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Stats Cards */}
       <div className="px-5 pb-3">
         <button
@@ -286,7 +362,7 @@ export default function CoachClients() {
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-card border border-card-border rounded-2xl p-3 text-center">
             <Users className="w-4 h-4 text-primary mx-auto mb-1" />
-            <p className="text-xl font-bold">{stats?.totalClients ?? allClients.length}</p>
+            <p className="text-xl font-bold">{stats?.totalClients ?? activeClients.length}</p>
             <p className="text-xs text-muted-foreground">Clients</p>
           </div>
           <div className={`bg-card border rounded-2xl p-3 text-center ${atRiskCount > 0 ? "border-destructive/40" : "border-card-border"}`}>
@@ -309,8 +385,8 @@ export default function CoachClients() {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden mt-2"
             >
+              {/* Financial row */}
               <div className="flex gap-2">
-                {/* Revenue card */}
                 <div className="flex-1 bg-card border border-card-border rounded-2xl p-3 flex items-center gap-3">
                   <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
                   <div>
@@ -318,7 +394,6 @@ export default function CoachClients() {
                     <p className="text-xs text-muted-foreground">Monthly revenue</p>
                   </div>
                 </div>
-                {/* Renewals card */}
                 <div className={`flex-1 bg-card border rounded-2xl p-3 flex items-center gap-3 ${(stats?.renewingThisWeek ?? 0) > 0 ? "border-yellow-500/40" : "border-card-border"}`}>
                   <CalendarClock className={`w-5 h-5 flex-shrink-0 ${(stats?.renewingThisWeek ?? 0) > 0 ? "text-yellow-500" : "text-muted-foreground"}`} />
                   <div>
@@ -326,7 +401,16 @@ export default function CoachClients() {
                     <p className="text-xs text-muted-foreground">Renewing this week</p>
                   </div>
                 </div>
+                <div className={`flex-1 bg-card border rounded-2xl p-3 flex items-center gap-3 ${(stats?.churnedCount ?? 0) > 0 ? "border-destructive/30" : "border-card-border"}`}>
+                  <UserMinus className={`w-5 h-5 flex-shrink-0 ${(stats?.churnedCount ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${(stats?.churnedCount ?? 0) > 0 ? "text-destructive" : ""}`}>{stats?.churnedCount ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Churned</p>
+                  </div>
+                </div>
               </div>
+
+              {/* Goal distribution pills */}
               {stats?.goalCounts && Object.keys(stats.goalCounts).length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {Object.entries(stats.goalCounts).map(([g, n]) => (
@@ -336,6 +420,9 @@ export default function CoachClients() {
                   ))}
                 </div>
               )}
+
+              {/* Revenue history chart */}
+              <RevenueChart />
             </motion.div>
           )}
         </AnimatePresence>
@@ -424,18 +511,27 @@ export default function CoachClients() {
           )}
         </div>
 
-        <div className="flex gap-1.5">
-          {(["all", "at-risk", "expiring"] as FilterTab[]).map(tab => (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+          {(["all", "at-risk", "expiring", "churned"] as FilterTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setFilterTab(tab)}
-              className={`flex-1 text-xs font-medium py-1.5 rounded-xl transition-colors ${
+              className={`flex-shrink-0 flex-1 text-xs font-medium py-1.5 rounded-xl transition-colors min-w-[60px] ${
                 filterTab === tab
-                  ? "bg-primary text-primary-foreground"
+                  ? tab === "churned"
+                    ? "bg-destructive text-white"
+                    : "bg-primary text-primary-foreground"
                   : "bg-card border border-card-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {tab === "all" ? `All (${allClients.length})` : tab === "at-risk" ? `At Risk (${atRiskCount})` : `Expiring (${stats?.expiringSoon ?? 0})`}
+              {tab === "all"
+                ? `All (${activeClients.length})`
+                : tab === "at-risk"
+                ? `At Risk (${atRiskCount})`
+                : tab === "expiring"
+                ? `Expiring (${stats?.expiringSoon ?? 0})`
+                : `Churned (${churnedCount})`
+              }
             </button>
           ))}
         </div>
@@ -449,16 +545,25 @@ export default function CoachClients() {
           </div>
         ) : filteredClients.length === 0 ? (
           <div className="text-center py-16">
-            <User className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">
-              {search || filterTab !== "all" ? "No clients match this filter" : "No clients assigned yet"}
-            </p>
-            {!search && filterTab === "all" && (
-              <Button variant="ghost" size="sm" className="mt-4 gap-2 text-muted-foreground"
-                onClick={() => clientsQuery.refetch()} disabled={clientsQuery.isFetching}>
-                <RefreshCw className={`w-3.5 h-3.5 ${clientsQuery.isFetching ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
+            {filterTab === "churned" ? (
+              <>
+                <UserMinus className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">No churned clients</p>
+              </>
+            ) : (
+              <>
+                <User className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">
+                  {search || filterTab !== "all" ? "No clients match this filter" : "No clients assigned yet"}
+                </p>
+                {!search && filterTab === "all" && (
+                  <Button variant="ghost" size="sm" className="mt-4 gap-2 text-muted-foreground"
+                    onClick={() => clientsQuery.refetch()} disabled={clientsQuery.isFetching}>
+                    <RefreshCw className={`w-3.5 h-3.5 ${clientsQuery.isFetching ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -468,52 +573,71 @@ export default function CoachClients() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              className={`bg-card border rounded-2xl p-4 ${isAtRisk(client) ? "border-destructive/30" : "border-card-border"}`}
+              className={`bg-card border rounded-2xl p-4 ${
+                client.isChurned
+                  ? "border-destructive/20 opacity-70"
+                  : isAtRisk(client)
+                  ? "border-destructive/30"
+                  : "border-card-border"
+              }`}
             >
-              {/* Top row: avatar + name + navigate button */}
+              {/* Top row */}
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-primary" />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${client.isChurned ? "bg-muted" : "bg-primary/10"}`}>
+                  <User className={`w-5 h-5 ${client.isChurned ? "text-muted-foreground" : "text-primary"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{client.fullName || "—"}</p>
                   <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                  {client.serviceTitle && (
+                    <p className="text-xs text-primary/70 truncate">{client.serviceTitle} · {client.servicePrice ?? "—"} OMR</p>
+                  )}
                 </div>
-                {isAtRisk(client) && (
+                {client.isChurned && (
+                  <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">Churned</span>
+                )}
+                {!client.isChurned && isAtRisk(client) && (
                   <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">At risk</span>
                 )}
-                <button
-                  onClick={() => handleSelectClient(client)}
-                  className="p-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex-shrink-0"
-                  title="View client dashboard"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                {!client.isChurned && (
+                  <button
+                    onClick={() => handleSelectClient(client)}
+                    className="p-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex-shrink-0"
+                    title="View client dashboard"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               {/* Compliance + goal */}
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex flex-col gap-1.5">
-                  <ComplianceBadge pct={client.mealCompliancePct} label="Meals" icon={Utensils} />
-                  <ComplianceBadge pct={client.workoutCompliancePct} label="Workout" icon={Dumbbell} />
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end mb-0.5">
-                    <Target className="w-3 h-3" />
-                    <span>{goalLabel(client.goalMode)}</span>
+              {!client.isChurned && (
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex flex-col gap-1.5">
+                    <ComplianceBadge pct={client.mealCompliancePct} label="Meals" icon={Utensils} />
+                    <ComplianceBadge pct={client.workoutCompliancePct} label="Workout" icon={Dumbbell} />
                   </div>
-                  {client.weightKg && (
-                    <p className="text-xs text-muted-foreground">{client.weightKg}kg → {client.targetWeightKg ?? "?"}kg</p>
-                  )}
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end mb-0.5">
+                      <Target className="w-3 h-3" />
+                      <span>{goalLabel(client.goalMode)}</span>
+                    </div>
+                    {client.weightKg && (
+                      <p className="text-xs text-muted-foreground">{client.weightKg}kg → {client.targetWeightKg ?? "?"}kg</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Bottom row: subscription + notes button */}
               <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                {client.subscriptionDaysLeft !== null ? (
-                  <div className={`flex items-center gap-1.5 text-xs ${client.subscriptionDaysLeft <= 5 ? "text-destructive" : "text-muted-foreground"}`}>
+                {client.isChurned ? (
+                  <p className="text-xs text-muted-foreground">Subscription lapsed</p>
+                ) : client.subscriptionDaysLeft !== null ? (
+                  <div className={`flex items-center gap-1.5 text-xs ${client.subscriptionDaysLeft <= 3 ? "text-destructive font-semibold" : client.subscriptionDaysLeft <= 5 ? "text-yellow-500" : "text-muted-foreground"}`}>
                     <Clock className="w-3 h-3 flex-shrink-0" />
                     <span>{client.subscriptionDaysLeft}d left</span>
+                    {client.subscriptionDaysLeft <= 3 && <Bell className="w-3 h-3" />}
                   </div>
                 ) : <div />}
 

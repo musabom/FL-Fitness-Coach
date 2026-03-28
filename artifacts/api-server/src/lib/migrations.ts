@@ -586,7 +586,22 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_prt_user ON password_reset_tokens(user_id)`);
 
+  // ── Auth Flexibility ─────────────────────────────────────────────────────────
+  // Make provider/provider_id nullable to support password-based auth
+  await pool.query(`ALTER TABLE users ALTER COLUMN provider DROP NOT NULL`);
+  await pool.query(`ALTER TABLE users ALTER COLUMN provider_id DROP NOT NULL`);
+
   // ── Role System ──────────────────────────────────────────────────────────────
+  // Add core user columns if missing (needed for local/password auth)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) NOT NULL DEFAULT 'member'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) NOT NULL DEFAULT 'free'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_consent BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB NOT NULL DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_started_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`);
+
   // coach_id: which coach is assigned to this user (member)
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_coach_id ON users(coach_id)`);
@@ -596,6 +611,20 @@ async function runMigrationsInternal(): Promise<void> {
 
   // Ensure role column exists with correct default
   await pool.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'member'`);
+
+  // ── Coach Profiles ──────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coach_profiles (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      bio TEXT,
+      photo_url TEXT,
+      specializations TEXT[] DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_profiles_user ON coach_profiles(user_id)`);
 
   // ── Coach Services ──────────────────────────────────────────────────────────
   await pool.query(`
@@ -616,15 +645,38 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_coach ON coach_services(coach_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_active ON coach_services(is_active)`);
 
-  // Coach client notes
+  // ── Click Logs ───────────────────────────────────────────────────────────────
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS coach_client_notes (
-      id          SERIAL PRIMARY KEY,
-      coach_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      client_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      note        TEXT NOT NULL,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS click_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      session_id TEXT,
+      event_type TEXT NOT NULL DEFAULT 'click',
+      element_tag TEXT,
+      element_text TEXT,
+      element_id TEXT,
+      element_class TEXT,
+      page TEXT,
+      metadata JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_ccn_coach_client ON coach_client_notes(coach_id, client_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_click_logs_created_at ON click_logs(created_at)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_click_logs_user_id ON click_logs(user_id)`);
+
+  // ── Plans: extended columns ───────────────────────────────────────────────────
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS summary_text TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_height_cm INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_age INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_gender TEXT NOT NULL DEFAULT 'male'`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS snapshot_activity_level TEXT`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS training_split TEXT`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS weeks_in_deficit INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS diet_break_due BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS trigger TEXT NOT NULL DEFAULT 'onboarding'`);
+  await pool.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE`);
+
+  // ── Per-client service tagging ───────────────────────────────────────────────
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS service_id INTEGER REFERENCES coach_services(id) ON DELETE SET NULL`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_service_id ON users(service_id)`);
 }

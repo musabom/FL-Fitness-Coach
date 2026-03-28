@@ -40,9 +40,11 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
     SELECT
       u.id, u.email, u.full_name,
       up.goal_mode, up.weight_kg, up.target_weight_kg,
-      u.subscription_started_at
+      u.subscription_started_at, u.subscription_status,
+      u.service_id, cs.price AS service_price, cs.title AS service_title
     FROM users u
     LEFT JOIN user_profiles up ON up.user_id = u.id
+    LEFT JOIN coach_services cs ON cs.id = u.service_id
     WHERE u.coach_id = $1
     ORDER BY u.full_name
   `, [caller.userId]);
@@ -95,11 +97,14 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
     }
 
     let subscriptionDaysLeft: number | null = null;
+    const msPerDay = 86400000;
     if (client.subscription_started_at) {
-      const msPerDay = 86400000;
       const daysElapsed = Math.floor((Date.now() - new Date(client.subscription_started_at).getTime()) / msPerDay);
       subscriptionDaysLeft = 30 - (daysElapsed % 30);
     }
+
+    // Churned: subscription_status is 'free' but they have a coach (was paying, now lapsed)
+    const isChurned = client.subscription_status === "free" && client.subscription_started_at !== null;
 
     enriched.push({
       id: client.id,
@@ -112,6 +117,11 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
       workoutCompliancePct: workoutCompliance,
       subscriptionStartedAt: client.subscription_started_at ?? null,
       subscriptionDaysLeft,
+      subscriptionStatus: client.subscription_status ?? "free",
+      serviceId: client.service_id ?? null,
+      servicePrice: client.service_price ? Number(client.service_price) : null,
+      serviceTitle: client.service_title ?? null,
+      isChurned,
     });
   }
 
@@ -343,33 +353,35 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
   if (!caller) return;
 
   const clientsRes = await pool.query(
-    `SELECT u.id, u.subscription_started_at, up.goal_mode
+    `SELECT u.id, u.subscription_started_at, u.subscription_status, up.goal_mode,
+            u.service_id, cs.price AS service_price
      FROM users u
      LEFT JOIN user_profiles up ON up.user_id = u.id
+     LEFT JOIN coach_services cs ON cs.id = u.service_id
      WHERE u.coach_id = $1`,
     [caller.userId]
   );
   const clients = clientsRes.rows;
-  const totalClients = clients.length;
 
-  // Real revenue: sum of active service prices × number of active clients
-  // Since there is no per-client service link yet, use the average price of the coach's active services
-  const servicesRes = await pool.query(
-    `SELECT COALESCE(SUM(price), 0) as total_price, COUNT(*) as service_count
-     FROM coach_services WHERE coach_id = $1 AND is_active = true`,
+  // Active = not churned (subscription_status != 'free' OR no subscription yet)
+  const activeClients = clients.filter(c => c.subscription_status !== "free" || c.subscription_started_at === null);
+  const churnedClients = clients.filter(c => c.subscription_status === "free" && c.subscription_started_at !== null);
+  const totalClients = activeClients.length;
+
+  // Real revenue: sum of each active client's service price (exact if tagged, else avg fallback)
+  const avgRes = await pool.query(
+    `SELECT COALESCE(AVG(price), 0) as avg_price FROM coach_services WHERE coach_id = $1 AND is_active = true`,
     [caller.userId]
   );
-  const svcRow = servicesRes.rows[0];
-  const serviceCount = parseInt(svcRow?.service_count ?? "0");
-  const avgServicePrice = serviceCount > 0
-    ? parseFloat(svcRow?.total_price ?? "0") / serviceCount
-    : 0;
-  const monthlyRevenue = Math.round(totalClients * avgServicePrice * 1000) / 1000;
+  const avgFallback = parseFloat(avgRes.rows[0]?.avg_price ?? "0");
+  const monthlyRevenue = Math.round(
+    activeClients.reduce((sum, c) => sum + (c.service_price ? Number(c.service_price) : avgFallback), 0) * 1000
+  ) / 1000;
 
   // Clients expiring within 5 days
   const now = Date.now();
   const msPerDay = 86400000;
-  const expiringSoon = clients.filter(c => {
+  const expiringSoon = activeClients.filter(c => {
     if (!c.subscription_started_at) return false;
     const daysElapsed = Math.floor((now - new Date(c.subscription_started_at).getTime()) / msPerDay);
     const daysLeft = 30 - (daysElapsed % 30);
@@ -377,21 +389,67 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
   }).length;
 
   // Clients renewing within the next 7 days
-  const renewingThisWeek = clients.filter(c => {
+  const renewingThisWeek = activeClients.filter(c => {
     if (!c.subscription_started_at) return false;
     const daysElapsed = Math.floor((now - new Date(c.subscription_started_at).getTime()) / msPerDay);
     const daysLeft = 30 - (daysElapsed % 30);
     return daysLeft <= 7;
   }).length;
 
-  // Goal distribution
+  // Goal distribution (active only)
   const goalCounts: Record<string, number> = {};
-  for (const c of clients) {
+  for (const c of activeClients) {
     const g = c.goal_mode ?? "unknown";
     goalCounts[g] = (goalCounts[g] ?? 0) + 1;
   }
 
-  res.json({ totalClients, monthlyRevenue, expiringSoon, renewingThisWeek, goalCounts });
+  res.json({ totalClients, monthlyRevenue, expiringSoon, renewingThisWeek, churnedCount: churnedClients.length, goalCounts });
+});
+
+// GET /coach/revenue-history — last 6 months of revenue based on subscription_started_at
+router.get("/coach/revenue-history", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  // Get avg service price as fallback
+  const avgRes = await pool.query(
+    `SELECT COALESCE(AVG(price), 0) as avg_price FROM coach_services WHERE coach_id = $1 AND is_active = true`,
+    [caller.userId]
+  );
+  const avgPrice = parseFloat(avgRes.rows[0]?.avg_price ?? "0");
+
+  // Get all clients with their subscription_started_at and service price
+  const clientsRes = await pool.query(
+    `SELECT u.subscription_started_at, cs.price AS service_price
+     FROM users u
+     LEFT JOIN coach_services cs ON cs.id = u.service_id
+     WHERE u.coach_id = $1 AND u.subscription_started_at IS NOT NULL`,
+    [caller.userId]
+  );
+
+  // Build last 6 months buckets
+  const months: { month: string; label: string; revenue: number; newClients: number }[] = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleString("en", { month: "short", year: "2-digit" });
+    months.push({ month: monthKey, label, revenue: 0, newClients: 0 });
+  }
+
+  // Count new clients who started in each month
+  for (const client of clientsRes.rows) {
+    const d = new Date(client.subscription_started_at);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = months.find(m => m.month === monthKey);
+    if (bucket) {
+      const price = client.service_price ? Number(client.service_price) : avgPrice;
+      bucket.newClients++;
+      bucket.revenue += price;
+    }
+  }
+
+  res.json(months);
 });
 
 // GET /coach/clients/:id/notes — get notes for a client
