@@ -101,31 +101,35 @@ router.delete("/admin/users/:id", async (req, res): Promise<void> => {
     await client.query(`UPDATE users SET coach_id = NULL WHERE coach_id = $1`, [targetId]);
 
     // Delete all related data in dependency order (leaf tables first)
-    await client.query(`DELETE FROM meal_portion_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_plan_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_plan_exclusions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_plan_entries WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_schedule WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_logs WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_meals WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_foods WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM food_stock WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_exercise_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_plan_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_plan_exclusions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_plan_entries WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_schedule WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_sessions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_workouts WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM exercises WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM weight_history WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM weekly_checkins WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM adjustment_logs WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM plans WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_profiles WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM coach_services WHERE coach_id = $1`, [targetId]);
-    await client.query(`DELETE FROM coach_profiles WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [targetId]);
+    // Using DO blocks to safely skip tables that may not exist yet
+    const safeDelete = (table: string, col: string) =>
+      client.query(`DO $$ BEGIN IF EXISTS (SELECT FROM information_schema.tables WHERE table_name='${table}') THEN DELETE FROM ${table} WHERE ${col} = ${targetId}; END IF; END $$`);
+
+    await safeDelete('meal_portion_completions', 'user_id');
+    await safeDelete('meal_plan_completions', 'user_id');
+    await safeDelete('meal_plan_exclusions', 'user_id');
+    await safeDelete('meal_plan_entries', 'user_id');
+    await safeDelete('meal_schedule', 'user_id');
+    await safeDelete('meal_logs', 'user_id');
+    await safeDelete('user_meals', 'user_id');
+    await safeDelete('user_foods', 'user_id');
+    await safeDelete('food_stock', 'user_id');
+    await safeDelete('workout_exercise_completions', 'user_id');
+    await safeDelete('workout_plan_completions', 'user_id');
+    await safeDelete('workout_plan_exclusions', 'user_id');
+    await safeDelete('workout_plan_entries', 'user_id');
+    await safeDelete('workout_schedule', 'user_id');
+    await safeDelete('workout_sessions', 'user_id');
+    await safeDelete('user_workouts', 'user_id');
+    await safeDelete('exercises', 'user_id');
+    await safeDelete('weight_history', 'user_id');
+    await safeDelete('weekly_checkins', 'user_id');
+    await safeDelete('adjustment_logs', 'user_id');
+    await safeDelete('plans', 'user_id');
+    await safeDelete('user_profiles', 'user_id');
+    await safeDelete('coach_services', 'coach_id');
+    await safeDelete('coach_profiles', 'user_id');
+    await safeDelete('password_reset_tokens', 'user_id');
     await client.query(`DELETE FROM session WHERE sess->>'userId' = $1`, [String(targetId)]).catch(() => {});
 
     // Finally delete the user
