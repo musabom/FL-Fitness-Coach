@@ -78,10 +78,10 @@ export default function Onboarding() {
   const totalSteps = 3;
 
   const [formData, setFormData] = useState<OnboardingFormData>({
-    heightCm: "",
-    weightKg: "",
-    targetWeightKg: "",
-    age: "",
+    heightCm: "170",
+    weightKg: "80",
+    targetWeightKg: "75",
+    age: "28",
     gender: "",
     goalMode: "",
     activityLevel: "",
