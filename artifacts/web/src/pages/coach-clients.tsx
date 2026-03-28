@@ -36,7 +36,7 @@ interface CoachClient {
   serviceId: number | null;
   servicePrice: number | null;
   serviceTitle: string | null;
-  isChurned: boolean;
+  isInactive: boolean;
   isCancelling: boolean;
 }
 
@@ -53,7 +53,7 @@ interface CoachStats {
   monthlyRevenue: number;
   expiringSoon: number;
   renewingThisWeek: number;
-  churnedCount: number;
+  inactiveCount: number;
   goalCounts: Record<string, number>;
 }
 
@@ -102,7 +102,7 @@ function isAtRisk(client: CoachClient) {
   return false;
 }
 
-type FilterTab = "all" | "at-risk" | "expiring" | "churned";
+type FilterTab = "all" | "at-risk" | "expiring" | "inactive";
 
 // ── Notes drawer ──────────────────────────────────────────────────────────────
 function NotesDrawer({ client, onClose }: { client: CoachClient; onClose: () => void }) {
@@ -269,7 +269,7 @@ export default function CoachClients() {
 
   // Renewal alert: clients expiring in ≤3 days
   const urgentRenewals = allClients.filter(c =>
-    !c.isChurned && c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 3
+    !c.isInactive && c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 3
   );
 
   const filteredClients = allClients
@@ -281,15 +281,15 @@ export default function CoachClients() {
       return true;
     })
     .filter(c => {
-      if (filterTab === "at-risk") return !c.isChurned && isAtRisk(c);
-      if (filterTab === "expiring") return !c.isChurned && c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 5;
-      if (filterTab === "churned") return c.isChurned;
-      return !c.isChurned; // "all" hides churned — they're in their own tab
+      if (filterTab === "at-risk") return !c.isInactive && isAtRisk(c);
+      if (filterTab === "expiring") return !c.isInactive && c.subscriptionDaysLeft !== null && c.subscriptionDaysLeft <= 5;
+      if (filterTab === "inactive") return c.isInactive;
+      return !c.isInactive; // "all" hides inactive — they're in their own tab
     });
 
-  const activeClients = allClients.filter(c => !c.isChurned);
+  const activeClients = allClients.filter(c => !c.isInactive);
   const atRiskCount = activeClients.filter(isAtRisk).length;
-  const churnedCount = allClients.filter(c => c.isChurned).length;
+  const inactiveCount = allClients.filter(c => c.isInactive).length;
 
   const handleSelectClient = (client: CoachClient) => {
     setActiveClient({ id: client.id, name: client.fullName || client.email, email: client.email, mode: "coach" });
@@ -402,11 +402,11 @@ export default function CoachClients() {
                     <p className="text-xs text-muted-foreground">Renewing this week</p>
                   </div>
                 </div>
-                <div className={`flex-1 bg-card border rounded-2xl p-3 flex items-center gap-3 ${(stats?.churnedCount ?? 0) > 0 ? "border-destructive/30" : "border-card-border"}`}>
-                  <UserMinus className={`w-5 h-5 flex-shrink-0 ${(stats?.churnedCount ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+                <div className={`flex-1 bg-card border rounded-2xl p-3 flex items-center gap-3 ${(stats?.inactiveCount ?? 0) > 0 ? "border-destructive/30" : "border-card-border"}`}>
+                  <UserMinus className={`w-5 h-5 flex-shrink-0 ${(stats?.inactiveCount ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"}`} />
                   <div>
-                    <p className={`text-sm font-semibold ${(stats?.churnedCount ?? 0) > 0 ? "text-destructive" : ""}`}>{stats?.churnedCount ?? 0}</p>
-                    <p className="text-xs text-muted-foreground">Churned</p>
+                    <p className={`text-sm font-semibold ${(stats?.inactiveCount ?? 0) > 0 ? "text-destructive" : ""}`}>{stats?.inactiveCount ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Inactive</p>
                   </div>
                 </div>
               </div>
@@ -513,13 +513,13 @@ export default function CoachClients() {
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-          {(["all", "at-risk", "expiring", "churned"] as FilterTab[]).map(tab => (
+          {(["all", "at-risk", "expiring", "inactive"] as FilterTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setFilterTab(tab)}
               className={`flex-shrink-0 flex-1 text-xs font-medium py-1.5 rounded-xl transition-colors min-w-[60px] ${
                 filterTab === tab
-                  ? tab === "churned"
+                  ? tab === "inactive"
                     ? "bg-destructive text-white"
                     : "bg-primary text-primary-foreground"
                   : "bg-card border border-card-border text-muted-foreground hover:text-foreground"
@@ -531,7 +531,7 @@ export default function CoachClients() {
                 ? `At Risk (${atRiskCount})`
                 : tab === "expiring"
                 ? `Expiring (${stats?.expiringSoon ?? 0})`
-                : `Churned (${churnedCount})`
+                : `Inactive (${inactiveCount})`
               }
             </button>
           ))}
@@ -546,10 +546,10 @@ export default function CoachClients() {
           </div>
         ) : filteredClients.length === 0 ? (
           <div className="text-center py-16">
-            {filterTab === "churned" ? (
+            {filterTab === "inactive" ? (
               <>
                 <UserMinus className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">No churned clients</p>
+                <p className="text-muted-foreground text-sm">No inactive clients</p>
               </>
             ) : (
               <>
@@ -575,7 +575,7 @@ export default function CoachClients() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
               className={`bg-card border rounded-2xl p-4 ${
-                client.isChurned
+                client.isInactive
                   ? "border-destructive/20 opacity-70"
                   : isAtRisk(client)
                   ? "border-destructive/30"
@@ -584,8 +584,8 @@ export default function CoachClients() {
             >
               {/* Top row */}
               <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${client.isChurned ? "bg-muted" : "bg-primary/10"}`}>
-                  <User className={`w-5 h-5 ${client.isChurned ? "text-muted-foreground" : "text-primary"}`} />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${client.isInactive ? "bg-muted" : "bg-primary/10"}`}>
+                  <User className={`w-5 h-5 ${client.isInactive ? "text-muted-foreground" : "text-primary"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{client.fullName || "—"}</p>
@@ -594,16 +594,16 @@ export default function CoachClients() {
                     <p className="text-xs text-primary/70 truncate">{client.serviceTitle} · {client.servicePrice ?? "—"} OMR</p>
                   )}
                 </div>
-                {client.isChurned && (
-                  <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">Churned</span>
+                {client.isInactive && (
+                  <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">Inactive</span>
                 )}
-                {!client.isChurned && client.isCancelling && (
+                {!client.isInactive && client.isCancelling && (
                   <span className="text-xs text-yellow-600 font-medium bg-yellow-500/10 px-2 py-0.5 rounded-full">Leaving</span>
                 )}
-                {!client.isChurned && !client.isCancelling && isAtRisk(client) && (
+                {!client.isInactive && !client.isCancelling && isAtRisk(client) && (
                   <span className="text-xs text-destructive font-medium bg-destructive/10 px-2 py-0.5 rounded-full">At risk</span>
                 )}
-                {!client.isChurned && (
+                {!client.isInactive && (
                   <button
                     onClick={() => handleSelectClient(client)}
                     className="p-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex-shrink-0"
@@ -615,7 +615,7 @@ export default function CoachClients() {
               </div>
 
               {/* Compliance + goal */}
-              {!client.isChurned && (
+              {!client.isInactive && (
                 <div className="flex items-center justify-between mb-2.5">
                   <div className="flex flex-col gap-1.5">
                     <ComplianceBadge pct={client.mealCompliancePct} label="Meals" icon={Utensils} />
@@ -635,7 +635,7 @@ export default function CoachClients() {
 
               {/* Bottom row: subscription + notes button */}
               <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                {client.isChurned ? (
+                {client.isInactive ? (
                   <p className="text-xs text-muted-foreground">Subscription lapsed</p>
                 ) : client.subscriptionDaysLeft !== null ? (
                   <div className={`flex items-center gap-1.5 text-xs ${client.subscriptionDaysLeft <= 3 ? "text-destructive font-semibold" : client.subscriptionDaysLeft <= 5 ? "text-yellow-500" : "text-muted-foreground"}`}>

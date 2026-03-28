@@ -103,9 +103,9 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
       subscriptionDaysLeft = 30 - (daysElapsed % 30);
     }
 
-    // Churned: subscription_status is 'free' but they have a coach (was paying, now lapsed)
+    // Inactive: subscription_status is 'free' but they have a coach (was paying, now lapsed)
     // 'cancelling' = still active, leaving at end of period — coach must serve them
-    const isChurned = client.subscription_status === "free" && client.subscription_started_at !== null;
+    const isInactive = client.subscription_status === "free" && client.subscription_started_at !== null;
     const isCancelling = client.subscription_status === "cancelling";
 
     enriched.push({
@@ -123,7 +123,7 @@ router.get("/coach/clients", async (req, res): Promise<void> => {
       serviceId: client.service_id ?? null,
       servicePrice: client.service_price ? Number(client.service_price) : null,
       serviceTitle: client.service_title ?? null,
-      isChurned,
+      isInactive,
       isCancelling,
     });
   }
@@ -366,9 +366,9 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
   );
   const clients = clientsRes.rows;
 
-  // Active = not churned (subscription_status != 'free' OR no subscription yet)
+  // Active = not inactive (subscription_status != 'free' OR no subscription yet)
   const activeClients = clients.filter(c => c.subscription_status !== "free" || c.subscription_started_at === null);
-  const churnedClients = clients.filter(c => c.subscription_status === "free" && c.subscription_started_at !== null);
+  const inactiveClients = clients.filter(c => c.subscription_status === "free" && c.subscription_started_at !== null);
   const totalClients = activeClients.length;
 
   // Real revenue: sum of each active client's service price (exact if tagged, else avg fallback)
@@ -406,7 +406,7 @@ router.get("/coach/stats", async (req, res): Promise<void> => {
     goalCounts[g] = (goalCounts[g] ?? 0) + 1;
   }
 
-  res.json({ totalClients, monthlyRevenue, expiringSoon, renewingThisWeek, churnedCount: churnedClients.length, goalCounts });
+  res.json({ totalClients, monthlyRevenue, expiringSoon, renewingThisWeek, inactiveCount: inactiveClients.length, goalCounts });
 });
 
 // GET /coach/revenue-history — last 6 months of revenue based on subscription_started_at
