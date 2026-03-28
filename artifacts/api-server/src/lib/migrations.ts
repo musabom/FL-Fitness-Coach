@@ -615,4 +615,16 @@ async function runMigrationsInternal(): Promise<void> {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_coach ON coach_services(coach_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_coach_services_active ON coach_services(is_active)`);
+
+  // Coach client notes
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coach_client_notes (
+      id          SERIAL PRIMARY KEY,
+      coach_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      note        TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_ccn_coach_client ON coach_client_notes(coach_id, client_id)`);
 }

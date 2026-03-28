@@ -337,6 +337,116 @@ router.delete("/coach/services/:id", async (req, res): Promise<void> => {
   res.json({ message: "Service deleted" });
 });
 
+// GET /coach/stats — summary stats for the coach dashboard
+router.get("/coach/stats", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const clientsRes = await pool.query(
+    `SELECT u.id, u.subscription_started_at, up.goal_mode
+     FROM users u
+     LEFT JOIN user_profiles up ON up.user_id = u.id
+     WHERE u.coach_id = $1`,
+    [caller.userId]
+  );
+  const clients = clientsRes.rows;
+  const totalClients = clients.length;
+
+  // Revenue estimate: clients * 100 AED/month (placeholder — replace with real subscription data)
+  const monthlyRevenue = totalClients * 100;
+
+  // Clients expiring within 5 days
+  const now = Date.now();
+  const msPerDay = 86400000;
+  const expiringSoon = clients.filter(c => {
+    if (!c.subscription_started_at) return false;
+    const daysElapsed = Math.floor((now - new Date(c.subscription_started_at).getTime()) / msPerDay);
+    const daysLeft = 30 - (daysElapsed % 30);
+    return daysLeft <= 5;
+  }).length;
+
+  // Goal distribution
+  const goalCounts: Record<string, number> = {};
+  for (const c of clients) {
+    const g = c.goal_mode ?? "unknown";
+    goalCounts[g] = (goalCounts[g] ?? 0) + 1;
+  }
+
+  res.json({ totalClients, monthlyRevenue, expiringSoon, goalCounts });
+});
+
+// GET /coach/clients/:id/notes — get notes for a client
+router.get("/coach/clients/:id/notes", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+
+  // Verify ownership
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") {
+    res.status(403).json({ error: "Not your client" }); return;
+  }
+
+  let notes: any[] = [];
+  try {
+    const r = await pool.query(
+      `SELECT id, note, created_at FROM coach_client_notes WHERE coach_id = $1 AND client_id = $2 ORDER BY created_at DESC`,
+      [caller.userId, clientId]
+    );
+    notes = r.rows;
+  } catch {
+    // table may not exist yet in all envs
+  }
+  res.json(notes);
+});
+
+// POST /coach/clients/:id/notes — add a note for a client
+router.post("/coach/clients/:id/notes", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const clientId = parseInt(req.params["id"], 10);
+  if (isNaN(clientId)) { res.status(400).json({ error: "Invalid client ID" }); return; }
+
+  const { note } = req.body;
+  if (!note || typeof note !== "string" || note.trim().length === 0) {
+    res.status(400).json({ error: "Note text is required" }); return;
+  }
+
+  const check = await pool.query(`SELECT id FROM users WHERE id = $1 AND coach_id = $2`, [clientId, caller.userId]);
+  if (check.rows.length === 0 && caller.role !== "admin") {
+    res.status(403).json({ error: "Not your client" }); return;
+  }
+
+  let newNote: any = null;
+  try {
+    const r = await pool.query(
+      `INSERT INTO coach_client_notes (coach_id, client_id, note) VALUES ($1, $2, $3) RETURNING id, note, created_at`,
+      [caller.userId, clientId, note.trim()]
+    );
+    newNote = r.rows[0];
+  } catch {
+    res.status(500).json({ error: "Failed to save note" }); return;
+  }
+  res.json(newNote);
+});
+
+// DELETE /coach/clients/:clientId/notes/:noteId — delete a note
+router.delete("/coach/clients/:clientId/notes/:noteId", async (req, res): Promise<void> => {
+  const caller = await requireCoachOrAdmin(req, res);
+  if (!caller) return;
+
+  const noteId = parseInt(req.params["noteId"], 10);
+  if (isNaN(noteId)) { res.status(400).json({ error: "Invalid note ID" }); return; }
+
+  try {
+    await pool.query(`DELETE FROM coach_client_notes WHERE id = $1 AND coach_id = $2`, [noteId, caller.userId]);
+  } catch { /* ignore */ }
+  res.json({ message: "Deleted" });
+});
+
 // Mark plan as coach-updated (called when coach saves any change to client data)
 router.post("/coach/clients/:clientId/mark-updated", async (req, res): Promise<void> => {
   const caller = await requireCoachOrAdmin(req, res);
