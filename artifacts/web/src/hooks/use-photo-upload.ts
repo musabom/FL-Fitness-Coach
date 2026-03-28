@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const MAX_SIZE = 8 * 1024 * 1024; // 8MB
+const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export function getObjectUrl(objectPath: string): string {
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -12,7 +12,7 @@ export function usePhotoUpload() {
 
   async function uploadPhoto(file: File): Promise<string> {
     if (file.size > MAX_SIZE) {
-      throw new Error("File too large (max 8MB)");
+      throw new Error("File too large (max 5MB)");
     }
     if (!file.type.startsWith("image/")) {
       throw new Error("Only image files are allowed");
