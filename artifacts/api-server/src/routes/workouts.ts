@@ -286,9 +286,15 @@ router.get("/exercises", async (req, res) => {
   let idx = 2;
 
   if (q) {
-    whereClause += ` AND (LOWER(exercise_name) LIKE $${idx} OR LOWER(COALESCE(name_arabic,'')) LIKE $${idx} OR LOWER(muscle_primary) LIKE $${idx})`;
-    params.push(`%${q}%`);
-    idx++;
+    // Split into words so "dumbbell press" matches "Dumbbell Bench Press"
+    const words = q.split(/\s+/).filter(Boolean);
+    const wordClauses = words.map((word) => {
+      const clause = `(LOWER(exercise_name) LIKE $${idx} OR LOWER(COALESCE(name_arabic,'')) LIKE $${idx} OR LOWER(muscle_primary) LIKE $${idx})`;
+      params.push(`%${word}%`);
+      idx++;
+      return clause;
+    });
+    whereClause += ` AND ` + wordClauses.join(` AND `);
   }
   if (muscle && muscle !== "all") {
     if (muscle === "arms") {
