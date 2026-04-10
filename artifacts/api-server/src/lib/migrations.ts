@@ -826,4 +826,41 @@ async function runMigrationsInternal(): Promise<void> {
     VALUES ('platform_commission_pct', '10')
     ON CONFLICT (key) DO NOTHING
   `);
+
+  // ── Rotating Cycle Programs ───────────────────────────────────────────────────
+  // A cycle program rotates N days regardless of day-of-week.
+  // e.g. 4 training days + 1 rest day repeating every 5 days from a start_date.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cycle_programs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name VARCHAR(100) NOT NULL,
+      start_date DATE NOT NULL,
+      cycle_length INTEGER NOT NULL CHECK (cycle_length >= 1 AND cycle_length <= 14),
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cycle_program_slots (
+      id SERIAL PRIMARY KEY,
+      program_id INTEGER NOT NULL REFERENCES cycle_programs(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      workout_id INTEGER REFERENCES user_workouts(id) ON DELETE SET NULL,
+      label VARCHAR(50),
+      UNIQUE(program_id, position)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cycle_program_exclusions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      program_id INTEGER NOT NULL REFERENCES cycle_programs(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      UNIQUE(user_id, program_id, date)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_cycle_programs_user ON cycle_programs(user_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_cycle_slots_program ON cycle_program_slots(program_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_cycle_exclusions_user ON cycle_program_exclusions(user_id, date)`);
 }

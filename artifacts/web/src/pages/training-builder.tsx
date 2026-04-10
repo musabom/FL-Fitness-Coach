@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import {
   ChevronLeft, Plus, Trash2, Pencil, Check, X, Search, Loader2,
   Dumbbell, Flame, ChevronDown, ChevronUp, GripVertical, Timer,
-  Zap, ArrowUp, ArrowDown, Activity
+  Zap, ArrowUp, ArrowDown, Activity, RotateCcw
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -993,10 +993,18 @@ export default function TrainingBuilder() {
             {t("trainingBuilder.title")}
           </h1>
         </div>
-        <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-xs font-medium">
-          <Plus className="w-4 h-4" />
-          Add Custom
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/training/cycle">
+            <button className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 text-xs font-medium">
+              <RotateCcw className="w-3.5 h-3.5" />
+              Cycle
+            </button>
+          </Link>
+          <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 text-xs font-medium">
+            <Plus className="w-3.5 h-3.5" />
+            Custom
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">

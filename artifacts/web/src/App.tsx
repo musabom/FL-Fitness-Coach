@@ -22,6 +22,7 @@ import MealPlan from "./pages/meal-plan";
 import ShoppingList from "./pages/shopping-list";
 import TrainingBuilder from "./pages/training-builder";
 import WorkoutPlan from "./pages/workout-plan";
+import CycleProgramBuilder from "./pages/cycle-program-builder";
 import Progress from "./pages/progress";
 import CoachClients from "./pages/coach-clients";
 import AdminPanel from "./pages/admin-panel";
@@ -196,6 +197,7 @@ function Router() {
         <Route path="/nutrition/shopping-list" component={ShoppingList} />
         <Route path="/training/builder" component={TrainingBuilder} />
         <Route path="/training/plan" component={WorkoutPlan} />
+        <Route path="/training/cycle" component={CycleProgramBuilder} />
         <Route path="/progress" component={Progress} />
 
         <Route path="/">

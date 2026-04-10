@@ -170,6 +170,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
       return {
         entry_id: ref.entry_id ?? 0,
         is_entry: ref.is_entry,
+        source: "scheduled" as const,
         completed: completedWorkouts.has(ref.workout_id),
         workout: {
           ...workout,
@@ -182,9 +183,76 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     })
   );
 
-  const validEntries = entries.filter(Boolean) as NonNullable<typeof entries[0]>[];
+  // ── Merge cycle program workouts ──────────────────────────────────────────────
+  const cycleProgsRes = await pool.query(
+    `SELECT * FROM cycle_programs WHERE user_id = $1 AND is_active = TRUE ORDER BY created_at`,
+    [userId]
+  );
+
+  const cycleEntries: Array<NonNullable<(typeof entries)[0]>> = [];
+
+  for (const prog of cycleProgsRes.rows) {
+    // Compute which position this date falls on in the cycle
+    const startMs = new Date(prog.start_date + "T00:00:00").getTime();
+    const dateMs = new Date(dateStr + "T00:00:00").getTime();
+    const daysSinceStart = Math.floor((dateMs - startMs) / 86400000);
+
+    // Only show cycle if date is on or after start_date
+    if (daysSinceStart < 0) continue;
+
+    const cycleLength = Number(prog.cycle_length);
+    const position = ((daysSinceStart % cycleLength) + cycleLength) % cycleLength;
+
+    // Check for exclusion
+    const exclusionCheck = await pool.query(
+      `SELECT id FROM cycle_program_exclusions WHERE user_id = $1 AND program_id = $2 AND date = $3`,
+      [userId, prog.id, dateStr]
+    );
+    if (exclusionCheck.rows.length > 0) continue;
+
+    // Get slot for this position
+    const slotRes = await pool.query(
+      `SELECT * FROM cycle_program_slots WHERE program_id = $1 AND position = $2`,
+      [prog.id, position]
+    );
+    const slot = slotRes.rows[0];
+
+    // No slot or no workout assigned = rest day, skip
+    if (!slot || !slot.workout_id) continue;
+
+    // Skip if this workout is already in the scheduled entries
+    const alreadyInScheduled = allWorkoutRefs.some(r => r.workout_id === slot.workout_id);
+    if (alreadyInScheduled) continue;
+
+    const workout = await getWorkoutSummary(slot.workout_id, weightKg);
+    if (!workout) continue;
+
+    cycleEntries.push({
+      entry_id: 0,
+      is_entry: false,
+      source: "cycle" as const,
+      cycle_program_id: prog.id,
+      cycle_program_name: prog.name,
+      cycle_position: position,
+      cycle_slot_label: slot.label ?? null,
+      completed: completedWorkouts.has(slot.workout_id),
+      workout: {
+        ...workout,
+        exercises: workout.exercises.map(e => ({
+          ...e,
+          completed: completedExercises.has(e.id),
+        })),
+      },
+    } as any);
+  }
+
+  const validEntries = [
+    ...(entries.filter(Boolean) as NonNullable<typeof entries[0]>[]),
+    ...cycleEntries,
+  ];
+
   const total_calories = validEntries.reduce((sum, e) => sum + (e!.workout.total_calories ?? 0), 0);
-  
+
   // Calculate burned_calories based on completed exercises (partial completion counts)
   const burned_calories = validEntries.reduce((sum, entry) => {
     const completedCalories = entry!.workout.exercises

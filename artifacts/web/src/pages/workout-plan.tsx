@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2,
-  Circle, Loader2, Dumbbell, Flame, CalendarDays, X, ArrowLeft, UserCheck,
+  Circle, Loader2, Dumbbell, Flame, CalendarDays, X, ArrowLeft, UserCheck, RotateCcw,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,10 @@ interface PlanWorkout {
 interface PlanEntry {
   entry_id: number;
   is_entry: boolean;
+  source?: "scheduled" | "cycle";
+  cycle_program_name?: string;
+  cycle_position?: number;
+  cycle_slot_label?: string | null;
   completed: boolean;
   workout: PlanWorkout;
 }
@@ -180,14 +184,24 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onVi
         </button>
 
         <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left min-w-0">
-          <p className={`font-semibold text-sm break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-            {workout.workout_name}
-          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className={`font-semibold text-sm break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+              {workout.workout_name}
+            </p>
+            {entry.source === "cycle" && (
+              <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                <RotateCcw className="w-2.5 h-2.5" />Cycle
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Flame className="w-3 h-3" />{Math.round(workout.total_calories)} kcal</span>
             <span>·</span>
             <span>{workout.exercises.length} exercise{workout.exercises.length !== 1 ? "s" : ""}</span>
             {total > 0 && <span>· {completedCount}/{total} done</span>}
+            {entry.source === "cycle" && entry.cycle_program_name && (
+              <><span>·</span><span className="text-violet-400">{entry.cycle_program_name} · Day {(entry.cycle_position ?? 0) + 1}</span></>
+            )}
           </div>
         </button>
 
