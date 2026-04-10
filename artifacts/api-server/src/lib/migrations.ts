@@ -178,6 +178,48 @@ async function runMigrationsInternal(): Promise<void> {
   // Ensure met_value column exists (for existing deployments)
   await pool.query(`ALTER TABLE exercises ADD COLUMN IF NOT EXISTS met_value DECIMAL(4,1)`);
 
+  // ── Exercise Image URLs ────────────────────────────────────────────────────
+  // Idempotent: only updates rows that don't already have an image_url set
+  await pool.query(`
+    UPDATE exercises SET image_url = '/exercises/1-_barbell_bench_press_1773910065656.png'       WHERE exercise_name = 'Barbell Bench Press'          AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-_Machine_chest_press_1773910065656.png'        WHERE exercise_name = 'Machine Chest Press'           AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-Dumbbell_press_1773910065654.png'              WHERE exercise_name = 'Dumbbell Bench Press'          AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-_decline_chest_press_machine_1773910065655.png' WHERE exercise_name = 'Decline Chest Press'          AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/5-_incline_chest_press_machine_1773910065655.png' WHERE exercise_name = 'Incline Chest Press'          AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/6-_machine_chest_fly_1773910065655.png'          WHERE exercise_name = 'Machine Chest Fly'             AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-biceps_curl_alternating_dumbbell_1773910065654.png' WHERE exercise_name = 'Dumbbell Bicep Curl'     AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-barbell_biceps_curl_1773910065656.png'         WHERE exercise_name = 'Barbell Bicep Curl'            AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-hammer_curl_1773910065654.png'                 WHERE exercise_name = 'Hammer Curl'                  AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-concentrated_curl_1773910065654.png'           WHERE exercise_name = 'Concentration Curl'           AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-_lat_pulldown_1773910065653.png'               WHERE exercise_name = 'Lat Pulldown Wide Grip'       AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-Dumbbell_row_1773910065654.png'                WHERE exercise_name = 'Dumbbell Row'                 AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-Seated_row_machine_1773910065654.png'          WHERE exercise_name = 'Seated Row Machine'           AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-close_grip_lat_pulldown_1773910065652.png'     WHERE exercise_name = 'Close Grip Lat Pulldown'      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-seat_cable_row_1773910065653.png'              WHERE exercise_name = 'Seated Cable Row'             AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/5-T-bar_row_1773910065651.png'                   WHERE exercise_name = 'T-Bar Row'                    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/6-back_extension_1773910065652.png'              WHERE exercise_name = 'Back Extension'               AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-_reverse_grip_tricep_pushdown_1773909535481.png' WHERE exercise_name = 'Tricep Pushdown Reverse Grip' AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-tricep_pushdown_straight_rope_1773909535482.png' WHERE exercise_name = 'Tricep Pushdown Rope'       AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-_tricep_pushdown_straight_bar_1773909535481.png' WHERE exercise_name = 'Tricep Pushdown Straight Bar' AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-_overhead_tricep_extension_1773909535481.png'  WHERE exercise_name = 'Overhead Tricep Extension'    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-_front_raises_1773909535480.png'               WHERE exercise_name = 'Front Raises'                 AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-_shoulder_press_machine_1773909535480.png'     WHERE exercise_name = 'Shoulder Press Machine'       AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-_dumbbell_shoulder_press_1773909535480.png'    WHERE exercise_name = 'Dumbbell Shoulder Press'      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-_lateral_side_raises_1773909454019.png'        WHERE exercise_name = 'Lateral Raises'               AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-_plate_front_raise_1773909535480.png'          WHERE exercise_name = 'Plate Front Raise'            AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/5-_rear_delt_fly_machine_1773909454019.png'      WHERE exercise_name = 'Rear Delt Fly Machine'        AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/6-_barbell_shrugs_1773909454018.png'             WHERE exercise_name = 'Barbell Shrugs'               AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/7-_dumbbell_shrugs_1773909454018.png'            WHERE exercise_name = 'Dumbbell Shrugs'              AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-leg_extension_1773909454018.png'               WHERE exercise_name = 'Leg Extension'                AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-hack_squats_1773909454017.png'                 WHERE exercise_name = 'Hack Squats'                  AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-_Squats_1773909454017.png'                     WHERE exercise_name = 'Squats'                       AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-leg_press_1773909454016.png'                   WHERE exercise_name = 'Leg Press'                    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-Leg_Curls_1773909454017.png'                   WHERE exercise_name = 'Leg Curls'                    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/5-lunges_1773909454016.png'                      WHERE exercise_name = 'Lunges'                       AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/6-hip_adductor_machine_1773909454016.png'        WHERE exercise_name = 'Hip Adductor Machine'         AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/7-Calf_raise_machine_1773909454016.png'          WHERE exercise_name = 'Calf Raise Machine'           AND image_url IS NULL;
+  `);
+
   // ── Workout Tables ──────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_workouts (
