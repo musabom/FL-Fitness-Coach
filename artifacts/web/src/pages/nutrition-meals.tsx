@@ -818,7 +818,22 @@ function MealCard({ meal, onRefresh, dailyCalorieTarget }: {
 
         {/* Day selector */}
         <div className="px-4 pb-4 border-t border-border/30 pt-3">
-          <div className="text-xs text-muted-foreground mb-2">Scheduled Days</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-muted-foreground">Scheduled Days</div>
+            <button
+              onClick={() => {
+                const allSelected = DAYS.every(d => (meal.scheduled_days ?? []).includes(d));
+                scheduleMutation.mutate(allSelected ? [] : [...DAYS]);
+              }}
+              className={`text-xs font-medium px-2 py-0.5 rounded-md border transition-all ${
+                DAYS.every(d => (meal.scheduled_days ?? []).includes(d))
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-transparent text-muted-foreground border-border hover:border-primary/40"
+              }`}
+            >
+              All Days
+            </button>
+          </div>
           <div className="flex gap-1.5">
             {DAYS.map(day => {
               const active = (meal.scheduled_days ?? []).includes(day);

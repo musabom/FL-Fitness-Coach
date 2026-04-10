@@ -876,6 +876,22 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
         {expanded && (
           <div className="px-4 py-3 space-y-4">
             {/* Day selector */}
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs text-muted-foreground">Scheduled Days</div>
+              <button
+                onClick={() => {
+                  const allSelected = DAYS.every(d => workout.scheduled_days.includes(d));
+                  scheduleMutation.mutate(allSelected ? [] : [...DAYS]);
+                }}
+                className={`text-xs font-medium px-2 py-0.5 rounded-md border transition-all ${
+                  DAYS.every(d => workout.scheduled_days.includes(d))
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-transparent text-muted-foreground border-border/30 hover:border-primary/40"
+                }`}
+              >
+                All Days
+              </button>
+            </div>
             <div className="flex gap-1.5">
               {DAYS.map(day => (
                 <button
