@@ -110,8 +110,12 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   const d = new Date(dateStr + "T00:00:00");
   const dayOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 
-  const profileRes = await pool.query(`SELECT weight_kg FROM user_profiles WHERE user_id = $1`, [userId]);
+  const profileRes = await pool.query(
+    `SELECT weight_kg, COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
   const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
+  const trainingMode = profileRes.rows[0]?.training_mode ?? 'schedule';
 
   // Fetch explicitly added workout entries for this date
   const entriesRes = await pool.query(
@@ -121,8 +125,8 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     [userId, dateStr]
   );
 
-  // Fetch workouts scheduled for this day-of-week NOT already in entries or exclusions
-  const scheduledRes = await pool.query(
+  // Fetch workouts scheduled for this day-of-week (only in schedule mode)
+  const scheduledRes = trainingMode !== 'schedule' ? { rows: [] as any[] } : await pool.query(
     `SELECT DISTINCT uw.id AS workout_id
      FROM user_workouts uw
      JOIN workout_schedule ws ON ws.workout_id = uw.id
@@ -183,9 +187,9 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     })
   );
 
-  // ── Merge cycle program workouts ──────────────────────────────────────────────
-  const cycleProgsRes = await pool.query(
-    `SELECT * FROM cycle_programs WHERE user_id = $1 AND is_active = TRUE ORDER BY created_at`,
+  // ── Merge cycle program workouts (only in cycle mode) ─────────────────────────
+  const cycleProgsRes = trainingMode !== 'cycle' ? { rows: [] as any[] } : await pool.query(
+    `SELECT * FROM cycle_programs WHERE user_id = $1 AND is_active = TRUE AND is_default = TRUE ORDER BY created_at`,
     [userId]
   );
 

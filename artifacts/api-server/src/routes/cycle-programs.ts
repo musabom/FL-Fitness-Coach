@@ -306,4 +306,228 @@ router.delete("/cycle-programs/:id/exclusions", async (req, res): Promise<void> 
   res.json({ program_id: progId, date, excluded: false });
 });
 
+// ── Helper: get or create the user's default cycle ────────────────────────────
+
+async function getOrCreateDefaultCycle(userId: number): Promise<any> {
+  const existing = await pool.query(
+    `SELECT * FROM cycle_programs WHERE user_id = $1 AND is_default = TRUE LIMIT 1`,
+    [userId]
+  );
+  if (existing.rows.length > 0) return existing.rows[0];
+
+  const today = new Date().toISOString().slice(0, 10);
+  const created = await pool.query(
+    `INSERT INTO cycle_programs (user_id, name, start_date, cycle_length, is_default, is_active)
+     VALUES ($1, 'My Cycle', $2, 0, TRUE, TRUE) RETURNING *`,
+    [userId, today]
+  );
+  return created.rows[0];
+}
+
+async function getCycleWithSlots(progId: number, userId: number, trainingMode: string) {
+  const slotsRes = await pool.query(
+    `SELECT cps.*, uw.workout_name
+     FROM cycle_program_slots cps
+     LEFT JOIN user_workouts uw ON uw.id = cps.workout_id
+     WHERE cps.program_id = $1 ORDER BY cps.position`,
+    [progId]
+  );
+  const prog = await pool.query(`SELECT * FROM cycle_programs WHERE id = $1`, [progId]);
+  return { ...prog.rows[0], slots: slotsRes.rows, training_mode: trainingMode };
+}
+
+// ── GET /user-cycle ───────────────────────────────────────────────────────────
+
+router.get("/user-cycle", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const prog = await getOrCreateDefaultCycle(userId);
+
+  const modeRes = await pool.query(
+    `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
+  const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+
+  const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+  res.json(result);
+});
+
+// ── POST /user-cycle/workouts — add workout to cycle ──────────────────────────
+
+router.post("/user-cycle/workouts", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { workout_id } = req.body as { workout_id?: number };
+  if (!workout_id) {
+    res.status(400).json({ error: "workout_id is required" });
+    return;
+  }
+
+  const ownerCheck = await pool.query(
+    `SELECT id FROM user_workouts WHERE id = $1 AND user_id = $2`,
+    [workout_id, userId]
+  );
+  if (!ownerCheck.rows.length) {
+    res.status(404).json({ error: "Workout not found" });
+    return;
+  }
+
+  const prog = await getOrCreateDefaultCycle(userId);
+
+  const alreadyIn = await pool.query(
+    `SELECT position FROM cycle_program_slots WHERE program_id = $1 AND workout_id = $2`,
+    [prog.id, workout_id]
+  );
+  if (alreadyIn.rows.length > 0) {
+    res.status(409).json({ error: "Already in cycle", position: alreadyIn.rows[0].position });
+    return;
+  }
+
+  const maxPosRes = await pool.query(
+    `SELECT COALESCE(MAX(position), -1) as max_pos FROM cycle_program_slots WHERE program_id = $1`,
+    [prog.id]
+  );
+  const nextPos = Number(maxPosRes.rows[0].max_pos) + 1;
+
+  await pool.query(
+    `INSERT INTO cycle_program_slots (program_id, position, workout_id) VALUES ($1, $2, $3)`,
+    [prog.id, nextPos, workout_id]
+  );
+
+  await pool.query(
+    `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
+    [nextPos + 1, prog.id]
+  );
+
+  const modeRes = await pool.query(
+    `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
+  const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+
+  const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+  res.json({ position: nextPos, ...result });
+});
+
+// ── DELETE /user-cycle/workouts/:workoutId ────────────────────────────────────
+
+router.delete("/user-cycle/workouts/:workoutId", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const workoutId = Number(req.params["workoutId"]);
+  const prog = await getOrCreateDefaultCycle(userId);
+
+  await pool.query(
+    `DELETE FROM cycle_program_slots WHERE program_id = $1 AND workout_id = $2`,
+    [prog.id, workoutId]
+  );
+
+  // Re-number remaining slots compactly
+  const remaining = await pool.query(
+    `SELECT id FROM cycle_program_slots WHERE program_id = $1 ORDER BY position`,
+    [prog.id]
+  );
+  for (let i = 0; i < remaining.rows.length; i++) {
+    await pool.query(
+      `UPDATE cycle_program_slots SET position = $1 WHERE id = $2`,
+      [i, remaining.rows[i].id]
+    );
+  }
+
+  await pool.query(
+    `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
+    [remaining.rows.length, prog.id]
+  );
+
+  const modeRes = await pool.query(
+    `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
+  const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+
+  const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+  res.json({ ok: true, ...result });
+});
+
+// ── PUT /user-cycle/reorder ───────────────────────────────────────────────────
+
+router.put("/user-cycle/reorder", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { ordered_workout_ids } = req.body as { ordered_workout_ids?: number[] };
+  if (!Array.isArray(ordered_workout_ids)) {
+    res.status(400).json({ error: "ordered_workout_ids array is required" });
+    return;
+  }
+
+  const prog = await getOrCreateDefaultCycle(userId);
+
+  for (let i = 0; i < ordered_workout_ids.length; i++) {
+    await pool.query(
+      `UPDATE cycle_program_slots SET position = $1 WHERE program_id = $2 AND workout_id = $3`,
+      [i, prog.id, ordered_workout_ids[i]]
+    );
+  }
+
+  await pool.query(
+    `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
+    [ordered_workout_ids.length, prog.id]
+  );
+
+  const modeRes = await pool.query(
+    `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+    [userId]
+  );
+  const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+
+  const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+  res.json(result);
+});
+
+// ── PATCH /user-cycle/start-date ──────────────────────────────────────────────
+
+router.patch("/user-cycle/start-date", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { start_date } = req.body as { start_date?: string };
+  if (!start_date || !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+    res.status(400).json({ error: "Valid start_date (YYYY-MM-DD) is required" });
+    return;
+  }
+
+  const prog = await getOrCreateDefaultCycle(userId);
+  await pool.query(
+    `UPDATE cycle_programs SET start_date = $1 WHERE id = $2`,
+    [start_date, prog.id]
+  );
+
+  res.json({ ok: true, start_date });
+});
+
+// ── PATCH /training-mode ──────────────────────────────────────────────────────
+
+router.patch("/training-mode", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { mode } = req.body as { mode?: string };
+  if (!mode || !["schedule", "cycle"].includes(mode)) {
+    res.status(400).json({ error: "mode must be 'schedule' or 'cycle'" });
+    return;
+  }
+
+  await pool.query(
+    `UPDATE user_profiles SET training_mode = $1 WHERE user_id = $2`,
+    [mode, userId]
+  );
+
+  res.json({ training_mode: mode });
+});
+
 export default router;

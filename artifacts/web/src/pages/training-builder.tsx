@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useLanguage } from "@/context/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -783,9 +783,14 @@ function ExerciseRow({ we, workoutId, isFirst, isLast, onMoveUp, onMoveDown }: E
 
 interface WorkoutCardProps {
   workout: Workout;
+  cyclePosition: number | null;
+  onAddToCycle: () => void;
+  onRemoveFromCycle: () => void;
+  isUpdatingCycle: boolean;
+  trainingMode: string;
 }
 
-function WorkoutCard({ workout }: WorkoutCardProps) {
+function WorkoutCard({ workout, cyclePosition, onAddToCycle, onRemoveFromCycle, isUpdatingCycle, trainingMode }: WorkoutCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const buildUrl = useClientUrl();
@@ -871,6 +876,34 @@ function WorkoutCard({ workout }: WorkoutCardProps) {
                 </button>
               </div>
             </>
+          )}
+        </div>
+
+        {/* Cycle badge (always visible) */}
+        <div className="px-4 pb-2 flex items-center gap-2">
+          {cyclePosition !== null ? (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                <RotateCcw className="w-2.5 h-2.5" />
+                Day {cyclePosition + 1}
+              </span>
+              <button
+                onClick={onRemoveFromCycle}
+                disabled={isUpdatingCycle}
+                className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+              >
+                ✕ Remove
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onAddToCycle}
+              disabled={isUpdatingCycle}
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-border/30 text-muted-foreground hover:border-violet-500/40 hover:text-violet-400 transition-all"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              + Add to Cycle
+            </button>
           )}
         </div>
 
@@ -976,6 +1009,35 @@ export default function TrainingBuilder() {
       toast({ title: "Workout created" });
     },
     onError: () => toast({ title: "Failed to create workout", variant: "destructive" }),
+  });
+
+  // Cycle data
+  const { data: userCycle } = useQuery<{ training_mode: string; slots: Array<{ workout_id: number | null; position: number }>; start_date: string; cycle_length: number }>({
+    queryKey: ["user-cycle"],
+    queryFn: () => customFetch(`${BASE}/user-cycle`),
+    staleTime: 0,
+  });
+
+  const cyclePositionMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const slot of (userCycle?.slots ?? [])) {
+      if (slot.workout_id !== null) map.set(slot.workout_id, slot.position);
+    }
+    return map;
+  }, [userCycle]);
+
+  const trainingMode = userCycle?.training_mode ?? 'schedule';
+
+  const addToCycleMutation = useMutation({
+    mutationFn: (workout_id: number) => customFetch(`${BASE}/user-cycle/workouts`, { method: "POST", body: JSON.stringify({ workout_id }), headers: { "Content-Type": "application/json" } }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-cycle"] }); toast({ title: "Added to cycle" }); },
+    onError: () => toast({ title: "Failed to add to cycle", variant: "destructive" }),
+  });
+
+  const removeFromCycleMutation = useMutation({
+    mutationFn: (workout_id: number) => customFetch(`${BASE}/user-cycle/workouts/${workout_id}`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-cycle"] }); toast({ title: "Removed from cycle" }); },
+    onError: () => toast({ title: "Failed to remove from cycle", variant: "destructive" }),
   });
 
   const todayBurn = todayWorkouts.reduce((sum, w) => sum + w.total_calories, 0);
@@ -1090,7 +1152,15 @@ export default function TrainingBuilder() {
 
           {/* Workout cards */}
           {!isLoading && workouts.map(w => (
-            <WorkoutCard key={w.id} workout={w} />
+            <WorkoutCard
+              key={w.id}
+              workout={w}
+              cyclePosition={cyclePositionMap.get(w.id) ?? null}
+              onAddToCycle={() => addToCycleMutation.mutate(w.id)}
+              onRemoveFromCycle={() => removeFromCycleMutation.mutate(w.id)}
+              isUpdatingCycle={addToCycleMutation.isPending || removeFromCycleMutation.isPending}
+              trainingMode={trainingMode}
+            />
           ))}
 
           {/* Add workout button */}

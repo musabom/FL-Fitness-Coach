@@ -863,4 +863,9 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_cycle_programs_user ON cycle_programs(user_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_cycle_slots_program ON cycle_program_slots(program_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_cycle_exclusions_user ON cycle_program_exclusions(user_id, date)`);
+
+  // ── Training mode + default cycle ────────────────────────────────────────────
+  await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS training_mode VARCHAR(20) NOT NULL DEFAULT 'schedule'`);
+  await pool.query(`ALTER TABLE cycle_programs ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cycle_programs_user_default ON cycle_programs(user_id) WHERE is_default = TRUE`);
 }

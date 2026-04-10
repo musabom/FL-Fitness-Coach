@@ -451,66 +451,206 @@ function ProgramCard({ prog }: { prog: CycleProgram }) {
 
 // ── Shared content component (used both as tab and as standalone page) ─────────
 
-export function CycleProgramContent() {
-  const [showCreate, setShowCreate] = useState(false);
+interface UserCycle {
+  id: number;
+  start_date: string;
+  cycle_length: number;
+  training_mode: string;
+  slots: Array<{ id: number; position: number; workout_id: number | null; workout_name: string | null }>;
+}
 
-  const { data: programs = [], isLoading } = useQuery<CycleProgram[]>({
-    queryKey: ["cycle-programs"],
-    queryFn: () => customFetch<CycleProgram[]>(`${BASE}/cycle-programs`),
+export function CycleProgramContent() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editingDate, setEditingDate] = useState(false);
+  const [dateVal, setDateVal] = useState("");
+
+  const { data: cycle, isLoading } = useQuery<UserCycle>({
+    queryKey: ["user-cycle"],
+    queryFn: () => customFetch<UserCycle>(`${BASE}/user-cycle`),
     staleTime: 0,
   });
 
+  const trainingMode = cycle?.training_mode ?? 'schedule';
+  const slots = cycle?.slots.filter(s => s.workout_id !== null) ?? [];
+
+  const toggleModeMutation = useMutation({
+    mutationFn: (mode: string) => customFetch(`${BASE}/training-mode`, {
+      method: "PATCH",
+      body: JSON.stringify({ mode }),
+      headers: { "Content-Type": "application/json" },
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      queryClient.invalidateQueries({ queryKey: ["workout-plan"] });
+    },
+    onError: () => toast({ title: "Failed to update mode", variant: "destructive" }),
+  });
+
+  const updateStartDateMutation = useMutation({
+    mutationFn: (start_date: string) => customFetch(`${BASE}/user-cycle/start-date`, {
+      method: "PATCH",
+      body: JSON.stringify({ start_date }),
+      headers: { "Content-Type": "application/json" },
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      setEditingDate(false);
+    },
+    onError: () => toast({ title: "Failed to update start date", variant: "destructive" }),
+  });
+
+  const removeFromCycleMutation = useMutation({
+    mutationFn: (workout_id: number) => customFetch(`${BASE}/user-cycle/workouts/${workout_id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["user-cycle"] }),
+    onError: () => toast({ title: "Failed to remove", variant: "destructive" }),
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: (ordered_workout_ids: number[]) => customFetch(`${BASE}/user-cycle/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ ordered_workout_ids }),
+      headers: { "Content-Type": "application/json" },
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["user-cycle"] }),
+    onError: () => toast({ title: "Failed to reorder", variant: "destructive" }),
+  });
+
+  function move(idx: number, dir: -1 | 1) {
+    const ids = slots.map(s => s.workout_id as number);
+    const newIds = [...ids];
+    const temp = newIds[idx];
+    newIds[idx] = newIds[idx + dir];
+    newIds[idx + dir] = temp;
+    reorderMutation.mutate(newIds);
+  }
+
+  function getTodayPosition(): number | null {
+    if (!cycle || slots.length === 0) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const startMs = new Date(cycle.start_date + "T00:00:00").getTime();
+    const todayMs = new Date(today + "T00:00:00").getTime();
+    const days = Math.floor((todayMs - startMs) / 86400000);
+    if (days < 0) return null;
+    return ((days % slots.length) + slots.length) % slots.length;
+  }
+
+  const todayPos = getTodayPosition();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-3">
-      {/* Info banner */}
-      <div className="px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
-        <div className="flex items-start gap-2.5">
-          <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div className="space-y-0.5">
-            <p className="text-xs font-semibold text-primary">How it works</p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Assign your existing workouts to each day of the cycle. The schedule repeats
-              every N days regardless of day of week — no need to create new workouts.
+    <div className="space-y-4">
+      {/* Mode toggle */}
+      <div className="px-4 py-3.5 rounded-xl bg-[#1A1A1A] border border-border/40 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Training Mode</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {trainingMode === 'cycle'
+                ? "Cycle is active — workouts repeat in order"
+                : "Schedule is active — workouts follow fixed days"}
             </p>
           </div>
+          <button
+            onClick={() => toggleModeMutation.mutate(trainingMode === 'cycle' ? 'schedule' : 'cycle')}
+            disabled={toggleModeMutation.isPending || slots.length === 0}
+            className={`relative w-12 h-6 rounded-full transition-all ${
+              trainingMode === 'cycle' ? "bg-violet-500" : "bg-muted"
+            } ${slots.length === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+              trainingMode === 'cycle' ? "left-6" : "left-0.5"
+            }`} />
+          </button>
+        </div>
+        {slots.length === 0 && (
+          <p className="text-[11px] text-amber-400/80">← Add workouts to your cycle from the Workouts tab first</p>
+        )}
+      </div>
+
+      {/* Start date */}
+      <div className="px-4 py-3 rounded-xl bg-[#1A1A1A] border border-border/40">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase">Cycle Start Date</p>
+            {editingDate ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="date"
+                  defaultValue={cycle?.start_date}
+                  onChange={e => setDateVal(e.target.value)}
+                  className="bg-transparent text-sm text-foreground border-b border-primary outline-none"
+                />
+                <button onClick={() => dateVal && updateStartDateMutation.mutate(dateVal)} className="text-primary text-xs font-medium">Save</button>
+                <button onClick={() => setEditingDate(false)} className="text-muted-foreground text-xs">Cancel</button>
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-foreground mt-0.5">
+                {cycle?.start_date ? new Date(cycle.start_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+              </p>
+            )}
+          </div>
+          {!editingDate && (
+            <button onClick={() => setEditingDate(true)} className="text-muted-foreground hover:text-foreground">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Program list */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      {/* Cycle slots */}
+      {slots.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+          <RotateCcw className="w-8 h-8 text-muted-foreground/30" />
+          <p className="text-sm font-medium text-foreground">No workouts in cycle yet</p>
+          <p className="text-xs text-muted-foreground">Go to the <span className="text-primary font-medium">Workouts tab</span> and tap <span className="text-violet-400 font-medium">"+ Add to Cycle"</span> on each workout</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase px-1">
+            Cycle Order — {slots.length} day{slots.length !== 1 ? "s" : ""}, then repeats
+          </p>
+          {slots.map((slot, idx) => {
+            const isToday = todayPos === idx;
+            return (
+              <div
+                key={slot.id}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all ${
+                  isToday ? "bg-violet-500/10 border-violet-500/30" : "bg-[#1A1A1A] border-border/30"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                  isToday ? "bg-violet-500 text-white" : "bg-[#252525] text-muted-foreground"
+                }`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{slot.workout_name}</p>
+                  <p className="text-[10px] text-muted-foreground">Day {idx + 1}{isToday ? " · Today" : ""}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => idx > 0 && move(idx, -1)} disabled={idx === 0} className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => idx < slots.length - 1 && move(idx, 1)} disabled={idx === slots.length - 1} className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => removeFromCycleMutation.mutate(slot.workout_id as number)} className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors ml-1">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {!isLoading && programs.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-[#1A1A1A] flex items-center justify-center">
-            <RotateCcw className="w-6 h-6 text-muted-foreground/40" />
-          </div>
-          <div>
-            <p className="font-medium text-sm text-foreground">No cycle programs yet</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Create a rotating schedule and assign your workouts to each day
-            </p>
-          </div>
-        </div>
-      )}
-
-      {programs.map(prog => (
-        <ProgramCard key={prog.id} prog={prog} />
-      ))}
-
-      {/* Create button (inline) */}
-      <Button
-        onClick={() => setShowCreate(true)}
-        className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2"
-      >
-        <Plus className="w-4 h-4" />
-        New Cycle Program
-      </Button>
-
-      {showCreate && <CreateProgramSheet onClose={() => setShowCreate(false)} />}
     </div>
   );
 }
