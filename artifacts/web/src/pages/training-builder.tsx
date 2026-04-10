@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getExerciseImageUrl } from "@/lib/exercise-images";
 import { useCoachClient, useClientUrl } from "@/context/coach-client-context";
 import BottomNav from "@/components/bottom-nav";
+import { CycleProgramContent } from "./cycle-program-builder";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -954,6 +955,7 @@ export default function TrainingBuilder() {
   const { activeClient } = useCoachClient();
   const buildUrl = useClientUrl();
   const [customExerciseOpen, setCustomExerciseOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"workouts" | "cycle">("workouts");
 
   const today = todayDayName();
 
@@ -993,94 +995,124 @@ export default function TrainingBuilder() {
             {t("trainingBuilder.title")}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/training/cycle">
-            <button className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 text-xs font-medium">
-              <RotateCcw className="w-3.5 h-3.5" />
-              Cycle
-            </button>
-          </Link>
+        {activeTab === "workouts" && (
           <button onClick={() => setCustomExerciseOpen(true)} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 text-xs font-medium">
             <Plus className="w-3.5 h-3.5" />
             Custom
           </button>
-        </div>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {/* Today's burn summary */}
-        <Card className="bg-[#1A1A1A] border-border/40 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-primary" />
-              <div>
-                <p className="text-xs text-muted-foreground">Today's Estimated Burn</p>
-                <p className="text-sm text-muted-foreground capitalize">{today}</p>
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-[#1A1A1A] p-1 rounded-xl mx-4 mt-3 mb-1">
+        <button
+          onClick={() => setActiveTab("workouts")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === "workouts"
+              ? "bg-primary text-black shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Dumbbell className="w-3.5 h-3.5" />
+          Workouts
+        </button>
+        <button
+          onClick={() => setActiveTab("cycle")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === "cycle"
+              ? "bg-primary text-black shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Cycle
+        </button>
+      </div>
+
+      {/* ── Workouts tab ─────────────────────────────────────────────────────── */}
+      {activeTab === "workouts" && (
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {/* Today's burn summary */}
+          <Card className="bg-[#1A1A1A] border-border/40 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Today's Estimated Burn</p>
+                  <p className="text-sm text-muted-foreground capitalize">{today}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                {todayBurn > 0 ? (
+                  <>
+                    <p className="text-3xl font-light text-primary">{Math.round(todayBurn)}</p>
+                    <p className="text-xs text-muted-foreground">kcal</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No workouts scheduled</p>
+                )}
               </div>
             </div>
-            <div className="text-right">
-              {todayBurn > 0 ? (
-                <>
-                  <p className="text-3xl font-light text-primary">{Math.round(todayBurn)}</p>
-                  <p className="text-xs text-muted-foreground">kcal</p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">No workouts scheduled</p>
-              )}
-            </div>
-          </div>
-          {todayWorkouts.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border/20 space-y-1">
-              {todayWorkouts.map(w => (
-                <div key={w.id} className="flex justify-between text-xs text-muted-foreground">
-                  <span>{w.workout_name}</span>
-                  <span className="flex items-center gap-1">
-                    <Flame className="w-3 h-3 text-amber-500" />
-                    {Math.round(w.total_calories)} kcal
-                  </span>
-                </div>
-              ))}
+            {todayWorkouts.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-border/20 space-y-1">
+                {todayWorkouts.map(w => (
+                  <div key={w.id} className="flex justify-between text-xs text-muted-foreground">
+                    <span>{w.workout_name}</span>
+                    <span className="flex items-center gap-1">
+                      <Flame className="w-3 h-3 text-amber-500" />
+                      {Math.round(w.total_calories)} kcal
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
           )}
-        </Card>
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!isLoading && workouts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center">
-              <Dumbbell className="w-8 h-8 text-muted-foreground" />
+          {/* Empty state */}
+          {!isLoading && workouts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center">
+                <Dumbbell className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">No workouts yet</p>
+                <p className="text-sm text-muted-foreground mt-1">Create your first workout and add exercises from the library.</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-foreground">No workouts yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Create your first workout and add exercises from the library.</p>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Workout cards */}
-        {!isLoading && workouts.map(w => (
-          <WorkoutCard key={w.id} workout={w} />
-        ))}
+          {/* Workout cards */}
+          {!isLoading && workouts.map(w => (
+            <WorkoutCard key={w.id} workout={w} />
+          ))}
 
-        {/* Add workout button */}
-        <Button
-          onClick={() => createMutation.mutate()}
-          disabled={createMutation.isPending}
-          className="w-full bg-primary text-primary-foreground font-semibold"
-        >
-          {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-          Add Workout
-        </Button>
+          {/* Add workout button */}
+          <Button
+            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending}
+            className="w-full bg-primary text-primary-foreground font-semibold"
+          >
+            {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+            Add Workout
+          </Button>
 
-        <div className="pb-8" />
-      </div>
+          <div className="pb-8" />
+        </div>
+      )}
+
+      {/* ── Cycle tab ────────────────────────────────────────────────────────── */}
+      {activeTab === "cycle" && (
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-28">
+          <CycleProgramContent />
+        </div>
+      )}
 
       <CreateCustomExerciseSheet open={customExerciseOpen} onClose={() => setCustomExerciseOpen(false)} />
       <BottomNav />

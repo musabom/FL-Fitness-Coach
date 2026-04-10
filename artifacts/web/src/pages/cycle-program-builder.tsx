@@ -449,10 +449,9 @@ function ProgramCard({ prog }: { prog: CycleProgram }) {
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Shared content component (used both as tab and as standalone page) ─────────
 
-export default function CycleProgramBuilder() {
-  const { toast } = useToast();
+export function CycleProgramContent() {
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: programs = [], isLoading } = useQuery<CycleProgram[]>({
@@ -461,6 +460,64 @@ export default function CycleProgramBuilder() {
     staleTime: 0,
   });
 
+  return (
+    <div className="space-y-3">
+      {/* Info banner */}
+      <div className="px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
+        <div className="flex items-start gap-2.5">
+          <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-primary">How it works</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Assign your existing workouts to each day of the cycle. The schedule repeats
+              every N days regardless of day of week — no need to create new workouts.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Program list */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {!isLoading && programs.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-[#1A1A1A] flex items-center justify-center">
+            <RotateCcw className="w-6 h-6 text-muted-foreground/40" />
+          </div>
+          <div>
+            <p className="font-medium text-sm text-foreground">No cycle programs yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Create a rotating schedule and assign your workouts to each day
+            </p>
+          </div>
+        </div>
+      )}
+
+      {programs.map(prog => (
+        <ProgramCard key={prog.id} prog={prog} />
+      ))}
+
+      {/* Create button (inline) */}
+      <Button
+        onClick={() => setShowCreate(true)}
+        className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2"
+      >
+        <Plus className="w-4 h-4" />
+        New Cycle Program
+      </Button>
+
+      {showCreate && <CreateProgramSheet onClose={() => setShowCreate(false)} />}
+    </div>
+  );
+}
+
+// ── Standalone page (accessible via /training/cycle direct URL) ───────────────
+
+export default function CycleProgramBuilder() {
   return (
     <div className="mobile-container flex flex-col bg-background min-h-screen pb-24">
       {/* Header */}
@@ -477,60 +534,10 @@ export default function CycleProgramBuilder() {
         <div className="w-9" />
       </header>
 
-      {/* Info banner */}
-      <div className="mx-5 mt-4 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
-        <div className="flex items-start gap-2.5">
-          <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div className="space-y-0.5">
-            <p className="text-xs font-semibold text-primary">How it works</p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Set a cycle length (e.g. 5 days: Day 1–4 train, Day 5 rest) and a start date. The cycle
-              repeats continuously regardless of day of week. Your workout plan will show the right
-              workout each day automatically.
-            </p>
-          </div>
-        </div>
+      <div className="flex-1 overflow-y-auto px-5 py-4 pb-28">
+        <CycleProgramContent />
       </div>
 
-      {/* Program list */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 pb-28">
-        {isLoading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!isLoading && programs.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-[#1A1A1A] flex items-center justify-center">
-              <RotateCcw className="w-7 h-7 text-muted-foreground/40" />
-            </div>
-            <div>
-              <p className="font-medium text-sm text-foreground">No cycle programs yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Create a rotating schedule that repeats every N days
-              </p>
-            </div>
-          </div>
-        )}
-
-        {programs.map(prog => (
-          <ProgramCard key={prog.id} prog={prog} />
-        ))}
-      </div>
-
-      {/* Create FAB */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(672px, 100vw) - 40px)" }}>
-        <Button
-          onClick={() => setShowCreate(true)}
-          className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Cycle Program
-        </Button>
-      </div>
-
-      {showCreate && <CreateProgramSheet onClose={() => setShowCreate(false)} />}
       <BottomNav />
     </div>
   );
