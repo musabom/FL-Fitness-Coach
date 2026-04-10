@@ -118,30 +118,30 @@ async function runMigrationsInternal(): Promise<void> {
       INSERT INTO exercises (exercise_name, name_arabic, muscle_primary, muscle_secondary, exercise_type, equipment, injury_contraindications) VALUES
       ('Barbell Bench Press','صدر مستوي بار','chest',ARRAY['triceps','front_deltoid'],'strength','barbell',ARRAY['shoulder']),
       ('Machine Chest Press','صدر مستوي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder']),
-      ('Dumbbell Bench Press','دامبل مستوي','chest',ARRAY['triceps','front_deltoid'],'strength','dumbbell',ARRAY['shoulder']),
-      ('Decline Chest Press','صدر سفلي جهاز','chest',ARRAY['triceps'],'strength','machine',ARRAY['shoulder']),
-      ('Incline Chest Press','صدر عالي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder']),
+      ('Dumbbell Press','دامبل مستوي','chest',ARRAY['triceps','front_deltoid'],'strength','dumbbell',ARRAY['shoulder']),
+      ('Decline Chest Press Machine','صدر سفلي جهاز','chest',ARRAY['triceps'],'strength','machine',ARRAY['shoulder']),
+      ('Incline Chest Press Machine','صدر عالي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder']),
       ('Machine Chest Fly','جهاز تفتيح صدر','chest',ARRAY['front_deltoid'],'strength','machine',ARRAY['shoulder']),
-      ('Dumbbell Bicep Curl','تبادل دامبل باي','biceps',ARRAY['brachialis'],'strength','dumbbell',ARRAY[]::text[]),
-      ('Barbell Bicep Curl','بار واسع باي','biceps',ARRAY['brachialis'],'strength','barbell',ARRAY[]::text[]),
+      ('Biceps Curl Alternating Dumbbell','تبادل دامبل باي','biceps',ARRAY['brachialis'],'strength','dumbbell',ARRAY[]::text[]),
+      ('Barbell Biceps Curl','بار واسع باي','biceps',ARRAY['brachialis'],'strength','barbell',ARRAY[]::text[]),
       ('Hammer Curl','هامر دامبل باي','biceps',ARRAY['brachioradialis'],'strength','dumbbell',ARRAY[]::text[]),
-      ('Concentration Curl','تكوير باي','biceps',ARRAY[]::text[],'strength','dumbbell',ARRAY[]::text[]),
-      ('Lat Pulldown Wide Grip','سحب امامي واسع','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['shoulder']),
+      ('Concentrated Curl','تكوير باي','biceps',ARRAY[]::text[],'strength','dumbbell',ARRAY[]::text[]),
+      ('Lat Pulldown','سحب امامي واسع','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['shoulder']),
       ('Dumbbell Row','منشار دامبل','back',ARRAY['biceps','rear_deltoid'],'strength','dumbbell',ARRAY['lower_back']),
       ('Seated Row Machine','جهاز منشار','back',ARRAY['biceps','rear_deltoid'],'strength','machine',ARRAY['lower_back']),
       ('Close Grip Lat Pulldown','سحب امامي ضيق','back',ARRAY['biceps'],'strength','cable',ARRAY['shoulder']),
-      ('Seated Cable Row','سحب ارضي بالمثلث','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['lower_back']),
+      ('Seat Cable Row','سحب ارضي بالمثلث','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['lower_back']),
       ('T-Bar Row','تي بار رو','back',ARRAY['biceps','rear_deltoid'],'strength','barbell',ARRAY['lower_back']),
       ('Back Extension','جهاز الظهر اسفل','back',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['lower_back']),
-      ('Tricep Pushdown Reverse Grip','تراي عكس مسطره','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
-      ('Tricep Pushdown Rope','حبل تراي','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
+      ('Reverse Grip Tricep Pushdown','تراي عكس مسطره','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
+      ('Tricep Pushdown Straight Rope','حبل تراي','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
       ('Tricep Pushdown Straight Bar','مسطره ضيق','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
       ('Overhead Tricep Extension','تراي من فوق الراس','triceps',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder']),
       ('Tricep Dip Machine','جهاز تراي غطس','triceps',ARRAY['chest','front_deltoid'],'strength','machine',ARRAY['shoulder']),
       ('Front Raises','رفرفه امامي','shoulders',ARRAY['upper_chest'],'strength','dumbbell',ARRAY['shoulder']),
       ('Shoulder Press Machine','جهاز اكتاف','shoulders',ARRAY['triceps'],'strength','machine',ARRAY['shoulder']),
       ('Dumbbell Shoulder Press','دامبل بريس','shoulders',ARRAY['triceps'],'strength','dumbbell',ARRAY['shoulder']),
-      ('Lateral Raises','رفرفه جانبي','shoulders',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder']),
+      ('Lateral Side Raises','رفرفه جانبي','shoulders',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder']),
       ('Plate Front Raise','امامي بالقرص','shoulders',ARRAY['upper_chest'],'strength','barbell',ARRAY['shoulder']),
       ('Rear Delt Fly Machine','جهاز كتف خلفي','shoulders',ARRAY['rear_deltoid','upper_back'],'strength','machine',ARRAY['shoulder']),
       ('Barbell Shrugs','ترابيس بالبار','shoulders',ARRAY['traps'],'strength','barbell',ARRAY[]::text[]),
@@ -178,34 +178,49 @@ async function runMigrationsInternal(): Promise<void> {
   // Ensure met_value column exists (for existing deployments)
   await pool.query(`ALTER TABLE exercises ADD COLUMN IF NOT EXISTS met_value DECIMAL(4,1)`);
 
+  // ── Rename exercises to match Y Gym Picture file names (idempotent) ──────────
+  await pool.query(`
+    UPDATE exercises SET exercise_name = 'Dumbbell Press'                   WHERE exercise_name = 'Dumbbell Bench Press';
+    UPDATE exercises SET exercise_name = 'Decline Chest Press Machine'      WHERE exercise_name = 'Decline Chest Press';
+    UPDATE exercises SET exercise_name = 'Incline Chest Press Machine'      WHERE exercise_name = 'Incline Chest Press';
+    UPDATE exercises SET exercise_name = 'Biceps Curl Alternating Dumbbell' WHERE exercise_name = 'Dumbbell Bicep Curl';
+    UPDATE exercises SET exercise_name = 'Barbell Biceps Curl'              WHERE exercise_name = 'Barbell Bicep Curl';
+    UPDATE exercises SET exercise_name = 'Concentrated Curl'                WHERE exercise_name = 'Concentration Curl';
+    UPDATE exercises SET exercise_name = 'Lat Pulldown'                     WHERE exercise_name = 'Lat Pulldown Wide Grip';
+    UPDATE exercises SET exercise_name = 'Seat Cable Row'                   WHERE exercise_name = 'Seated Cable Row';
+    UPDATE exercises SET exercise_name = 'Reverse Grip Tricep Pushdown'     WHERE exercise_name = 'Tricep Pushdown Reverse Grip';
+    UPDATE exercises SET exercise_name = 'Tricep Pushdown Straight Rope'    WHERE exercise_name = 'Tricep Pushdown Rope';
+    UPDATE exercises SET exercise_name = 'Lateral Side Raises'              WHERE exercise_name = 'Lateral Raises';
+  `);
+
   // ── Exercise Image URLs ────────────────────────────────────────────────────
   // Idempotent: only updates rows that don't already have an image_url set
   await pool.query(`
     UPDATE exercises SET image_url = '/exercises/1-_barbell_bench_press_1773910065656.png'       WHERE exercise_name = 'Barbell Bench Press'          AND image_url IS NULL;
     UPDATE exercises SET image_url = '/exercises/2-_Machine_chest_press_1773910065656.png'        WHERE exercise_name = 'Machine Chest Press'           AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-Dumbbell_press_1773910065654.png'              WHERE exercise_name = 'Dumbbell Bench Press'          AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/3-_decline_chest_press_machine_1773910065655.png' WHERE exercise_name = 'Decline Chest Press'          AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/5-_incline_chest_press_machine_1773910065655.png' WHERE exercise_name = 'Incline Chest Press'          AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/6-_machine_chest_fly_1773910065655.png'          WHERE exercise_name = 'Machine Chest Fly'             AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/1-biceps_curl_alternating_dumbbell_1773910065654.png' WHERE exercise_name = 'Dumbbell Bicep Curl'     AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-barbell_biceps_curl_1773910065656.png'         WHERE exercise_name = 'Barbell Bicep Curl'            AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/3-hammer_curl_1773910065654.png'                 WHERE exercise_name = 'Hammer Curl'                  AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/4-concentrated_curl_1773910065654.png'           WHERE exercise_name = 'Concentration Curl'           AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/1-_lat_pulldown_1773910065653.png'               WHERE exercise_name = 'Lat Pulldown Wide Grip'       AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-Dumbbell_row_1773910065654.png'                WHERE exercise_name = 'Dumbbell Row'                 AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-Seated_row_machine_1773910065654.png'          WHERE exercise_name = 'Seated Row Machine'           AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/3-close_grip_lat_pulldown_1773910065652.png'     WHERE exercise_name = 'Close Grip Lat Pulldown'      AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/4-seat_cable_row_1773910065653.png'              WHERE exercise_name = 'Seated Cable Row'             AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/5-T-bar_row_1773910065651.png'                   WHERE exercise_name = 'T-Bar Row'                    AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/6-back_extension_1773910065652.png'              WHERE exercise_name = 'Back Extension'               AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/1-_reverse_grip_tricep_pushdown_1773909535481.png' WHERE exercise_name = 'Tricep Pushdown Reverse Grip' AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-tricep_pushdown_straight_rope_1773909535482.png' WHERE exercise_name = 'Tricep Pushdown Rope'       AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/3-_tricep_pushdown_straight_bar_1773909535481.png' WHERE exercise_name = 'Tricep Pushdown Straight Bar' AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/4-_overhead_tricep_extension_1773909535481.png'  WHERE exercise_name = 'Overhead Tricep Extension'    AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/1-_front_raises_1773909535480.png'               WHERE exercise_name = 'Front Raises'                 AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-_shoulder_press_machine_1773909535480.png'     WHERE exercise_name = 'Shoulder Press Machine'       AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/2-_dumbbell_shoulder_press_1773909535480.png'    WHERE exercise_name = 'Dumbbell Shoulder Press'      AND image_url IS NULL;
-    UPDATE exercises SET image_url = '/exercises/3-_lateral_side_raises_1773909454019.png'        WHERE exercise_name = 'Lateral Raises'               AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-Dumbbell_press_1773910065654.png'              WHERE exercise_name = 'Dumbbell Press'                    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-_decline_chest_press_machine_1773910065655.png' WHERE exercise_name = 'Decline Chest Press Machine'      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/5-_incline_chest_press_machine_1773910065655.png' WHERE exercise_name = 'Incline Chest Press Machine'      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/6-_machine_chest_fly_1773910065655.png'          WHERE exercise_name = 'Machine Chest Fly'                 AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-biceps_curl_alternating_dumbbell_1773910065654.png' WHERE exercise_name = 'Biceps Curl Alternating Dumbbell' AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-barbell_biceps_curl_1773910065656.png'         WHERE exercise_name = 'Barbell Biceps Curl'               AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-hammer_curl_1773910065654.png'                 WHERE exercise_name = 'Hammer Curl'                       AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-concentrated_curl_1773910065654.png'           WHERE exercise_name = 'Concentrated Curl'                 AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-_lat_pulldown_1773910065653.png'               WHERE exercise_name = 'Lat Pulldown'                      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-Dumbbell_row_1773910065654.png'                WHERE exercise_name = 'Dumbbell Row'                      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-Seated_row_machine_1773910065654.png'          WHERE exercise_name = 'Seated Row Machine'                AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-close_grip_lat_pulldown_1773910065652.png'     WHERE exercise_name = 'Close Grip Lat Pulldown'           AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-seat_cable_row_1773910065653.png'              WHERE exercise_name = 'Seat Cable Row'                    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/5-T-bar_row_1773910065651.png'                   WHERE exercise_name = 'T-Bar Row'                         AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/6-back_extension_1773910065652.png'              WHERE exercise_name = 'Back Extension'                    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-_reverse_grip_tricep_pushdown_1773909535481.png' WHERE exercise_name = 'Reverse Grip Tricep Pushdown'    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-tricep_pushdown_straight_rope_1773909535482.png' WHERE exercise_name = 'Tricep Pushdown Straight Rope'   AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-_tricep_pushdown_straight_bar_1773909535481.png' WHERE exercise_name = 'Tricep Pushdown Straight Bar'    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/4-_overhead_tricep_extension_1773909535481.png'  WHERE exercise_name = 'Overhead Tricep Extension'         AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/1-_front_raises_1773909535480.png'               WHERE exercise_name = 'Front Raises'                      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-_shoulder_press_machine_1773909535480.png'     WHERE exercise_name = 'Shoulder Press Machine'            AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/2-_dumbbell_shoulder_press_1773909535480.png'    WHERE exercise_name = 'Dumbbell Shoulder Press'           AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/3-_lateral_side_raises_1773909454019.png'        WHERE exercise_name = 'Lateral Side Raises'               AND image_url IS NULL;
     UPDATE exercises SET image_url = '/exercises/4-_plate_front_raise_1773909535480.png'          WHERE exercise_name = 'Plate Front Raise'            AND image_url IS NULL;
     UPDATE exercises SET image_url = '/exercises/5-_rear_delt_fly_machine_1773909454019.png'      WHERE exercise_name = 'Rear Delt Fly Machine'        AND image_url IS NULL;
     UPDATE exercises SET image_url = '/exercises/6-_barbell_shrugs_1773909454018.png'             WHERE exercise_name = 'Barbell Shrugs'               AND image_url IS NULL;
