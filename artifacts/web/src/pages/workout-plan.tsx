@@ -365,6 +365,8 @@ export default function WorkoutPlan() {
   const { data: dayPlan, isLoading } = useQuery<DayWorkoutPlan>({
     queryKey: ["workout-plan", date, activeClient?.id],
     queryFn: () => customFetch<DayWorkoutPlan>(buildUrl(`${BASE}/workout-plan?date=${date}`)),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // Add workout to date

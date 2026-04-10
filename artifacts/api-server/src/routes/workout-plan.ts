@@ -107,6 +107,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     return;
   }
 
+  try {
   const d = new Date(dateStr + "T00:00:00");
   const dayOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 
@@ -117,8 +118,8 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
   const trainingMode = profileRes.rows[0]?.training_mode ?? 'schedule';
 
-  // Fetch explicitly added workout entries for this date
-  const entriesRes = await pool.query(
+  // Fetch explicitly added workout entries for this date (only in schedule mode)
+  const entriesRes = trainingMode !== 'schedule' ? { rows: [] as any[] } : await pool.query(
     `SELECT id AS entry_id, workout_id FROM workout_plan_entries
      WHERE user_id = $1 AND date = $2
      ORDER BY created_at`,
@@ -196,58 +197,69 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   const cycleEntries: Array<NonNullable<(typeof entries)[0]>> = [];
 
   for (const prog of cycleProgsRes.rows) {
-    // Compute which position this date falls on in the cycle
-    const startMs = new Date(prog.start_date + "T00:00:00").getTime();
-    const dateMs = new Date(dateStr + "T00:00:00").getTime();
-    const daysSinceStart = Math.floor((dateMs - startMs) / 86400000);
+    try {
+      // Compute which position this date falls on in the cycle
+      // node-postgres returns DATE columns as JS Date objects, so use toISOString()
+      const startDateOnly = prog.start_date instanceof Date
+        ? prog.start_date.toISOString().slice(0, 10)
+        : String(prog.start_date).slice(0, 10);
+      const startMs = new Date(startDateOnly + "T00:00:00").getTime();
+      const dateMs = new Date(dateStr + "T00:00:00").getTime();
+      const daysSinceStart = Math.floor((dateMs - startMs) / 86400000);
 
-    // Only show cycle if date is on or after start_date
-    if (daysSinceStart < 0) continue;
+      // Only show cycle if date is on or after start_date
+      if (daysSinceStart < 0) continue;
 
-    const cycleLength = Number(prog.cycle_length);
-    const position = ((daysSinceStart % cycleLength) + cycleLength) % cycleLength;
+      const cycleLength = Number(prog.cycle_length);
+      // Guard: need at least 1 slot for cycle to work
+      if (!cycleLength || cycleLength < 1) continue;
 
-    // Check for exclusion
-    const exclusionCheck = await pool.query(
-      `SELECT id FROM cycle_program_exclusions WHERE user_id = $1 AND program_id = $2 AND date = $3`,
-      [userId, prog.id, dateStr]
-    );
-    if (exclusionCheck.rows.length > 0) continue;
+      const position = ((daysSinceStart % cycleLength) + cycleLength) % cycleLength;
 
-    // Get slot for this position
-    const slotRes = await pool.query(
-      `SELECT * FROM cycle_program_slots WHERE program_id = $1 AND position = $2`,
-      [prog.id, position]
-    );
-    const slot = slotRes.rows[0];
+      // Check for exclusion
+      const exclusionCheck = await pool.query(
+        `SELECT id FROM cycle_program_exclusions WHERE user_id = $1 AND program_id = $2 AND date = $3`,
+        [userId, prog.id, dateStr]
+      );
+      if (exclusionCheck.rows.length > 0) continue;
 
-    // No slot or no workout assigned = rest day, skip
-    if (!slot || !slot.workout_id) continue;
+      // Get slot for this position
+      const slotRes = await pool.query(
+        `SELECT * FROM cycle_program_slots WHERE program_id = $1 AND position = $2`,
+        [prog.id, position]
+      );
+      const slot = slotRes.rows[0];
 
-    // Skip if this workout is already in the scheduled entries
-    const alreadyInScheduled = allWorkoutRefs.some(r => r.workout_id === slot.workout_id);
-    if (alreadyInScheduled) continue;
+      // No slot or no workout assigned = rest day, skip
+      if (!slot || !slot.workout_id) continue;
 
-    const workout = await getWorkoutSummary(slot.workout_id, weightKg);
-    if (!workout) continue;
+      // Skip if this workout is already in the scheduled entries
+      const alreadyInScheduled = allWorkoutRefs.some(r => r.workout_id === slot.workout_id);
+      if (alreadyInScheduled) continue;
 
-    cycleEntries.push({
-      entry_id: 0,
-      is_entry: false,
-      source: "cycle" as const,
-      cycle_program_id: prog.id,
-      cycle_program_name: prog.name,
-      cycle_position: position,
-      cycle_slot_label: slot.label ?? null,
-      completed: completedWorkouts.has(slot.workout_id),
-      workout: {
-        ...workout,
-        exercises: workout.exercises.map(e => ({
-          ...e,
-          completed: completedExercises.has(e.id),
-        })),
-      },
-    } as any);
+      const workout = await getWorkoutSummary(slot.workout_id, weightKg);
+      if (!workout) continue;
+
+      cycleEntries.push({
+        entry_id: 0,
+        is_entry: false,
+        source: "cycle" as const,
+        cycle_program_id: prog.id,
+        cycle_program_name: prog.name,
+        cycle_position: position,
+        cycle_slot_label: slot.label ?? null,
+        completed: completedWorkouts.has(slot.workout_id),
+        workout: {
+          ...workout,
+          exercises: workout.exercises.map(e => ({
+            ...e,
+            completed: completedExercises.has(e.id),
+          })),
+        },
+      } as any);
+    } catch (err) {
+      console.error("Error processing cycle prog", prog.id, err);
+    }
   }
 
   const validEntries = [
@@ -265,6 +277,7 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     return sum + completedCalories;
   }, 0);
 
+  console.log(`workout-plan ${dateStr}: mode=${trainingMode} cycleProgs=${cycleProgsRes.rows.length} cycleEntries=${cycleEntries.length} total=${validEntries.length}`);
   res.json({
     date: dateStr,
     day_of_week: dayOfWeek,
@@ -272,6 +285,10 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     total_calories: +total_calories.toFixed(1),
     burned_calories: +burned_calories.toFixed(1),
   });
+  } catch (err) {
+    console.error("GET /workout-plan error:", err);
+    res.status(500).json({ error: "Failed to load workout plan" });
+  }
 });
 
 // ── POST /workout-plan ── Add a workout to a specific date ────────────────────

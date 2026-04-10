@@ -104,28 +104,73 @@ async function getWorkoutCalories(userId: number, date: string, weightKg: number
     const d = new Date(date + "T00:00:00");
     const dayOfWeek = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][d.getDay()];
 
-    // Planned: scheduled workouts (not excluded) + entries for this date
-    const plannedRes = await pool.query(
-      `SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
-              e.exercise_type, e.met_value
-       FROM user_workouts uw
-       JOIN workout_schedule ws ON ws.workout_id = uw.id
-       JOIN workout_exercises we ON we.workout_id = uw.id
-       JOIN exercises e ON e.id = we.exercise_id
-       WHERE uw.user_id = $1 AND ws.day_of_week = $2
-         AND NOT EXISTS (SELECT 1 FROM workout_plan_exclusions WHERE user_id = $1 AND date = $3 AND workout_id = uw.id)
-         AND NOT EXISTS (SELECT 1 FROM workout_plan_entries WHERE user_id = $1 AND date = $3 AND workout_id = uw.id)
-       UNION ALL
-       SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
-              e.exercise_type, e.met_value
-       FROM workout_plan_entries wpe
-       JOIN workout_exercises we ON we.workout_id = wpe.workout_id
-       JOIN exercises e ON e.id = we.exercise_id
-       WHERE wpe.user_id = $1 AND wpe.date = $3`,
-      [userId, dayOfWeek, date]
+    const modeRes = await pool.query(
+      `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+      [userId]
     );
+    const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
 
-    const planned_calories = +plannedRes.rows.reduce((sum: number, row: any) => sum + calcExerciseCalories(row, weightKg), 0).toFixed(1);
+    let plannedRows: any[] = [];
+
+    if (trainingMode === 'schedule') {
+      // Schedule mode: scheduled workouts (not excluded) + manually added entries
+      const plannedRes = await pool.query(
+        `SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
+                e.exercise_type, e.met_value
+         FROM user_workouts uw
+         JOIN workout_schedule ws ON ws.workout_id = uw.id
+         JOIN workout_exercises we ON we.workout_id = uw.id
+         JOIN exercises e ON e.id = we.exercise_id
+         WHERE uw.user_id = $1 AND ws.day_of_week = $2
+           AND NOT EXISTS (SELECT 1 FROM workout_plan_exclusions WHERE user_id = $1 AND date = $3 AND workout_id = uw.id)
+           AND NOT EXISTS (SELECT 1 FROM workout_plan_entries WHERE user_id = $1 AND date = $3 AND workout_id = uw.id)
+         UNION ALL
+         SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
+                e.exercise_type, e.met_value
+         FROM workout_plan_entries wpe
+         JOIN workout_exercises we ON we.workout_id = wpe.workout_id
+         JOIN exercises e ON e.id = we.exercise_id
+         WHERE wpe.user_id = $1 AND wpe.date = $3`,
+        [userId, dayOfWeek, date]
+      );
+      plannedRows = plannedRes.rows;
+    } else {
+      // Cycle mode: find today's cycle workout
+      const progRes = await pool.query(
+        `SELECT id, start_date, cycle_length FROM cycle_programs WHERE user_id = $1 AND is_default = TRUE AND is_active = TRUE LIMIT 1`,
+        [userId]
+      );
+      if (progRes.rows.length > 0) {
+        const prog = progRes.rows[0];
+        const startDateOnly = prog.start_date instanceof Date
+          ? prog.start_date.toISOString().slice(0, 10)
+          : String(prog.start_date).slice(0, 10);
+        const startMs = new Date(startDateOnly + "T00:00:00").getTime();
+        const dateMs = new Date(date + "T00:00:00").getTime();
+        const daysSince = Math.floor((dateMs - startMs) / 86400000);
+        const cycleLength = Number(prog.cycle_length);
+        if (daysSince >= 0 && cycleLength >= 1) {
+          const position = ((daysSince % cycleLength) + cycleLength) % cycleLength;
+          const slotRes = await pool.query(
+            `SELECT workout_id FROM cycle_program_slots WHERE program_id = $1 AND position = $2`,
+            [prog.id, position]
+          );
+          if (slotRes.rows[0]?.workout_id) {
+            const exercisesRes = await pool.query(
+              `SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
+                      e.exercise_type, e.met_value
+               FROM workout_exercises we
+               JOIN exercises e ON e.id = we.exercise_id
+               WHERE we.workout_id = $1`,
+              [slotRes.rows[0].workout_id]
+            );
+            plannedRows = exercisesRes.rows;
+          }
+        }
+      }
+    }
+
+    const planned_calories = +plannedRows.reduce((sum: number, row: any) => sum + calcExerciseCalories(row, weightKg), 0).toFixed(1);
 
     // Burned: completed exercises for this date
     const burnedRes = await pool.query(

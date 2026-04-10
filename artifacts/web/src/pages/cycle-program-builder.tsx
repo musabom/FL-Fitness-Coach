@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -462,8 +462,7 @@ interface UserCycle {
 export function CycleProgramContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [editingDate, setEditingDate] = useState(false);
-  const [dateVal, setDateVal] = useState("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const { data: cycle, isLoading } = useQuery<UserCycle>({
     queryKey: ["user-cycle"],
@@ -480,11 +479,25 @@ export function CycleProgramContent() {
       body: JSON.stringify({ mode }),
       headers: { "Content-Type": "application/json" },
     }),
-    onSuccess: () => {
+    onMutate: (mode: string) => {
+      // Optimistically update toggle immediately
+      queryClient.setQueryData(["user-cycle"], (old: any) =>
+        old ? { ...old, training_mode: mode } : old
+      );
+    },
+    onSuccess: (_data, mode) => {
+      queryClient.setQueryData(["user-cycle"], (old: any) =>
+        old ? { ...old, training_mode: mode } : old
+      );
       queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
       queryClient.invalidateQueries({ queryKey: ["workout-plan"] });
+      toast({ title: mode === 'cycle' ? "Cycle mode activated" : "Schedule mode activated" });
     },
-    onError: () => toast({ title: "Failed to update mode", variant: "destructive" }),
+    onError: () => {
+      // Revert on error
+      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      toast({ title: "Failed to update mode", variant: "destructive" });
+    },
   });
 
   const updateStartDateMutation = useMutation({
@@ -493,9 +506,13 @@ export function CycleProgramContent() {
       body: JSON.stringify({ start_date }),
       headers: { "Content-Type": "application/json" },
     }),
-    onSuccess: () => {
+    onSuccess: (_data, start_date) => {
+      // Immediately update cache so UI reflects the new date without waiting for refetch
+      queryClient.setQueryData(["user-cycle"], (old: any) =>
+        old ? { ...old, start_date } : old
+      );
       queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
-      setEditingDate(false);
+      toast({ title: "Start date updated" });
     },
     onError: () => toast({ title: "Failed to update start date", variant: "destructive" }),
   });
@@ -528,7 +545,8 @@ export function CycleProgramContent() {
   function getTodayPosition(): number | null {
     if (!cycle || slots.length === 0) return null;
     const today = new Date().toISOString().slice(0, 10);
-    const startMs = new Date(cycle.start_date + "T00:00:00").getTime();
+    const startDateOnly = cycle.start_date.slice(0, 10);
+    const startMs = new Date(startDateOnly + "T00:00:00").getTime();
     const todayMs = new Date(today + "T00:00:00").getTime();
     const days = Math.floor((todayMs - startMs) / 86400000);
     if (days < 0) return null;
@@ -580,28 +598,24 @@ export function CycleProgramContent() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase">Cycle Start Date</p>
-            {editingDate ? (
-              <div className="flex items-center gap-2 mt-1">
-                <input
-                  type="date"
-                  defaultValue={cycle?.start_date}
-                  onChange={e => setDateVal(e.target.value)}
-                  className="bg-transparent text-sm text-foreground border-b border-primary outline-none"
-                />
-                <button onClick={() => dateVal && updateStartDateMutation.mutate(dateVal)} className="text-primary text-xs font-medium">Save</button>
-                <button onClick={() => setEditingDate(false)} className="text-muted-foreground text-xs">Cancel</button>
-              </div>
-            ) : (
-              <p className="text-sm font-semibold text-foreground mt-0.5">
-                {cycle?.start_date ? new Date(cycle.start_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
-              </p>
-            )}
+            <p className="text-sm font-semibold text-foreground mt-0.5">
+              {cycle?.start_date ? new Date(cycle.start_date.slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+            </p>
           </div>
-          {!editingDate && (
-            <button onClick={() => setEditingDate(true)} className="text-muted-foreground hover:text-foreground">
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          )}
+          {/* Pencil icon with transparent date input overlaid on top */}
+          <div className="relative w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <Pencil className="w-3.5 h-3.5 pointer-events-none" />
+            <input
+              ref={dateInputRef}
+              type="date"
+              key={cycle?.start_date ?? "none"}
+              defaultValue={cycle?.start_date ?? ""}
+              onChange={e => {
+                if (e.target.value) updateStartDateMutation.mutate(e.target.value);
+              }}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+          </div>
         </div>
       </div>
 
