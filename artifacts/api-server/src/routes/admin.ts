@@ -101,31 +101,35 @@ router.delete("/admin/users/:id", async (req, res): Promise<void> => {
     await client.query(`UPDATE users SET coach_id = NULL WHERE coach_id = $1`, [targetId]);
 
     // Delete all related data in dependency order (leaf tables first)
-    await client.query(`DELETE FROM meal_portion_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_plan_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_plan_exclusions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_plan_entries WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_schedule WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM meal_logs WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_meals WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_foods WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM food_stock WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_exercise_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_plan_completions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_plan_exclusions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_plan_entries WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_schedule WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM workout_sessions WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_workouts WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM exercises WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM weight_history WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM weekly_checkins WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM adjustment_logs WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM plans WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM user_profiles WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM coach_services WHERE coach_id = $1`, [targetId]);
-    await client.query(`DELETE FROM coach_profiles WHERE user_id = $1`, [targetId]);
-    await client.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [targetId]);
+    // Using DO blocks to safely skip tables that may not exist yet
+    const safeDelete = (table: string, col: string) =>
+      client.query(`DO $$ BEGIN IF EXISTS (SELECT FROM information_schema.tables WHERE table_name='${table}') THEN DELETE FROM ${table} WHERE ${col} = ${targetId}; END IF; END $$`);
+
+    await safeDelete('meal_portion_completions', 'user_id');
+    await safeDelete('meal_plan_completions', 'user_id');
+    await safeDelete('meal_plan_exclusions', 'user_id');
+    await safeDelete('meal_plan_entries', 'user_id');
+    await safeDelete('meal_schedule', 'user_id');
+    await safeDelete('meal_logs', 'user_id');
+    await safeDelete('user_meals', 'user_id');
+    await safeDelete('user_foods', 'user_id');
+    await safeDelete('food_stock', 'user_id');
+    await safeDelete('workout_exercise_completions', 'user_id');
+    await safeDelete('workout_plan_completions', 'user_id');
+    await safeDelete('workout_plan_exclusions', 'user_id');
+    await safeDelete('workout_plan_entries', 'user_id');
+    await safeDelete('workout_schedule', 'user_id');
+    await safeDelete('workout_sessions', 'user_id');
+    await safeDelete('user_workouts', 'user_id');
+    await safeDelete('exercises', 'user_id');
+    await safeDelete('weight_history', 'user_id');
+    await safeDelete('weekly_checkins', 'user_id');
+    await safeDelete('adjustment_logs', 'user_id');
+    await safeDelete('plans', 'user_id');
+    await safeDelete('user_profiles', 'user_id');
+    await safeDelete('coach_services', 'coach_id');
+    await safeDelete('coach_profiles', 'user_id');
+    await safeDelete('password_reset_tokens', 'user_id');
     await client.query(`DELETE FROM session WHERE sess->>'userId' = $1`, [String(targetId)]).catch(() => {});
 
     // Finally delete the user
@@ -151,18 +155,16 @@ router.get("/admin/coaches", async (req, res): Promise<void> => {
   const coaches = await pool.query(`
     SELECT u.id, u.email, u.full_name, u.role,
       COUNT(c.id)::int AS client_count,
-      COALESCE(cs.price, 0)::numeric AS service_price,
-      (COUNT(c.id) * COALESCE(cs.price, 0))::numeric AS estimated_revenue
+      COALESCE(SUM(cs.price), 0)::numeric AS estimated_revenue
     FROM users u
-    LEFT JOIN users c ON c.coach_id = u.id AND c.role = 'member' AND c.is_active = true
-    LEFT JOIN LATERAL (
-      SELECT price FROM coach_services
-      WHERE coach_id = u.id AND is_active = true
-      ORDER BY created_at DESC LIMIT 1
-    ) cs ON true
+    LEFT JOIN users c ON c.coach_id = u.id
+      AND c.role = 'member'
+      AND c.is_active = true
+      AND c.subscription_status IN ('active', 'cancelling')
+    LEFT JOIN coach_services cs ON cs.id = c.service_id
     WHERE u.role = 'coach'
-    GROUP BY u.id, cs.price
-    ORDER BY u.full_name
+    GROUP BY u.id
+    ORDER BY estimated_revenue DESC, u.full_name
   `);
 
   const coachIds = coaches.rows.map((r: { id: number }) => r.id);
@@ -170,9 +172,13 @@ router.get("/admin/coaches", async (req, res): Promise<void> => {
 
   if (coachIds.length > 0) {
     const clients = await pool.query(`
-      SELECT u.id, u.email, u.full_name, u.coach_id, up.goal_mode, up.weight_kg
+      SELECT u.id, u.email, u.full_name, u.coach_id,
+        u.subscription_status, u.service_id,
+        cs.title AS service_title, cs.price AS service_price,
+        up.goal_mode, up.weight_kg
       FROM users u
       LEFT JOIN user_profiles up ON up.user_id = u.id
+      LEFT JOIN coach_services cs ON cs.id = u.service_id
       WHERE u.coach_id = ANY($1::int[])
       ORDER BY u.full_name
     `, [coachIds]);
@@ -222,7 +228,10 @@ router.post("/admin/coaches/:coachId/clients/:clientId", async (req, res): Promi
     return;
   }
 
-  await pool.query(`UPDATE users SET coach_id = $1 WHERE id = $2`, [coachId, clientId]);
+  await pool.query(
+    `UPDATE users SET coach_id = $1, subscription_status = 'active', subscription_started_at = COALESCE(subscription_started_at, NOW()) WHERE id = $2`,
+    [coachId, clientId]
+  );
   res.json({ message: "Client assigned to coach" });
 });
 
@@ -231,7 +240,7 @@ router.delete("/admin/coaches/:coachId/clients/:clientId", async (req, res): Pro
   if (!adminId) return;
 
   const clientId = parseInt(req.params["clientId"], 10);
-  await pool.query(`UPDATE users SET coach_id = NULL WHERE id = $1`, [clientId]);
+  await pool.query(`UPDATE users SET coach_id = NULL, subscription_status = 'free' WHERE id = $1`, [clientId]);
   res.json({ message: "Client removed from coach" });
 });
 
@@ -241,28 +250,25 @@ router.get("/admin/overview", async (req, res): Promise<void> => {
   const adminId = await requireAdmin(req, res);
   if (!adminId) return;
 
-  const [members, coaches, newThisMonth, unassigned, revenue] = await Promise.all([
+  const [totalUsers, members, coaches, newThisMonth, unassigned, revenue] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE is_active = true`),
     pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'member' AND is_active = true`),
     pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'coach' AND is_active = true`),
     pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'member' AND created_at >= date_trunc('month', NOW())`),
     pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'member' AND is_active = true AND coach_id IS NULL`),
+    // Sum each member's actual service price (service-level subscriptions)
     pool.query(`
-      SELECT COALESCE(SUM(cs.price * sub.client_count), 0)::numeric AS total
-      FROM (
-        SELECT u.coach_id, COUNT(*)::int AS client_count
-        FROM users u
-        WHERE u.role = 'member' AND u.is_active = true AND u.coach_id IS NOT NULL
-        GROUP BY u.coach_id
-      ) sub
-      JOIN LATERAL (
-        SELECT price FROM coach_services
-        WHERE coach_id = sub.coach_id AND is_active = true
-        ORDER BY created_at DESC LIMIT 1
-      ) cs ON true
+      SELECT COALESCE(SUM(cs.price), 0)::numeric AS total
+      FROM users u
+      JOIN coach_services cs ON cs.id = u.service_id
+      WHERE u.role = 'member'
+        AND u.is_active = true
+        AND u.subscription_status IN ('active', 'cancelling')
     `),
   ]);
 
   res.json({
+    totalUsers: totalUsers.rows[0].count,
     totalMembers: members.rows[0].count,
     totalCoaches: coaches.rows[0].count,
     newMembersThisMonth: newThisMonth.rows[0].count,
@@ -300,17 +306,15 @@ router.get("/admin/reports/coaches", async (req, res): Promise<void> => {
       u.id,
       COALESCE(u.full_name, split_part(u.email, '@', 1)) AS name,
       COUNT(m.id)::int AS client_count,
-      COALESCE(cs.price, 0)::numeric AS service_price,
-      (COUNT(m.id) * COALESCE(cs.price, 0))::numeric AS estimated_revenue
+      COALESCE(SUM(cs.price), 0)::numeric AS estimated_revenue
     FROM users u
-    LEFT JOIN users m ON m.coach_id = u.id AND m.role = 'member' AND m.is_active = true
-    LEFT JOIN LATERAL (
-      SELECT price FROM coach_services
-      WHERE coach_id = u.id AND is_active = true
-      ORDER BY created_at DESC LIMIT 1
-    ) cs ON true
+    LEFT JOIN users m ON m.coach_id = u.id
+      AND m.role = 'member'
+      AND m.is_active = true
+      AND m.subscription_status IN ('active', 'cancelling')
+    LEFT JOIN coach_services cs ON cs.id = m.service_id
     WHERE u.role = 'coach' AND u.is_active = true
-    GROUP BY u.id, u.full_name, u.email, cs.price
+    GROUP BY u.id, u.full_name, u.email
     ORDER BY estimated_revenue DESC, client_count DESC
   `);
 
@@ -333,6 +337,37 @@ router.get("/admin/reports/goals", async (req, res): Promise<void> => {
   `);
 
   res.json(result.rows);
+});
+
+// ── Platform Settings ─────────────────────────────────────────────────────────
+
+router.get("/admin/platform-settings", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const result = await pool.query(`SELECT value FROM platform_settings WHERE key = 'platform_commission_pct'`);
+  const pct = result.rows.length > 0 ? Number(result.rows[0].value) : 10;
+  res.json({ platformCommissionPct: pct });
+});
+
+router.put("/admin/platform-settings", async (req, res): Promise<void> => {
+  const adminId = await requireAdmin(req, res);
+  if (!adminId) return;
+
+  const { platformCommissionPct } = req.body;
+  if (typeof platformCommissionPct !== "number" || platformCommissionPct < 0 || platformCommissionPct > 100) {
+    res.status(400).json({ error: "Commission must be a number between 0 and 100" });
+    return;
+  }
+
+  await pool.query(
+    `INSERT INTO platform_settings (key, value, updated_at)
+     VALUES ('platform_commission_pct', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+    [String(platformCommissionPct)]
+  );
+
+  res.json({ platformCommissionPct });
 });
 
 // ── Foods Management ─────────────────────────────────────────────────────────

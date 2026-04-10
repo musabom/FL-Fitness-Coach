@@ -33,7 +33,7 @@ const PgSession = connectPgSimple(session);
 const sessionStore = new PgSession({
   pool,
   tableName: "session",
-  createTableIfMissing: false,
+  createTableIfMissing: true,
 });
 
 app.use(

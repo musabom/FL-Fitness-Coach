@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 2 * 1024 * 1024; // 2MB
 
 export function getObjectUrl(objectPath: string): string {
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -12,17 +12,32 @@ export function usePhotoUpload() {
 
   async function uploadPhoto(file: File): Promise<string> {
     if (file.size > MAX_SIZE) {
-      throw new Error("File too large (max 5MB)");
+      throw new Error("File too large (max 2MB)");
     }
     if (!file.type.startsWith("image/")) {
       throw new Error("Only image files are allowed");
     }
 
+    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
     setIsUploading(true);
-    try {
-      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-      // Step 1: Request presigned URL
+    try {
+      // Try direct multipart upload first (works locally without GCS)
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const directRes = await fetch(`${base}/api/storage/uploads/direct`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (directRes.ok) {
+        const { objectPath } = await directRes.json();
+        return objectPath as string;
+      }
+
+      // Fallback: presigned URL flow (Replit / production with GCS)
       const urlRes = await fetch(`${base}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,7 +51,6 @@ export function usePhotoUpload() {
       if (!urlRes.ok) throw new Error("Failed to get upload URL");
       const { uploadURL, objectPath } = await urlRes.json();
 
-      // Step 2: Upload directly to GCS
       const uploadRes = await fetch(uploadURL, {
         method: "PUT",
         headers: { "Content-Type": file.type },

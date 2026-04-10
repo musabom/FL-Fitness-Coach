@@ -50,7 +50,7 @@ export default function CoachDetail() {
     mutationFn: async () => {
       if (!service) throw new Error("No service");
       const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-      const res = await fetch(`${base}/api/public/coaches/${service.coachId}/subscribe`, {
+      const res = await fetch(`${base}/api/public/services/${serviceId}/subscribe`, {
         method: "POST",
         credentials: "include",
       });
@@ -64,7 +64,7 @@ export default function CoachDetail() {
       setSubscribed(true);
       await queryClient.refetchQueries({ queryKey: ["auth", "me"] });
       toast({ title: t("coaches.subscribeSuccess") });
-      setLocation("/coaches");
+      setLocation("/dashboard");
     },
     onError: (err: Error) => {
       toast({ title: err.message, variant: "destructive" });
@@ -75,7 +75,7 @@ export default function CoachDetail() {
   useEffect(() => {
     if (!user || !service || subscribeMutation.isPending || subscribed) return;
     const pendingId = localStorage.getItem("pendingSubscriptionServiceId");
-    if (pendingId === String(serviceId) && user.role === "member" && user.coachId !== service.coachId) {
+    if (pendingId === String(serviceId) && user.role === "member") {
       localStorage.removeItem("pendingSubscriptionServiceId");
       subscribeMutation.mutate();
     }
@@ -83,7 +83,6 @@ export default function CoachDetail() {
 
   function handleSubscribe() {
     if (!user) {
-      // Save the service ID so we can auto-subscribe after login/signup
       localStorage.setItem("pendingSubscriptionServiceId", String(serviceId));
       setLocation(`/signup`);
       return;
@@ -113,7 +112,11 @@ export default function CoachDetail() {
   }
 
   const photos = service.beforeAfterPhotos ?? [];
-  const isAlreadySubscribed = user?.coachId === service.coachId;
+  // Subscribed to THIS service specifically
+  const isThisService = (user as any)?.serviceId === Number(serviceId);
+  // Subscribed to a DIFFERENT service from the same coach
+  const isDifferentServiceSameCoach = user?.coachId === service.coachId && !isThisService;
+  const isAlreadySubscribed = isThisService || subscribed;
 
   return (
     <div className="min-h-screen bg-background" dir={isRTL ? "rtl" : "ltr"}>
@@ -256,10 +259,10 @@ export default function CoachDetail() {
 
         <div className="sticky bottom-6">
           <div className="bg-card border border-border rounded-2xl p-5 shadow-lg">
-            {isAlreadySubscribed || subscribed ? (
+            {isAlreadySubscribed ? (
               <div className="flex items-center justify-center gap-2 text-primary font-semibold py-2">
                 <CheckCircle className="w-5 h-5" />
-                {t("coaches.alreadySubscribed")}
+                You are subscribed to this service
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -269,6 +272,11 @@ export default function CoachDetail() {
                     <span className="text-xl font-bold text-primary">{service.price} {t("coaches.omr")}</span>
                   </div>
                 )}
+                {isDifferentServiceSameCoach && (
+                  <p className="text-xs text-center text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+                    You're on a different service from this coach. Subscribing here will switch you to this service.
+                  </p>
+                )}
                 <Button
                   size="lg"
                   className="w-full"
@@ -277,9 +285,11 @@ export default function CoachDetail() {
                 >
                   {subscribeMutation.isPending
                     ? t("common.loading")
-                    : user
-                      ? t("coaches.subscribe")
-                      : t("coaches.signInToSubscribe")}
+                    : !user
+                      ? t("coaches.signInToSubscribe")
+                      : isDifferentServiceSameCoach
+                        ? "Switch to this service"
+                        : t("coaches.subscribe")}
                 </Button>
                 {!user && (
                   <p className="text-xs text-center text-muted-foreground">{t("coaches.signInHint")}</p>

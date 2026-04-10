@@ -150,7 +150,7 @@ export default function CoachServices() {
   }
 
   async function handleBAPUpload(files: FileList) {
-    if (beforeAfterPhotos.length + files.length > 5) {
+    if (beforeAfterPhotos.length + files.length > 12) {
       toast({ title: t("coaches.maxPhotosError"), variant: "destructive" });
       return;
     }
@@ -287,7 +287,7 @@ export default function CoachServices() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium">{t("coaches.beforeAfterPhotos")}</label>
-                <span className="text-xs text-muted-foreground">{beforeAfterPhotos.length}/5</span>
+                <span className="text-xs text-muted-foreground">{beforeAfterPhotos.length}/12</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {beforeAfterPhotos.map((p, i) => (
@@ -305,7 +305,7 @@ export default function CoachServices() {
                     </button>
                   </div>
                 ))}
-                {beforeAfterPhotos.length < 5 && (
+                {beforeAfterPhotos.length < 12 && (
                   <button
                     onClick={() => bapInputRef.current?.click()}
                     disabled={uploadingBAP}

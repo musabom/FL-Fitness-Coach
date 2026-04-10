@@ -11,6 +11,8 @@ import { motion } from "framer-motion";
 export default function Signup() {
   const { signup } = useAuth();
   const { t } = useLanguage();
+  // Read invite token from URL: ?ref=TOKEN
+  const inviteToken = new URLSearchParams(window.location.search).get("ref") ?? undefined;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -33,7 +35,7 @@ export default function Signup() {
     }
 
     signup.mutate(
-      { email, password, passwordConfirm, firstName, lastName },
+      { email, password, passwordConfirm, firstName, lastName, inviteToken },
       {
         onError: (err: unknown) => {
           const apiErr = err as { data?: { error?: string } };

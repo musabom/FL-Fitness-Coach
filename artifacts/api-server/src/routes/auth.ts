@@ -45,6 +45,42 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     fullName: fullName,
   }).returning();
 
+  // Handle coach invite token — auto-assign coach if valid token provided
+  const inviteToken = parsed.data.inviteToken as string | undefined;
+  let coachId: number | null = null;
+  let coachName: string | null = null;
+  if (inviteToken) {
+    try {
+      const tokenRes = await pool.query(
+        `SELECT cit.coach_id, cit.service_id, u.full_name
+         FROM coach_invite_tokens cit
+         JOIN users u ON u.id = cit.coach_id
+         WHERE cit.token = $1`,
+        [inviteToken]
+      );
+      if (tokenRes.rows.length > 0) {
+        coachId = tokenRes.rows[0].coach_id;
+        coachName = tokenRes.rows[0].full_name;
+        const serviceId: number | null = tokenRes.rows[0].service_id ?? null;
+        if (serviceId) {
+          await pool.query(
+            `UPDATE users SET coach_id = $1, service_id = $2, subscription_status = 'active', subscription_started_at = NOW() WHERE id = $3`,
+            [coachId, serviceId, user.id]
+          );
+        } else {
+          await pool.query(
+            `UPDATE users SET coach_id = $1, subscription_status = 'active', subscription_started_at = NOW() WHERE id = $2`,
+            [coachId, user.id]
+          );
+        }
+        await pool.query(
+          `UPDATE coach_invite_tokens SET used_count = used_count + 1 WHERE token = $1`,
+          [inviteToken]
+        );
+      }
+    } catch { /* token lookup failed — ignore */ }
+  }
+
   req.session.userId = user.id;
 
   res.status(201).json({
@@ -53,8 +89,8 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     fullName: user.fullName,
     role: user.role,
     hasProfile: false,
-    coachId: null,
-    coachName: null,
+    coachId,
+    coachName,
     coachUpdatedAt: null,
   });
 });
@@ -134,7 +170,8 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     SELECT
       c.id AS coach_id, c.full_name AS coach_name,
       p.coach_updated_at,
-      u.subscription_started_at
+      u.subscription_started_at, u.subscription_status,
+      u.service_id
     FROM users u
     LEFT JOIN users c ON c.id = u.coach_id
     LEFT JOIN LATERAL (
@@ -145,9 +182,19 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
   const extra = extraRes.rows[0];
 
+  // Auto-expire cancelling subscriptions when period is over
+  const msPerDay = 86400000;
+  if (extra?.subscription_status === "cancelling" && extra?.subscription_started_at) {
+    const daysElapsed = Math.floor((Date.now() - new Date(extra.subscription_started_at).getTime()) / msPerDay);
+    const daysLeft = 30 - (daysElapsed % 30);
+    if (daysLeft <= 0) {
+      await pool.query(`UPDATE users SET subscription_status = 'free' WHERE id = $1`, [user.id]);
+      extra.subscription_status = "free";
+    }
+  }
+
   let subscriptionDaysLeft: number | null = null;
   if (extra?.subscription_started_at) {
-    const msPerDay = 86400000;
     const daysElapsed = Math.floor((Date.now() - new Date(extra.subscription_started_at).getTime()) / msPerDay);
     subscriptionDaysLeft = 30 - (daysElapsed % 30);
   }
@@ -162,7 +209,9 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     coachName: extra?.coach_name ?? null,
     coachUpdatedAt: extra?.coach_updated_at ?? null,
     subscriptionStartedAt: extra?.subscription_started_at ?? null,
+    subscriptionStatus: extra?.subscription_status ?? "free",
     subscriptionDaysLeft,
+    serviceId: extra?.service_id ?? null,
   });
 });
 
@@ -299,6 +348,55 @@ router.put("/auth/change-password", async (req, res): Promise<void> => {
     .where(eq(usersTable.id, user.id));
 
   res.json({ message: "Password changed successfully" });
+});
+
+// POST /subscription/cancel — member cancels subscription (stays active until end of period)
+router.post("/subscription/cancel", async (req, res): Promise<void> => {
+  if (!req.session.userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const userRes = await pool.query(
+    `SELECT id, subscription_status, subscription_started_at FROM users WHERE id = $1`,
+    [req.session.userId]
+  );
+  const user = userRes.rows[0];
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (user.subscription_status === "free") {
+    res.status(400).json({ error: "No active subscription to cancel" }); return;
+  }
+  if (user.subscription_status === "cancelling") {
+    res.status(400).json({ error: "Subscription already being cancelled" }); return;
+  }
+
+  // Calculate end date (end of current 30-day period)
+  const msPerDay = 86400000;
+  let accessEndsAt: string | null = null;
+  if (user.subscription_started_at) {
+    const started = new Date(user.subscription_started_at).getTime();
+    const daysElapsed = Math.floor((Date.now() - started) / msPerDay);
+    const currentCycleStart = started + Math.floor(daysElapsed / 30) * 30 * msPerDay;
+    const cycleEnd = new Date(currentCycleStart + 30 * msPerDay);
+    accessEndsAt = cycleEnd.toISOString();
+  }
+
+  await pool.query(
+    `UPDATE users SET subscription_status = 'cancelling' WHERE id = $1`,
+    [req.session.userId]
+  );
+
+  res.json({ message: "Subscription cancelled. Access continues until end of current period.", accessEndsAt });
+});
+
+// POST /subscription/reactivate — member reactivates a cancelling subscription
+router.post("/subscription/reactivate", async (req, res): Promise<void> => {
+  if (!req.session.userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  await pool.query(
+    `UPDATE users SET subscription_status = 'active' WHERE id = $1 AND subscription_status = 'cancelling'`,
+    [req.session.userId]
+  );
+
+  res.json({ message: "Subscription reactivated" });
 });
 
 router.post("/auth/setup-admin", async (req, res): Promise<void> => {

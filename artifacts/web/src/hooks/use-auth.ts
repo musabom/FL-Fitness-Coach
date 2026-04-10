@@ -102,7 +102,7 @@ export function useAuth() {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string; passwordConfirm: string; firstName: string; lastName: string }) => {
+    mutationFn: async (data: { email: string; password: string; passwordConfirm: string; firstName: string; lastName: string; inviteToken?: string }) => {
       return customFetch<AuthUser>("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify(data),

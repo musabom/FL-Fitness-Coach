@@ -99,6 +99,55 @@ router.get("/public/services/:id", async (req, res): Promise<void> => {
   });
 });
 
+// POST /public/services/:serviceId/subscribe — subscribe to a specific service
+router.post("/public/services/:serviceId/subscribe", async (req, res): Promise<void> => {
+  if (!req.session?.userId) {
+    res.status(401).json({ error: "You must be signed in to subscribe" });
+    return;
+  }
+
+  const serviceId = parseInt(req.params["serviceId"], 10);
+  if (isNaN(serviceId)) {
+    res.status(400).json({ error: "Invalid service ID" });
+    return;
+  }
+
+  // Verify service exists and is active, get coach
+  const serviceCheck = await pool.query(
+    `SELECT cs.id, cs.coach_id, u.is_active as coach_active
+     FROM coach_services cs
+     JOIN users u ON u.id = cs.coach_id
+     WHERE cs.id = $1 AND cs.is_active = true AND u.role = 'coach'`,
+    [serviceId]
+  );
+  if (serviceCheck.rows.length === 0) {
+    res.status(404).json({ error: "Service not found or inactive" });
+    return;
+  }
+  const coachId = serviceCheck.rows[0].coach_id;
+
+  // Only members can subscribe
+  const userCheck = await pool.query(`SELECT role FROM users WHERE id = $1`, [req.session.userId]);
+  if (userCheck.rows[0]?.role !== "member") {
+    res.status(403).json({ error: "Only members can subscribe" });
+    return;
+  }
+
+  // Set coach_id, service_id, subscription_status = 'active', reset subscription period
+  await pool.query(
+    `UPDATE users
+     SET coach_id = $1,
+         service_id = $2,
+         subscription_status = 'active',
+         subscription_started_at = NOW()
+     WHERE id = $3`,
+    [coachId, serviceId, req.session.userId]
+  );
+
+  res.json({ message: "Subscribed to service successfully", coachId, serviceId });
+});
+
+// Legacy coach-level subscribe — kept for backwards compat, now also sets subscription_status
 router.post("/public/coaches/:id/subscribe", async (req, res): Promise<void> => {
   if (!req.session?.userId) {
     res.status(401).json({ error: "You must be signed in to subscribe to a coach" });
@@ -120,18 +169,18 @@ router.post("/public/coaches/:id/subscribe", async (req, res): Promise<void> => 
     return;
   }
 
-  const userCheck = await pool.query(
-    `SELECT role FROM users WHERE id = $1`,
-    [req.session.userId]
-  );
-  const userRole = userCheck.rows[0]?.role;
-  if (userRole !== "member") {
+  const userCheck = await pool.query(`SELECT role FROM users WHERE id = $1`, [req.session.userId]);
+  if (userCheck.rows[0]?.role !== "member") {
     res.status(403).json({ error: "Only members can subscribe to a coach" });
     return;
   }
 
   await pool.query(
-    `UPDATE users SET coach_id = $1, subscription_started_at = NOW() WHERE id = $2`,
+    `UPDATE users
+     SET coach_id = $1,
+         subscription_status = 'active',
+         subscription_started_at = NOW()
+     WHERE id = $2`,
     [coachId, req.session.userId]
   );
 
