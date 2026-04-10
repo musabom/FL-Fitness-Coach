@@ -10,7 +10,7 @@ name = "react-vite"
 version = "1.0.0"
 
 [[services]]
-localPort = 22333
+localPort = 5173
 name = "web"
 paths = ["/"]
 
@@ -18,7 +18,7 @@ paths = ["/"]
 run = "pnpm --filter @workspace/web run dev"
 
 [services.env]
-PORT = "22333"
+PORT = "5173"
 BASE_PATH = "/"
 
 [services.production]
