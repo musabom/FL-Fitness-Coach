@@ -1,5 +1,9 @@
 modules = ["nodejs-24", "postgresql-16"]
 
+[[ports]]
+localPort = 5173
+externalPort = 80
+
 [[artifacts]]
 id = "artifacts/api-server"
 
@@ -12,7 +16,9 @@ deploymentTarget = "autoscale"
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+
+[deployment.postBuild.env]
+CI = "true"
 
 [workflows]
 

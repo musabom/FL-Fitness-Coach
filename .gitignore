@@ -47,3 +47,11 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Next.js
+.next
+
+# Environment files — never commit these
+.env
+.env.local
+.env.*.local

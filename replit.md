@@ -59,6 +59,18 @@ The system is built as a pnpm workspace monorepo.
 - `lib/api-zod`: Generated Zod schemas from OpenAPI.
 - `lib/db`: Drizzle ORM schema and database connection.
 
+## Required Secrets (Replit Deployment)
+
+These must be set in the **Replit Secrets panel** (not in code). Without them the app will not start.
+
+| Secret Key | Where to get it |
+|---|---|
+| `DATABASE_URL` | Auto-provided by Replit when you provision a PostgreSQL database |
+| `SESSION_SECRET` | Any long random string (e.g. 64 random characters). This app uses session-based auth, not JWT. |
+| `ADMIN_SETUP_SECRET` | Set once to create the first admin account, then keep it private |
+
+> **Workspace vs Deployment secrets are separate in Replit.** If you set a secret in the workspace panel, you must also add it in the Deployment panel or it won't be available when the app is live for clients.
+
 ## External Dependencies
 
 - **Database:** PostgreSQL
