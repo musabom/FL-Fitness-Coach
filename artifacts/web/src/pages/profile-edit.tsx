@@ -345,7 +345,7 @@ export default function ProfileEdit() {
                     exit={{ opacity: 0, y: -8 }}
                     className="space-y-4"
                   >
-                    <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
+                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-border space-y-4">
                       <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.deficitSurplus")}</p>
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
@@ -375,7 +375,7 @@ export default function ProfileEdit() {
                     exit={{ opacity: 0, y: -8 }}
                     className="space-y-4"
                   >
-                    <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
+                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-border space-y-4">
                       <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("profile.customParams")}</p>
 
                       <div className="space-y-1.5">

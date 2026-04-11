@@ -92,7 +92,7 @@ function WorkoutPickerSheet({
           {/* Rest day option */}
           <button
             onClick={() => onPick(null)}
-            className="w-full text-left rounded-xl px-4 py-3 border border-border/40 bg-[#1A1A1A] hover:border-primary/40 transition-all"
+            className="w-full text-left rounded-xl px-4 py-3 border border-border/40 bg-[#0F1F3D] hover:border-primary/40 transition-all"
           >
             <div className="flex items-center gap-3">
               <BedDouble className="w-4 h-4 text-muted-foreground" />
@@ -120,7 +120,7 @@ function WorkoutPickerSheet({
             <button
               key={w.id}
               onClick={() => onPick(w.id)}
-              className="w-full text-left rounded-xl px-4 py-3 border border-border/40 bg-[#1A1A1A] hover:border-primary/40 transition-all"
+              className="w-full text-left rounded-xl px-4 py-3 border border-border/40 bg-[#0F1F3D] hover:border-primary/40 transition-all"
             >
               <p className="font-semibold text-sm text-foreground">{w.workout_name}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{Math.round(w.total_calories)} kcal</p>
@@ -174,7 +174,7 @@ function CreateProgramSheet({ onClose }: { onClose: () => void }) {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Push Pull Legs + Rest"
-              className="bg-[#1A1A1A] border-border/40"
+              className="bg-[#0F1F3D] border-border/40"
             />
           </div>
 
@@ -185,7 +185,7 @@ function CreateProgramSheet({ onClose }: { onClose: () => void }) {
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="bg-[#1A1A1A] border-border/40"
+              className="bg-[#0F1F3D] border-border/40"
             />
             <p className="text-[11px] text-muted-foreground">Day 1 of your cycle falls on this date</p>
           </div>
@@ -196,7 +196,7 @@ function CreateProgramSheet({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setCycleLength(v => Math.max(1, v - 1))}
-                className="w-10 h-10 rounded-xl bg-[#1A1A1A] border border-border/40 flex items-center justify-center text-foreground hover:border-primary/40 transition-colors"
+                className="w-10 h-10 rounded-xl bg-[#0F1F3D] border border-border/40 flex items-center justify-center text-foreground hover:border-primary/40 transition-colors"
               >
                 −
               </button>
@@ -206,7 +206,7 @@ function CreateProgramSheet({ onClose }: { onClose: () => void }) {
               </div>
               <button
                 onClick={() => setCycleLength(v => Math.min(14, v + 1))}
-                className="w-10 h-10 rounded-xl bg-[#1A1A1A] border border-border/40 flex items-center justify-center text-foreground hover:border-primary/40 transition-colors"
+                className="w-10 h-10 rounded-xl bg-[#0F1F3D] border border-border/40 flex items-center justify-center text-foreground hover:border-primary/40 transition-colors"
               >
                 +
               </button>
@@ -295,7 +295,7 @@ function ProgramCard({ prog }: { prog: CycleProgram }) {
 
   return (
     <>
-      <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden ${!prog.is_active ? "opacity-60" : ""}`}>
+      <Card className={`bg-[#0F1F3D] border-border/40 overflow-hidden ${!prog.is_active ? "opacity-60" : ""}`}>
         {/* Header */}
         <div className="flex items-start gap-3 px-4 py-3.5">
           <div className="flex-1 min-w-0">
@@ -569,7 +569,7 @@ export function CycleProgramContent() {
   return (
     <div className="space-y-4">
       {/* Mode toggle */}
-      <div className="px-4 py-3.5 rounded-xl bg-[#1A1A1A] border border-border/40 space-y-3">
+      <div className="px-4 py-3.5 rounded-xl bg-[#0F1F3D] border border-border/40 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">Training Mode</p>
@@ -597,7 +597,7 @@ export function CycleProgramContent() {
       </div>
 
       {/* Start date */}
-      <div className="px-4 py-3 rounded-xl bg-[#1A1A1A] border border-border/40">
+      <div className="px-4 py-3 rounded-xl bg-[#0F1F3D] border border-border/40">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase">Cycle Start Date</p>
@@ -640,7 +640,7 @@ export function CycleProgramContent() {
               <div
                 key={slot.id}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all ${
-                  isToday ? "bg-violet-500/10 border-violet-500/30" : "bg-[#1A1A1A] border-border/30"
+                  isToday ? "bg-violet-500/10 border-violet-500/30" : "bg-[#0F1F3D] border-border/30"
                 }`}
               >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${

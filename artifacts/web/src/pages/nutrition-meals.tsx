@@ -151,7 +151,7 @@ function CreateCustomFoodForm({
             value={foodName}
             onChange={(e) => setFoodName(e.target.value)}
             placeholder="e.g., Grilled Chicken Breast"
-            className="bg-[#1A1A1A] border-border/50"
+            className="bg-[#0F1F3D] border-border/50"
           />
         </div>
 
@@ -165,7 +165,7 @@ function CreateCustomFoodForm({
                 className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
                   servingUnit === unit
                     ? "bg-primary text-black"
-                    : "bg-[#1A1A1A] border border-border/50 text-muted-foreground hover:text-foreground"
+                    : "bg-[#0F1F3D] border border-border/50 text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {unit === "per_100g" ? "Per 100g" : "Per Piece"}
@@ -182,7 +182,7 @@ function CreateCustomFoodForm({
               value={servingWeightG}
               onChange={(e) => setServingWeightG(e.target.value)}
               placeholder="e.g., 150"
-              className="bg-[#1A1A1A] border-border/50"
+              className="bg-[#0F1F3D] border-border/50"
             />
           </div>
         )}
@@ -196,7 +196,7 @@ function CreateCustomFoodForm({
               value={calories}
               onChange={(e) => setCalories(e.target.value)}
               placeholder="0"
-              className="bg-[#1A1A1A] border-border/50"
+              className="bg-[#0F1F3D] border-border/50"
             />
           </div>
           <div>
@@ -207,7 +207,7 @@ function CreateCustomFoodForm({
               onChange={(e) => setProtein(e.target.value)}
               placeholder="0"
               step="0.1"
-              className="bg-[#1A1A1A] border-border/50"
+              className="bg-[#0F1F3D] border-border/50"
             />
           </div>
           <div>
@@ -218,7 +218,7 @@ function CreateCustomFoodForm({
               onChange={(e) => setCarbs(e.target.value)}
               placeholder="0"
               step="0.1"
-              className="bg-[#1A1A1A] border-border/50"
+              className="bg-[#0F1F3D] border-border/50"
             />
           </div>
           <div>
@@ -229,7 +229,7 @@ function CreateCustomFoodForm({
               onChange={(e) => setFat(e.target.value)}
               placeholder="0"
               step="0.1"
-              className="bg-[#1A1A1A] border-border/50"
+              className="bg-[#0F1F3D] border-border/50"
             />
           </div>
         </div>
@@ -351,7 +351,7 @@ function FoodSearchSheet({
                 className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   filterSource === filter
                     ? "bg-primary text-black"
-                    : "bg-[#1A1A1A] border border-border/50 text-muted-foreground hover:text-foreground"
+                    : "bg-[#0F1F3D] border border-border/50 text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {filter === "all" ? "All Foods" : filter === "database" ? "Database" : "My Custom"}
@@ -387,7 +387,7 @@ function FoodSearchSheet({
                 <button
                   key={`${food.id}-${food.source}`}
                   onClick={() => { setSelected(food); setQty(""); }}
-                  className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] active:scale-[0.99] transition-all border border-border/50"
+                  className="w-full text-left p-3 rounded-xl bg-[#0F1F3D] hover:bg-[#252525] active:scale-[0.99] transition-all border border-border/50"
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex-1">
@@ -446,7 +446,7 @@ function FoodSearchSheet({
               <ChevronLeft className="w-4 h-4" /> Back to results
             </button>
 
-            <div className="p-4 rounded-xl bg-[#1A1A1A] border border-border/50">
+            <div className="p-4 rounded-xl bg-[#0F1F3D] border border-border/50">
               <div className="font-semibold">{selected.food_name}</div>
               <div className="text-xs text-muted-foreground capitalize">{selected.cooking_method.replace(/_/g, " ")} · {selected.food_group}</div>
             </div>

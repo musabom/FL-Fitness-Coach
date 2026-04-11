@@ -345,7 +345,7 @@ export default function Onboarding() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4 mt-2"
                   >
-                    <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
+                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-border space-y-4">
                       <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("onboarding.deficitSurplus")}</p>
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
@@ -375,7 +375,7 @@ export default function Onboarding() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4 mt-2"
                   >
-                    <div className="p-4 bg-[#1A1A1A] rounded-2xl border border-border space-y-4">
+                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-border space-y-4">
                       <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("onboarding.customParams")}</p>
 
                       <div className="space-y-1.5">

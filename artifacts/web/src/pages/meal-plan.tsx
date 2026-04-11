@@ -91,7 +91,7 @@ interface LibraryMeal {
 
 function MacroPill({ label, value, unit, accent = false }: { label: string; value: number; unit: string; accent?: boolean }) {
   return (
-    <div className={`flex-1 rounded-xl px-2 py-2.5 text-center ${accent ? "bg-primary/15 border border-primary/30" : "bg-[#1A1A1A]"}`}>
+    <div className={`flex-1 rounded-xl px-2 py-2.5 text-center ${accent ? "bg-primary/15 border border-primary/30" : "bg-[#0F1F3D]"}`}>
       <div className={`text-base font-bold tabular-nums ${accent ? "text-primary" : "text-foreground"}`}>
         {Math.round(value)}<span className="text-[10px] font-medium ml-0.5">{unit}</span>
       </div>
@@ -164,7 +164,7 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
   const total = meal.portions.length;
 
   return (
-    <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
+    <Card className={`bg-[#0F1F3D] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={onToggleComplete} className="shrink-0 text-muted-foreground hover:text-primary transition-colors" aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}>
@@ -309,7 +309,7 @@ function AddMealSheet({ date, existingMealIds, onClose, onAdd, isAdding }: {
             const alreadyAdded = existingMealIds.has(meal.id);
             return (
               <button key={meal.id} onClick={() => !alreadyAdded && !isAdding && onAdd(meal.id)} disabled={alreadyAdded || isAdding}
-                className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${alreadyAdded ? "bg-[#1A1A1A] border-border/20 opacity-40 cursor-not-allowed" : "bg-[#1A1A1A] border-border/40 hover:border-primary/40 active:scale-[0.99]"}`}>
+                className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${alreadyAdded ? "bg-[#0F1F3D] border-border/20 opacity-40 cursor-not-allowed" : "bg-[#0F1F3D] border-border/40 hover:border-primary/40 active:scale-[0.99]"}`}>
                 <div className="flex justify-between items-start gap-2">
                   <p className="font-medium text-sm text-foreground">{meal.meal_name}</p>
                   {alreadyAdded && <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5 shrink-0">Added</span>}
@@ -575,14 +575,14 @@ export default function MealPlan() {
             <div className="text-[10px] text-muted-foreground mt-0.5">Planned</div>
           </div>
           {/* Completed */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#1A1A1A]">
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
             <div className="text-base font-bold tabular-nums text-foreground">
               {Math.round(consumedTotals.calories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">Completed</div>
           </div>
           {/* Remaining */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#1A1A1A]">
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
             <div className="text-base font-bold tabular-nums text-foreground">
               {Math.round(Math.max(0, dailyTotals.calories - consumedTotals.calories))}<span className="text-[10px] font-medium ml-0.5">kcal</span>
             </div>
@@ -601,10 +601,10 @@ export default function MealPlan() {
                   {Math.round(consumedTotals.calories)} / {plan.calorieTarget} kcal
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
+              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
                 <div className="h-full bg-primary transition-all" style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
                 <div className="h-full bg-primary/60 transition-all" style={{ width: `${Math.min((consumedTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
               </div>
             </div>
@@ -617,10 +617,10 @@ export default function MealPlan() {
                   {Math.round(consumedTotals.protein_g)} / {plan.proteinG}g
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
+              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
                 <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500/70 transition-all" style={{ width: `${Math.min((consumedTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
               </div>
             </div>
@@ -633,10 +633,10 @@ export default function MealPlan() {
                   {Math.round(consumedTotals.carbs_g)} / {plan.carbsG}g
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
+              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
                 <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
                 <div className="h-full bg-amber-400/70 transition-all" style={{ width: `${Math.min((consumedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
               </div>
             </div>
@@ -649,10 +649,10 @@ export default function MealPlan() {
                   {Math.round(consumedTotals.fat_g)} / {plan.fatG}g
                 </span>
               </div>
-              <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden mb-1">
+              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
                 <div className="h-full bg-yellow-400 transition-all" style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
                 <div className="h-full bg-yellow-400/70 transition-all" style={{ width: `${Math.min((consumedTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
               </div>
             </div>
@@ -666,7 +666,7 @@ export default function MealPlan() {
               <span className="text-[10px] font-medium text-muted-foreground uppercase">Meals</span>
               <span className="text-xs font-semibold text-foreground">{completedCount} / {entries.length}</span>
             </div>
-            <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden">
+            <div className="h-2 bg-[#0F1F3D] rounded-full overflow-hidden">
               <div
                 className="h-full bg-green-500 transition-all duration-300"
                 style={{ width: `${entries.length > 0 ? (completedCount / entries.length) * 100 : 0}%` }}
@@ -686,7 +686,7 @@ export default function MealPlan() {
 
         {!isLoading && entries.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-[#1A1A1A] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-[#0F1F3D] flex items-center justify-center">
               <UtensilsCrossed className="w-7 h-7 text-muted-foreground/40" />
             </div>
             <div>

@@ -176,7 +176,7 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onVi
   const total = workout.exercises.length;
 
   return (
-    <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
+    <Card className={`bg-[#0F1F3D] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={onToggleComplete} className="shrink-0 text-muted-foreground hover:text-primary transition-colors" aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}>
@@ -327,7 +327,7 @@ function AddWorkoutSheet({ date, existingWorkoutIds, onClose, onAdd, isAdding }:
                 key={workout.id}
                 onClick={() => !alreadyAdded && !isAdding && onAdd(workout.id)}
                 disabled={alreadyAdded || isAdding}
-                className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${alreadyAdded ? "bg-[#1A1A1A] border-border/20 opacity-40 cursor-not-allowed" : "bg-[#1A1A1A] border-border/40 hover:border-primary/40 active:scale-[0.99]"}`}
+                className={`w-full text-left rounded-xl px-4 py-3 border transition-all ${alreadyAdded ? "bg-[#0F1F3D] border-border/20 opacity-40 cursor-not-allowed" : "bg-[#0F1F3D] border-border/40 hover:border-primary/40 active:scale-[0.99]"}`}
               >
                 <div className="flex justify-between items-start gap-2">
                   <p className="font-semibold text-sm text-foreground">{workout.workout_name}</p>
@@ -572,14 +572,14 @@ export default function WorkoutPlan() {
             <div className="text-[10px] text-muted-foreground mt-0.5">Planned</div>
           </div>
           {/* Burned */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#1A1A1A]">
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
             <div className="text-base font-bold tabular-nums text-foreground">
               {Math.round(burnedCalories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">Burned</div>
           </div>
           {/* Remaining */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#1A1A1A]">
+          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
             <div className="text-base font-bold tabular-nums text-foreground">
               {Math.round(Math.max(0, totalCalories - burnedCalories))}<span className="text-[10px] font-medium ml-0.5">kcal</span>
             </div>
@@ -596,7 +596,7 @@ export default function WorkoutPlan() {
                 {Math.round(burnedCalories)} / {Math.round(totalCalories)} kcal
               </span>
             </div>
-            <div className="h-1.5 bg-[#1A1A1A] rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden">
               <div
                 className="h-full bg-primary transition-all"
                 style={{ width: `${Math.min((burnedCalories / totalCalories) * 100, 100)}%` }}
@@ -614,7 +614,7 @@ export default function WorkoutPlan() {
                 {completedCount} / {entries.length}
               </span>
             </div>
-            <div className="h-2 bg-[#1A1A1A] rounded-full overflow-hidden">
+            <div className="h-2 bg-[#0F1F3D] rounded-full overflow-hidden">
               <div
                 className="h-full bg-green-500 transition-all duration-300"
                 style={{ width: `${entries.length > 0 ? (completedCount / entries.length) * 100 : 0}%` }}
@@ -634,7 +634,7 @@ export default function WorkoutPlan() {
 
         {!isLoading && entries.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-[#1A1A1A] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-[#0F1F3D] flex items-center justify-center">
               <Dumbbell className="w-7 h-7 text-muted-foreground/40" />
             </div>
             <div>

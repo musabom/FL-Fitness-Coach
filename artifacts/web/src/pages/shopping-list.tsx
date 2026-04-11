@@ -133,7 +133,7 @@ function ItemCard({ item }: { item: ShoppingItem }) {
   const sufficient = item.needed_g === 0;
 
   return (
-    <Card className={`bg-[#1A1A1A] border-border/40 overflow-hidden transition-all ${sufficient ? "border-l-2 border-l-primary/30" : "border-l-2 border-l-amber-500/60"}`}>
+    <Card className={`bg-[#0F1F3D] border-border/40 overflow-hidden transition-all ${sufficient ? "border-l-2 border-l-primary/30" : "border-l-2 border-l-amber-500/60"}`}>
       {/* Main row */}
       <div className="flex items-start gap-3 px-4 py-3.5">
         {/* Status icon */}
@@ -251,7 +251,7 @@ export default function ShoppingList() {
         {/* Summary cards */}
         {scheduledItems.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
-            <Card className="bg-[#1A1A1A] border-border/40 p-3 text-center">
+            <Card className="bg-[#0F1F3D] border-border/40 p-3 text-center">
               <p className="text-lg font-bold text-foreground">{filtered.length}</p>
               <p className="text-[10px] text-muted-foreground">Items in plan</p>
             </Card>
@@ -259,7 +259,7 @@ export default function ShoppingList() {
               <p className={`text-lg font-bold ${neededCount > 0 ? "text-amber-500" : "text-primary"}`}>{neededCount}</p>
               <p className="text-[10px] text-muted-foreground">Need to buy</p>
             </Card>
-            <Card className="bg-[#1A1A1A] border-border/40 p-3 text-center">
+            <Card className="bg-[#0F1F3D] border-border/40 p-3 text-center">
               <p className="text-lg font-bold text-primary">{Math.round(coveragePct)}%</p>
               <p className="text-[10px] text-muted-foreground">Stocked</p>
             </Card>
@@ -268,7 +268,7 @@ export default function ShoppingList() {
 
         {/* Weekly coverage bar */}
         {scheduledItems.length > 0 && (
-          <Card className="bg-[#1A1A1A] border-border/40 p-4 space-y-2">
+          <Card className="bg-[#0F1F3D] border-border/40 p-4 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Package className="w-4 h-4 text-primary" />

@@ -151,20 +151,20 @@ function CreateCustomExerciseSheet({ open, onClose }: CreateCustomExerciseSheetP
         <div className="overflow-y-auto flex-1 px-4 pb-20 space-y-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Exercise Name *</label>
-            <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Cable Flyes" className="bg-[#1A1A1A] border-border/40 text-sm" />
+            <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Cable Flyes" className="bg-[#0F1F3D] border-border/40 text-sm" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Type *</label>
-              <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-[#1A1A1A] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-[#0F1F3D] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
                 <option value="strength">Strength</option>
                 <option value="cardio">Cardio</option>
               </select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Muscle Group *</label>
-              <select value={muscle} onChange={e => setMuscle(e.target.value)} className="w-full bg-[#1A1A1A] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <select value={muscle} onChange={e => setMuscle(e.target.value)} className="w-full bg-[#0F1F3D] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
                 {muscles.map(m => <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>)}
               </select>
             </div>
@@ -173,7 +173,7 @@ function CreateCustomExerciseSheet({ open, onClose }: CreateCustomExerciseSheetP
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Equipment *</label>
-              <select value={equipment} onChange={e => setEquipment(e.target.value)} className="w-full bg-[#1A1A1A] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <select value={equipment} onChange={e => setEquipment(e.target.value)} className="w-full bg-[#0F1F3D] border border-border/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
                 {equipmentOptions.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>)}
               </select>
             </div>
@@ -197,7 +197,7 @@ function CreateCustomExerciseSheet({ open, onClose }: CreateCustomExerciseSheetP
 
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Form Cue (optional)</label>
-            <Input type="text" value={formCue} onChange={e => setFormCue(e.target.value)} placeholder="e.g. Keep elbows high" className="bg-[#1A1A1A] border-border/40 text-sm" />
+            <Input type="text" value={formCue} onChange={e => setFormCue(e.target.value)} placeholder="e.g. Keep elbows high" className="bg-[#0F1F3D] border-border/40 text-sm" />
           </div>
 
           {type === "cardio" && (
@@ -207,15 +207,15 @@ function CreateCustomExerciseSheet({ open, onClose }: CreateCustomExerciseSheetP
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Light</label>
-                    <Input type="number" step="0.5" value={lightMet} onChange={e => setLightMet(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" step="0.5" value={lightMet} onChange={e => setLightMet(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Moderate</label>
-                    <Input type="number" step="0.5" value={moderateMet} onChange={e => setModerateMet(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" step="0.5" value={moderateMet} onChange={e => setModerateMet(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Vigorous</label>
-                    <Input type="number" step="0.5" value={vigorousMet} onChange={e => setVigorousMet(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" step="0.5" value={vigorousMet} onChange={e => setVigorousMet(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                 </div>
               </div>
@@ -406,7 +406,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
                   placeholder="Search exercises…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="pl-9 bg-[#1A1A1A] border-border/40 text-sm"
+                  className="pl-9 bg-[#0F1F3D] border-border/40 text-sm"
                 />
               </div>
             </div>
@@ -443,7 +443,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
                   <button
                     key={ex.id}
                     onClick={() => setSelectedExercise(ex)}
-                    className="w-full text-left p-3 rounded-xl bg-[#1A1A1A] border border-border/30 hover:border-primary/40 active:scale-[0.99] transition-all"
+                    className="w-full text-left p-3 rounded-xl bg-[#0F1F3D] border border-border/30 hover:border-primary/40 active:scale-[0.99] transition-all"
                   >
                     <div className="flex items-center gap-3">
                       {imgUrl ? (
@@ -479,7 +479,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
             )}
 
             {/* Exercise info */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1A1A1A] border border-border/30">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0F1F3D] border border-border/30">
               <span className="text-xs font-semibold text-muted-foreground px-2 py-1 bg-muted/30 rounded">{EQUIPMENT_ICONS[selectedExercise.equipment] || "[E]"}</span>
               <div>
                 <p className="text-sm font-medium">{selectedExercise.exercise_name}</p>
@@ -505,45 +505,45 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Sets</label>
-                    <Input type="number" min="1" value={sets} onChange={e => setSets(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" min="1" value={sets} onChange={e => setSets(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Reps Min</label>
-                    <Input type="number" min="1" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" min="1" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Reps Max</label>
-                    <Input type="number" min="1" value={repsMax} onChange={e => setRepsMax(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" min="1" value={repsMax} onChange={e => setRepsMax(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Rest (seconds)</label>
-                    <Input type="number" min="0" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" min="0" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Weight kg (optional, for tracking only)</label>
-                  <Input type="number" min="0" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  <Input type="number" min="0" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Duration (minutes)</label>
-                  <Input type="number" min="1" value={durationMins} onChange={e => setDurationMins(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                  <Input type="number" min="1" value={durationMins} onChange={e => setDurationMins(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                 </div>
                 {needsSpeed && (
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Speed km/h</label>
-                    <Input type="number" min="0" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                    <Input type="number" min="0" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                   </div>
                 )}
                 {needsSpeedOrIntensity && (
                   <>
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label>
-                      <Input type="number" min="0" step="0.5" placeholder="e.g. 12.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" />
+                      <Input type="number" min="0" step="0.5" placeholder="e.g. 12.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" />
                     </div>
                     {!speedKmh && (
                       <div>
@@ -659,24 +659,24 @@ function EditExerciseSheet({ we, workoutId, open, onClose }: EditExerciseSheetPr
           {we.exercise_type === "strength" ? (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-muted-foreground mb-1 block">Sets</label><Input type="number" value={sets} onChange={e => setSets(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
-                <div><label className="text-xs text-muted-foreground mb-1 block">Reps Min</label><Input type="number" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Sets</label><Input type="number" value={sets} onChange={e => setSets(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Reps Min</label><Input type="number" value={repsMin} onChange={e => setRepsMin(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-muted-foreground mb-1 block">Reps Max</label><Input type="number" value={repsMax} onChange={e => setRepsMax(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
-                <div><label className="text-xs text-muted-foreground mb-1 block">Rest (sec)</label><Input type="number" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Reps Max</label><Input type="number" value={repsMax} onChange={e => setRepsMax(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Rest (sec)</label><Input type="number" step="15" value={restSecs} onChange={e => setRestSecs(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
               </div>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Weight kg (optional, for tracking only)</label><Input type="number" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+              <div><label className="text-xs text-muted-foreground mb-1 block">Weight kg (optional, for tracking only)</label><Input type="number" step="2.5" placeholder="Optional" value={weightKg} onChange={e => setWeightKg(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
             </>
           ) : (
             <>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Duration (min)</label><Input type="number" value={durationMins} onChange={e => setDurationMins(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+              <div><label className="text-xs text-muted-foreground mb-1 block">Duration (min)</label><Input type="number" value={durationMins} onChange={e => setDurationMins(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
               {needsSpeed && (
-                <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h</label><Input type="number" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h</label><Input type="number" step="0.5" placeholder="e.g. 8.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
               )}
               {needsSpeedOrIntensity && (
                 <>
-                  <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label><Input type="number" step="0.5" placeholder="e.g. 12.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#1A1A1A] border-border/40 text-sm" /></div>
+                  <div><label className="text-xs text-muted-foreground mb-1 block">Speed km/h (optional)</label><Input type="number" step="0.5" placeholder="e.g. 12.0" value={speedKmh} onChange={e => setSpeedKmh(e.target.value)} className="bg-[#0F1F3D] border-border/40 text-sm" /></div>
                   {!speedKmh && (
                     <div>
                       <label className="text-xs text-muted-foreground mb-2 block">Intensity</label>
@@ -841,7 +841,7 @@ function WorkoutCard({ workout, cyclePosition, onAddToCycle, onRemoveFromCycle, 
 
   return (
     <>
-      <Card className="bg-[#1A1A1A] border-border/40 overflow-hidden">
+      <Card className="bg-[#0F1F3D] border-border/40 overflow-hidden">
         {/* Workout header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border/30">
           {renaming ? (
@@ -1066,7 +1066,7 @@ export default function TrainingBuilder() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-1 bg-[#1A1A1A] p-1 rounded-xl mx-4 mt-3 mb-1">
+      <div className="flex gap-1 bg-[#0F1F3D] p-1 rounded-xl mx-4 mt-3 mb-1">
         <button
           onClick={() => setActiveTab("workouts")}
           className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
@@ -1095,7 +1095,7 @@ export default function TrainingBuilder() {
       {activeTab === "workouts" && (
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {/* Today's burn summary */}
-          <Card className="bg-[#1A1A1A] border-border/40 p-4">
+          <Card className="bg-[#0F1F3D] border-border/40 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-primary" />

@@ -42,7 +42,7 @@ function formatDateAxis(dateStr: string): string {
 
 const TEAL = "#2DD4BF";
 const GREY = "#6B7280";
-const CHART_BG = "#1A1A1A";
+const CHART_BG = "#0F1F3D";
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -54,7 +54,7 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label, unit = "" }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#222] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-xl">
+    <div className="bg-[#0F1F3D] border border-[#1B3260] rounded-xl px-3 py-2 text-xs shadow-xl">
       <p className="text-muted-foreground mb-1">{label ? formatDateShort(label) : ""}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }} className="font-semibold">
@@ -156,7 +156,7 @@ export default function Progress() {
             )}
           </div>
 
-          <Card className="p-4 bg-[#1A1A1A] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-none">
             {weightHistory.length < 2 ? (
               <EmptyState message={t("progress.noWeightData")} />
             ) : (
@@ -198,7 +198,7 @@ export default function Progress() {
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.mealCompliance")}</p>
 
-          <Card className="p-4 bg-[#1A1A1A] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-none">
             {mealChartData.length === 0 ? (
               <EmptyState message={t("progress.noMealData")} />
             ) : (
@@ -263,7 +263,7 @@ export default function Progress() {
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.workoutCompliance")}</p>
 
-          <Card className="p-4 bg-[#1A1A1A] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-none">
             {workoutChartData.length === 0 ? (
               <EmptyState message={t("progress.noWorkoutData")} />
             ) : (
@@ -328,7 +328,7 @@ export default function Progress() {
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.dailyDeficit")}</p>
 
-          <Card className="p-4 bg-[#1A1A1A] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-none">
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={dailyDeficit} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />

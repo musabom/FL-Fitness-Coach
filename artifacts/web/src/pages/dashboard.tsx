@@ -107,7 +107,7 @@ function CalBar({ label, value, target, color, unit = "kcal" }: { label: string;
 
 function MiniStatPill({ label, value, unit, color }: { label: string; value: number; unit: string; color: string }) {
   return (
-    <div className="flex-1 bg-[#1A1A1A] rounded-2xl p-3 flex flex-col items-center gap-1">
+    <div className="flex-1 bg-[#0F1F3D] rounded-2xl p-3 flex flex-col items-center gap-1">
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className="text-lg font-bold" style={{ color }}>{Math.round(value)}</span>
       <span className="text-[10px] text-muted-foreground">{unit}</span>
@@ -634,7 +634,7 @@ export default function Dashboard() {
         )}
 
         {/* Toggle */}
-        <div className="flex gap-1 p-1 bg-[#1A1A1A] rounded-2xl">
+        <div className="flex gap-1 p-1 bg-[#0F1F3D] rounded-2xl">
           <button
             onClick={() => setView("daily")}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "daily" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
@@ -654,7 +654,7 @@ export default function Dashboard() {
           <>
             {/* AM I ON TRACK? Card */}
             <section className="py-4">
-              <Card className="p-5 bg-[#1A1A1A] border-none">
+              <Card className="p-5 bg-[#0F1F3D] border-none">
                 <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-4">{t("dashboard.onTrack")}</h3>
 
                 {/* Column headers */}
@@ -831,7 +831,7 @@ export default function Dashboard() {
             {false && (
             <section className="space-y-3">
               <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Calorie Balance</p>
-              <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+              <Card className="p-5 bg-[#0F1F3D] border-none space-y-4">
                 <div className="flex gap-3">
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Consumed</span>
@@ -870,7 +870,7 @@ export default function Dashboard() {
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedNutrition ? "rotate-180" : ""}`} />
               </button>
               {!collapsedNutrition && (
-                <Card className="p-5 bg-[#1A1A1A] border-none space-y-6">
+                <Card className="p-5 bg-[#0F1F3D] border-none space-y-6">
                   {/* Calories */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
@@ -912,7 +912,7 @@ export default function Dashboard() {
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedTraining ? "rotate-180" : ""}`} />
               </button>
               {!collapsedTraining && (
-                <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                <Card className="p-5 bg-[#0F1F3D] border-none space-y-4">
                   <div className="flex gap-3">
                     <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                       <Zap className="w-4 h-4 text-muted-foreground mb-0.5" />
@@ -957,7 +957,7 @@ export default function Dashboard() {
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsedWeight ? "rotate-180" : ""}`} />
               </button>
               {!collapsedWeight && (
-                <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                <Card className="p-5 bg-[#0F1F3D] border-none space-y-4">
                   <div className="grid grid-cols-3 gap-3">
                     <div className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                       <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.started")}</span>
@@ -1074,7 +1074,7 @@ export default function Dashboard() {
                 {/* Weekly totals */}
                 <section className="space-y-3">
                   <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.thisWeekNutrition")}</p>
-                  <Card className="p-5 bg-[#1A1A1A] border-none space-y-5">
+                  <Card className="p-5 bg-[#0F1F3D] border-none space-y-5">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{t("dashboard.consumed")}</div>
@@ -1119,7 +1119,7 @@ export default function Dashboard() {
                 {/* Weekly training */}
                 <section className="space-y-3">
                   <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.thisWeekTraining")}</p>
-                  <Card className="p-5 bg-[#1A1A1A] border-none">
+                  <Card className="p-5 bg-[#0F1F3D] border-none">
                     <div className="flex gap-3">
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                         <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
@@ -1139,7 +1139,7 @@ export default function Dashboard() {
                 {/* Weekly Calorie Balance */}
                 <section className="space-y-3">
                   <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.calorieBalance")}</p>
-                  <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                  <Card className="p-5 bg-[#0F1F3D] border-none space-y-4">
                     <div className="flex gap-3">
                       <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
                         <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("dashboard.consumed")}</span>
@@ -1169,7 +1169,7 @@ export default function Dashboard() {
                 {/* Day-by-day chart */}
                 <section className="space-y-3">
                   <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("dashboard.dayByDay")}</p>
-                  <Card className="p-5 bg-[#1A1A1A] border-none space-y-4">
+                  <Card className="p-5 bg-[#0F1F3D] border-none space-y-4">
                     {/* Legend */}
                     <div className="flex gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary inline-block" /> Calories</span>
@@ -1217,7 +1217,7 @@ export default function Dashboard() {
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("nutritionMeals.title")}</p>
           <Link href="/nutrition/meals">
-            <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
+            <Card className="p-4 border-border/50 bg-[#0F1F3D] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <UtensilsCrossed className="w-5 h-5 text-primary" />
               </div>
@@ -1229,7 +1229,7 @@ export default function Dashboard() {
             </Card>
           </Link>
           <Link href="/nutrition/meal-plan">
-            <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
+            <Card className="p-4 border-border/50 bg-[#0F1F3D] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <CalendarDays className="w-5 h-5 text-primary" />
               </div>
@@ -1241,7 +1241,7 @@ export default function Dashboard() {
             </Card>
           </Link>
           <Link href="/nutrition/shopping-list">
-            <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
+            <Card className="p-4 border-border/50 bg-[#0F1F3D] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <ShoppingCart className="w-5 h-5 text-primary" />
               </div>
@@ -1257,7 +1257,7 @@ export default function Dashboard() {
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("workoutPlan.title")}</p>
           <Link href="/training/builder">
-            <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
+            <Card className="p-4 border-border/50 bg-[#0F1F3D] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Dumbbell className="w-5 h-5 text-primary" />
               </div>
@@ -1269,7 +1269,7 @@ export default function Dashboard() {
             </Card>
           </Link>
           <Link href="/training/plan">
-            <Card className="p-4 border-border/50 bg-[#1A1A1A] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
+            <Card className="p-4 border-border/50 bg-[#0F1F3D] flex items-center gap-4 hover:border-primary/40 active:scale-[0.99] transition-all cursor-pointer">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <ClipboardList className="w-5 h-5 text-primary" />
               </div>
