@@ -182,14 +182,13 @@ router.post("/shopping-list/stock/deduct", async (req, res): Promise<void> => {
   );
 
   for (const p of portionsRes.rows) {
+    // Only deduct from rows the user explicitly created — never auto-create stock rows.
+    // If there is no stock entry, there is nothing to deduct from.
     await pool.query(
-      `INSERT INTO food_stock (user_id, food_id, food_source, food_name, quantity_g, updated_at)
-       VALUES ($1, $2, $3, $4, 0, NOW())
-       ON CONFLICT (user_id, food_id, food_source)
-       DO UPDATE SET
-         quantity_g = GREATEST(0, food_stock.quantity_g - $5),
-         updated_at = NOW()`,
-      [userId, p.food_id, p.food_source, p.food_name, Number(p.quantity_g)]
+      `UPDATE food_stock
+       SET quantity_g = GREATEST(0, quantity_g - $1), updated_at = NOW()
+       WHERE user_id = $2 AND food_id = $3 AND food_source = $4`,
+      [Number(p.quantity_g), userId, p.food_id, p.food_source]
     );
   }
 
