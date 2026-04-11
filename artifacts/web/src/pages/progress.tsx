@@ -40,7 +40,7 @@ function formatDateAxis(dateStr: string): string {
   return "";
 }
 
-const TEAL = "#0D9E75";
+const TEAL = "#2DD4BF";
 const GREY = "#6B7280";
 const CHART_BG = "#1A1A1A";
 

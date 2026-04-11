@@ -653,7 +653,7 @@ function CoachesTab() {
 const GOAL_COLORS: Record<string, string> = {
   cut: "#EF4444",
   bulk: "#3B82F6",
-  maintain: "#0D9E75",
+  maintain: "#2DD4BF",
   not_set: "#6B7280",
 };
 
@@ -709,10 +709,10 @@ function ReportsTab() {
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#6B7280" }} />
               <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} allowDecimals={false} />
               <Tooltip
-                contentStyle={{ background: "#1A1A1A", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
-                cursor={{ fill: "rgba(13,158,117,0.1)" }}
+                contentStyle={{ background: "#0F1F3D", border: "1px solid #1B3260", borderRadius: 8, fontSize: 12 }}
+                cursor={{ fill: "rgba(45,212,191,0.1)" }}
               />
-              <Bar dataKey="new_members" name="New Members" fill="#0D9E75" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="new_members" name="New Members" fill="#2DD4BF" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -732,7 +732,7 @@ function ReportsTab() {
               <XAxis type="number" tick={{ fontSize: 10, fill: "#6B7280" }} />
               <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#9CA3AF" }} width={80} />
               <Tooltip
-                contentStyle={{ background: "#1A1A1A", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
+                contentStyle={{ background: "#0F1F3D", border: "1px solid #1B3260", borderRadius: 8, fontSize: 12 }}
                 formatter={(val: number) => [`${val} OMR`, "Est. Revenue"]}
               />
               <Bar dataKey="estimated_revenue" name="Revenue" fill="#3B82F6" radius={[0, 4, 4, 0]} />
@@ -772,7 +772,7 @@ function ReportsTab() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: "#1A1A1A", border: "1px solid #333", borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ background: "#0F1F3D", border: "1px solid #1B3260", borderRadius: 8, fontSize: 12 }}
                 />
               </PieChart>
             </ResponsiveContainer>

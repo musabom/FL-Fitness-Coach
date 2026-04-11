@@ -1,3 +1,16 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="fl-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1B3472"/>
+      <stop offset="100%" stop-color="#2DD4BF"/>
+    </linearGradient>
+  </defs>
+  <!-- Circle arc: lower-left gap (135°) clockwise via left/top to upper-right gap (330°), covers ~195° -->
+  <path d="M 19.6,80.4 A 43,43 0 1,1 87.2,28.5"
+        stroke="#1B3472" stroke-width="7.5"
+        stroke-linecap="round" fill="none"/>
+  <!-- Top F stripe — parallelogram tilted ~15° upward, right tip extends to upper-right gap -->
+  <polygon points="18,44 88,24 88,37 18,57" fill="url(#fl-grad)"/>
+  <!-- Bottom F stripe — shorter, parallel to top stripe -->
+  <polygon points="18,63 68,49 68,62 18,76" fill="url(#fl-grad)"/>
 </svg>

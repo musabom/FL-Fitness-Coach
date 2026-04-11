@@ -5,7 +5,7 @@ import { useLanguage } from "@/context/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Activity, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Signup() {
@@ -60,9 +60,7 @@ export default function Signup() {
         className="w-full relative z-10"
       >
         <div className="flex justify-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-card border border-card-border flex items-center justify-center shadow-2xl shadow-primary/20">
-            <Activity className="w-8 h-8 text-primary" />
-          </div>
+          <img src="/favicon.svg" alt="FutureLine Fitness" className="w-16 h-16 drop-shadow-2xl" />
         </div>
         
         <div className="text-center mb-10">

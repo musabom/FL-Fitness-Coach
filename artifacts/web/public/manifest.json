@@ -1,11 +1,11 @@
 {
-  "name": "Body Composition App",
-  "short_name": "BodyComp",
-  "description": "Precision body composition management and nutrition planning",
+  "name": "FutureLine Fitness",
+  "short_name": "FL Fitness",
+  "description": "FutureLine Fitness — personalised coaching, nutrition, and training plans",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F0F0F",
-  "theme_color": "#0D9E75",
+  "background_color": "#0B1630",
+  "theme_color": "#0B1630",
   "icons": [
     {
       "src": "/favicon.svg",

@@ -3,29 +3,30 @@
 
 @theme inline {
   --font-sans: 'Inter', sans-serif;
-  
-  --color-background: #0F0F0F;
-  --color-foreground: #ffffff;
-  
-  --color-primary: #0D9E75;
-  --color-primary-foreground: #ffffff;
-  
-  --color-card: #121212;
-  --color-card-border: #262626;
-  --color-card-foreground: #ffffff;
-  
-  --color-muted: #1f1f1f;
-  --color-muted-foreground: #a1a1aa;
-  
-  --color-border: #262626;
-  --color-input: #1a1a1a;
-  --color-ring: #0D9E75;
-  
+
+  /* ── FutureLine brand palette ── */
+  --color-background: #0B1630;       /* deep navy — replaces near-black   */
+  --color-foreground: #F0F6FF;       /* cool white                         */
+
+  --color-primary: #2DD4BF;          /* FutureLine teal                    */
+  --color-primary-foreground: #081025; /* dark navy text on teal buttons   */
+
+  --color-card: #0F1F3D;             /* dark navy card                     */
+  --color-card-border: #1B3260;      /* navy border                        */
+  --color-card-foreground: #F0F6FF;  /* cool white                         */
+
+  --color-muted: #101C36;            /* dark muted navy                    */
+  --color-muted-foreground: #7B95B8; /* muted blue-gray                    */
+
+  --color-border: #1B3260;           /* navy border                        */
+  --color-input: #0F1F3D;            /* dark navy input                    */
+  --color-ring: #2DD4BF;             /* teal focus ring                    */
+
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
-  
+
   --color-warning: #f59e0b;
-  
+
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -34,8 +35,8 @@
 }
 
 :root {
-  --background: 0 0% 6%;
-  --foreground: 0 0% 100%;
+  --background: 220 68% 12%;
+  --foreground: 213 100% 97%;
 }
 
 @layer base {
