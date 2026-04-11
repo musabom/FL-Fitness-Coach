@@ -868,4 +868,22 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS training_mode VARCHAR(20) NOT NULL DEFAULT 'schedule'`);
   await pool.query(`ALTER TABLE cycle_programs ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cycle_programs_user_default ON cycle_programs(user_id) WHERE is_default = TRUE`);
+
+  // ── Purge phantom stock rows (one-time) ──────────────────────────────────────
+  // The old meal-completion deduct endpoint auto-created food_stock rows via
+  // INSERT...ON CONFLICT. Undoing a completion then pushed them to non-zero values
+  // the user never entered. Purge the entire table once, guarded by a sentinel in
+  // platform_settings so this never runs again after real user stock is entered.
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM platform_settings WHERE key = 'migration_food_stock_purge_v1'
+      ) THEN
+        DELETE FROM food_stock;
+        INSERT INTO platform_settings (key, value)
+        VALUES ('migration_food_stock_purge_v1', 'done')
+        ON CONFLICT (key) DO NOTHING;
+      END IF;
+    END $$;
+  `);
 }
