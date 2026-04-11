@@ -361,8 +361,9 @@ export default function Dashboard() {
     queryFn: () => customFetch<TodayData>(buildUrl(`${BASE}/dashboard/today?date=${today}`)),
     enabled: !!plan,
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     refetchInterval: 30000,
-    staleTime: 5000,
+    staleTime: 0,
   });
 
   const mondayStr = getMondayStr();
@@ -371,8 +372,9 @@ export default function Dashboard() {
     queryFn: () => customFetch<WeeklyData>(buildUrl(`${BASE}/dashboard/weekly?week_start=${mondayStr}`)),
     enabled: view === "weekly" && !!plan,
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     refetchInterval: 30000,
-    staleTime: 5000,
+    staleTime: 0,
   });
 
   const consumed = todayData?.nutrition.consumed ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };

@@ -489,12 +489,15 @@ export function CycleProgramContent() {
       queryClient.setQueryData(["user-cycle"], (old: any) =>
         old ? { ...old, training_mode: mode } : old
       );
+      // Invalidate everything that depends on training mode
       queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
       queryClient.invalidateQueries({ queryKey: ["workout-plan"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-today"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-weekly"] });
       toast({ title: mode === 'cycle' ? "Cycle mode activated" : "Schedule mode activated" });
     },
     onError: () => {
-      // Revert on error
+      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
       toast({ title: "Failed to update mode", variant: "destructive" });
     },

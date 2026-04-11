@@ -240,6 +240,19 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
       const workout = await getWorkoutSummary(slot.workout_id, weightKg);
       if (!workout) continue;
 
+      // Load completions for this cycle workout specifically
+      // (allWorkoutIds is empty in cycle mode so completedWorkouts/completedExercises are always empty)
+      const cycleWpcRes = await pool.query(
+        `SELECT workout_id FROM workout_plan_completions WHERE user_id = $1 AND date = $2 AND workout_id = $3`,
+        [userId, dateStr, slot.workout_id]
+      );
+      const cycleWecRes = await pool.query(
+        `SELECT workout_exercise_id FROM workout_exercise_completions WHERE user_id = $1 AND date = $2 AND workout_id = $3`,
+        [userId, dateStr, slot.workout_id]
+      );
+      const cycleWorkoutCompleted = cycleWpcRes.rows.length > 0;
+      const cycleCompletedExercises = new Set(cycleWecRes.rows.map((r: any) => Number(r.workout_exercise_id)));
+
       cycleEntries.push({
         entry_id: 0,
         is_entry: false,
@@ -248,12 +261,12 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
         cycle_program_name: prog.name,
         cycle_position: position,
         cycle_slot_label: slot.label ?? null,
-        completed: completedWorkouts.has(slot.workout_id),
+        completed: cycleWorkoutCompleted,
         workout: {
           ...workout,
           exercises: workout.exercises.map(e => ({
             ...e,
-            completed: completedExercises.has(e.id),
+            completed: cycleCompletedExercises.has(e.id),
           })),
         },
       } as any);
