@@ -47,7 +47,9 @@ export default function Login() {
         className="w-full relative z-10"
       >
         <div className="flex justify-center mb-8">
-          <img src="/favicon.svg" alt="FutureLine Fitness" className="w-16 h-16 drop-shadow-2xl" />
+          <div className="bg-white rounded-2xl p-2 shadow-2xl inline-flex">
+            <img src="/logo.png" alt="FutureLine Fitness" className="w-16 h-16 object-contain" />
+          </div>
         </div>
         
         <div className="text-center mb-10">

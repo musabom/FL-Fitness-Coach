@@ -82,7 +82,9 @@ export default function CoachesBrowse() {
       <header className="border-b border-border sticky top-0 z-50 bg-background/90 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="FutureLine Fitness" className="w-8 h-8" />
+            <div className="bg-white rounded-lg p-0.5 flex-shrink-0">
+              <img src="/logo.png" alt="FutureLine Fitness" className="w-8 h-8 object-contain" />
+            </div>
             <span className="font-bold text-lg">FutureLine Fitness</span>
           </div>
           <div className="flex items-center gap-2">

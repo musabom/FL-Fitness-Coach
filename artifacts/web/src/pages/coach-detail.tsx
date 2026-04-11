@@ -127,7 +127,9 @@ export default function CoachDetail() {
               {isRTL ? <ChevronRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
             </Button>
             <div className="flex items-center gap-2">
-              <img src="/favicon.svg" alt="FutureLine Fitness" className="w-7 h-7" />
+              <div className="bg-white rounded-md p-0.5 flex-shrink-0">
+                <img src="/logo.png" alt="FutureLine Fitness" className="w-7 h-7 object-contain" />
+              </div>
               <span className="font-bold">FutureLine Fitness</span>
             </div>
           </div>
