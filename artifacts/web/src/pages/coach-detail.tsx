@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
-import { ArrowLeft, Star, ChevronLeft, ChevronRight, User, CheckCircle, Activity } from "lucide-react";
+import { ArrowLeft, Star, ChevronLeft, ChevronRight, User, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/language-context";
@@ -127,10 +127,8 @@ export default function CoachDetail() {
               {isRTL ? <ChevronRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
             </Button>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
-                <Activity className="w-3.5 h-3.5 text-primary-foreground" />
-              </div>
-              <span className="font-bold">BodyPro</span>
+              <img src="/favicon.svg" alt="FutureLine Fitness" className="w-7 h-7" />
+              <span className="font-bold">FutureLine Fitness</span>
             </div>
           </div>
           <div className="flex items-center gap-2">

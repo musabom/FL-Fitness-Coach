@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Star, ChevronRight, User, Activity } from "lucide-react";
+import { Search, Star, ChevronRight, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,10 +82,8 @@ export default function CoachesBrowse() {
       <header className="border-b border-border sticky top-0 z-50 bg-background/90 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <Activity className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg">BodyPro</span>
+            <img src="/favicon.svg" alt="FutureLine Fitness" className="w-8 h-8" />
+            <span className="font-bold text-lg">FutureLine Fitness</span>
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
