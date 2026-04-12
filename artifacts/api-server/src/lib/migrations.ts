@@ -112,66 +112,105 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)`);
 
   // Seed exercises (idempotent — only if table is empty)
+  // MET values are baked into the seed for fresh deployments.
+  // For existing deployments the migration_exercise_met_values_v1 sentinel handles the back-fill.
+  // Sources: Reis et al. 2017 (PMC5524349), Ainsworth 2011 Compendium (PMID:21681120),
+  //          Dias et al. 2021 (MDPI Appl Sci 11:6687), Utter et al. 2004 (PMC3942638).
   const { rows: existing } = await pool.query(`SELECT COUNT(*) FROM exercises WHERE is_custom = FALSE`);
   if (Number(existing[0].count) === 0) {
     await pool.query(`
-      INSERT INTO exercises (exercise_name, name_arabic, muscle_primary, muscle_secondary, exercise_type, equipment, injury_contraindications) VALUES
-      ('Barbell Bench Press','صدر مستوي بار','chest',ARRAY['triceps','front_deltoid'],'strength','barbell',ARRAY['shoulder']),
-      ('Machine Chest Press','صدر مستوي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder']),
-      ('Dumbbell Press','دامبل مستوي','chest',ARRAY['triceps','front_deltoid'],'strength','dumbbell',ARRAY['shoulder']),
-      ('Decline Chest Press Machine','صدر سفلي جهاز','chest',ARRAY['triceps'],'strength','machine',ARRAY['shoulder']),
-      ('Incline Chest Press Machine','صدر عالي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder']),
-      ('Machine Chest Fly','جهاز تفتيح صدر','chest',ARRAY['front_deltoid'],'strength','machine',ARRAY['shoulder']),
-      ('Biceps Curl Alternating Dumbbell','تبادل دامبل باي','biceps',ARRAY['brachialis'],'strength','dumbbell',ARRAY[]::text[]),
-      ('Barbell Biceps Curl','بار واسع باي','biceps',ARRAY['brachialis'],'strength','barbell',ARRAY[]::text[]),
-      ('Hammer Curl','هامر دامبل باي','biceps',ARRAY['brachioradialis'],'strength','dumbbell',ARRAY[]::text[]),
-      ('Concentrated Curl','تكوير باي','biceps',ARRAY[]::text[],'strength','dumbbell',ARRAY[]::text[]),
-      ('Lat Pulldown','سحب امامي واسع','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['shoulder']),
-      ('Dumbbell Row','منشار دامبل','back',ARRAY['biceps','rear_deltoid'],'strength','dumbbell',ARRAY['lower_back']),
-      ('Seated Row Machine','جهاز منشار','back',ARRAY['biceps','rear_deltoid'],'strength','machine',ARRAY['lower_back']),
-      ('Close Grip Lat Pulldown','سحب امامي ضيق','back',ARRAY['biceps'],'strength','cable',ARRAY['shoulder']),
-      ('Seat Cable Row','سحب ارضي بالمثلث','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['lower_back']),
-      ('T-Bar Row','تي بار رو','back',ARRAY['biceps','rear_deltoid'],'strength','barbell',ARRAY['lower_back']),
-      ('Back Extension','جهاز الظهر اسفل','back',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['lower_back']),
-      ('Reverse Grip Tricep Pushdown','تراي عكس مسطره','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
-      ('Tricep Pushdown Straight Rope','حبل تراي','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
-      ('Tricep Pushdown Straight Bar','مسطره ضيق','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder']),
-      ('Overhead Tricep Extension','تراي من فوق الراس','triceps',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder']),
-      ('Tricep Dip Machine','جهاز تراي غطس','triceps',ARRAY['chest','front_deltoid'],'strength','machine',ARRAY['shoulder']),
-      ('Front Raises','رفرفه امامي','shoulders',ARRAY['upper_chest'],'strength','dumbbell',ARRAY['shoulder']),
-      ('Shoulder Press Machine','جهاز اكتاف','shoulders',ARRAY['triceps'],'strength','machine',ARRAY['shoulder']),
-      ('Dumbbell Shoulder Press','دامبل بريس','shoulders',ARRAY['triceps'],'strength','dumbbell',ARRAY['shoulder']),
-      ('Lateral Side Raises','رفرفه جانبي','shoulders',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder']),
-      ('Plate Front Raise','امامي بالقرص','shoulders',ARRAY['upper_chest'],'strength','barbell',ARRAY['shoulder']),
-      ('Rear Delt Fly Machine','جهاز كتف خلفي','shoulders',ARRAY['rear_deltoid','upper_back'],'strength','machine',ARRAY['shoulder']),
-      ('Barbell Shrugs','ترابيس بالبار','shoulders',ARRAY['traps'],'strength','barbell',ARRAY[]::text[]),
-      ('Dumbbell Shrugs','ترابيس بالدامبل','shoulders',ARRAY['traps'],'strength','dumbbell',ARRAY[]::text[]),
-      ('Leg Extension','رفرفه امامي ارجل','quads',ARRAY[]::text[],'strength','machine',ARRAY['knee']),
-      ('Hack Squats','هاك سكوات','quads',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['knee','lower_back']),
-      ('Squats','سكوات','quads',ARRAY['glutes','hamstrings'],'strength','barbell',ARRAY['knee','lower_back']),
-      ('Leg Press','دفاع','quads',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['knee','lower_back']),
-      ('Leg Curls','رفرفه خلفي ارجل','hamstrings',ARRAY[]::text[],'strength','machine',ARRAY['knee']),
-      ('Lunges','طعن','quads',ARRAY['glutes','hamstrings'],'strength','bodyweight',ARRAY['knee']),
-      ('Hip Adductor Machine','جهاز داخلي','quads',ARRAY['inner_thigh'],'strength','machine',ARRAY['knee']),
-      ('Calf Raise Machine','جهاز بطات','calves',ARRAY[]::text[],'strength','machine',ARRAY[]::text[]),
-      ('Treadmill Walk','سير','cardio',ARRAY[]::text[],'cardio','machine',ARRAY[]::text[]),
-      ('Treadmill Run','جري','cardio',ARRAY[]::text[],'cardio','machine',ARRAY[]::text[]),
-      ('Elliptical','اوبتكال','cardio',ARRAY[]::text[],'cardio','machine',ARRAY['knee']),
-      ('Stationary Bike','دراجة ثابتة','cardio',ARRAY[]::text[],'cardio','machine',ARRAY['knee']),
-      ('Rowing Machine','تجديف','cardio',ARRAY['back','arms'],'cardio','machine',ARRAY['lower_back']),
-      ('Jump Rope','حبل القفز','cardio',ARRAY[]::text[],'cardio','bodyweight',ARRAY['knee']),
-      ('Stair Climber','سلم متحرك','cardio',ARRAY['quads','glutes'],'cardio','machine',ARRAY['knee'])
-    `);
-
-    // MET values for cardio
-    await pool.query(`
-      UPDATE exercises SET met_value = 3.5 WHERE exercise_name = 'Treadmill Walk';
-      UPDATE exercises SET met_value = 4.3 WHERE exercise_name = 'Treadmill Run';
-      UPDATE exercises SET met_value = 5.5 WHERE exercise_name = 'Elliptical';
-      UPDATE exercises SET met_value = 5.5 WHERE exercise_name = 'Stationary Bike';
-      UPDATE exercises SET met_value = 7.0 WHERE exercise_name = 'Rowing Machine';
-      UPDATE exercises SET met_value = 10.0 WHERE exercise_name = 'Jump Rope';
-      UPDATE exercises SET met_value = 9.0 WHERE exercise_name = 'Stair Climber';
+      INSERT INTO exercises (exercise_name, name_arabic, muscle_primary, muscle_secondary, exercise_type, equipment, injury_contraindications, met_value) VALUES
+      -- ── CHEST ──────────────────────────────────────────────────────────────────
+      -- 3.5: horizontal bench press direct measurement (Reis 2017)
+      ('Barbell Bench Press','صدر مستوي بار','chest',ARRAY['triceps','front_deltoid'],'strength','barbell',ARRAY['shoulder'],3.5),
+      -- 3.0: machine removes stabilisers, ~10% below free-weight bench
+      ('Machine Chest Press','صدر مستوي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder'],3.0),
+      -- 3.5: dumbbell stabiliser cost ≈ barbell bench (Reis 2017 analog)
+      ('Dumbbell Press','دامبل مستوي','chest',ARRAY['triceps','front_deltoid'],'strength','dumbbell',ARRAY['shoulder'],3.5),
+      -- 3.0: machine decline, same muscle mass as flat machine press
+      ('Decline Chest Press Machine','صدر سفلي جهاز','chest',ARRAY['triceps'],'strength','machine',ARRAY['shoulder'],3.0),
+      -- 3.8: incline 45° press 4.3 MET direct (Reis 2017); machine −10% → 3.8
+      ('Incline Chest Press Machine','صدر عالي جهاز','chest',ARRAY['triceps','front_deltoid'],'strength','machine',ARRAY['shoulder'],3.8),
+      -- 2.8: single-joint isolation pec deck, below all press variations
+      ('Machine Chest Fly','جهاز تفتيح صدر','chest',ARRAY['front_deltoid'],'strength','machine',ARRAY['shoulder'],2.8),
+      -- ── BICEPS ─────────────────────────────────────────────────────────────────
+      -- 2.5: Scott-bench Z-bar curl direct measurement (Reis 2017)
+      ('Biceps Curl Alternating Dumbbell','تبادل دامبل باي','biceps',ARRAY['brachialis'],'strength','dumbbell',ARRAY[]::text[],2.5),
+      -- 2.8: standing adds minor core stabilisation above Scott bench
+      ('Barbell Biceps Curl','بار واسع باي','biceps',ARRAY['brachialis'],'strength','barbell',ARRAY[]::text[],2.8),
+      -- 2.8: neutral grip, heavier loads possible; ≈ barbell curl (Reis 2017 analog)
+      ('Hammer Curl','هامر دامبل باي','biceps',ARRAY['brachioradialis'],'strength','dumbbell',ARRAY[]::text[],2.8),
+      -- 2.3: seated brace limits load → lowest-MET biceps exercise
+      ('Concentrated Curl','تكوير باي','biceps',ARRAY[]::text[],'strength','dumbbell',ARRAY[]::text[],2.3),
+      -- ── BACK ───────────────────────────────────────────────────────────────────
+      -- 3.0: wide-grip lat pulldown 2.9 MET direct (Reis 2017)
+      ('Lat Pulldown','سحب امامي واسع','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['shoulder'],3.0),
+      -- 3.8: free-weight bent-over row direct measurement (Dias et al. 2021)
+      ('Dumbbell Row','منشار دامبل','back',ARRAY['biceps','rear_deltoid'],'strength','dumbbell',ARRAY['lower_back'],3.8),
+      -- 3.0: machine removes trunk stabilisation vs dumbbell row
+      ('Seated Row Machine','جهاز منشار','back',ARRAY['biceps','rear_deltoid'],'strength','machine',ARRAY['lower_back'],3.0),
+      -- 3.0: grip width change, same energy cost as wide-grip (Reis 2017 analog)
+      ('Close Grip Lat Pulldown','سحب امامي ضيق','back',ARRAY['biceps'],'strength','cable',ARRAY['shoulder'],3.0),
+      -- 3.0: cable seated row ≈ machine seated row
+      ('Seat Cable Row','سحب ارضي بالمثلث','back',ARRAY['biceps','rear_deltoid'],'strength','cable',ARRAY['lower_back'],3.0),
+      -- 4.5: heavy bilateral hip-hinged compound; highest-MET back exercise
+      ('T-Bar Row','تي بار رو','back',ARRAY['biceps','rear_deltoid'],'strength','barbell',ARRAY['lower_back'],4.5),
+      -- 3.3: erector spinae, posterior chain; Compendium body-weight resistance + load adj.
+      ('Back Extension','جهاز الظهر اسفل','back',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['lower_back'],3.3),
+      -- ── TRICEPS ────────────────────────────────────────────────────────────────
+      -- 3.0: high-pulley cable extension 3.1 MET direct (Reis 2017)
+      ('Reverse Grip Tricep Pushdown','تراي عكس مسطره','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder'],3.0),
+      -- 3.0: rope grip = same energy as straight bar (Reis 2017 analog)
+      ('Tricep Pushdown Straight Rope','حبل تراي','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder'],3.0),
+      -- 3.0: straight bar closest direct match in Reis 2017
+      ('Tricep Pushdown Straight Bar','مسطره ضيق','triceps',ARRAY[]::text[],'strength','cable',ARRAY['shoulder'],3.0),
+      -- 3.3: overhead stretches long head → ~10% above pushdown
+      ('Overhead Tricep Extension','تراي من فوق الراس','triceps',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder'],3.3),
+      -- 3.0: machine dip isolates triceps; ≈ other machine triceps exercises
+      ('Tricep Dip Machine','جهاز تراي غطس','triceps',ARRAY['chest','front_deltoid'],'strength','machine',ARRAY['shoulder'],3.0),
+      -- ── SHOULDERS ──────────────────────────────────────────────────────────────
+      -- 2.8: single-joint, anterior deltoid only; lowest-MET shoulder exercise
+      ('Front Raises','رفرفه امامي','shoulders',ARRAY['upper_chest'],'strength','dumbbell',ARRAY['shoulder'],2.8),
+      -- 3.0: machine shoulder press; session avg ~3 MET (Utter 2004)
+      ('Shoulder Press Machine','جهاز اكتاف','shoulders',ARRAY['triceps'],'strength','machine',ARRAY['shoulder'],3.0),
+      -- 3.5: dumbbell overhead VO2 4.6–7.0 ml/kg/min → session ~3.5 MET (Dias 2021)
+      ('Dumbbell Shoulder Press','دامبل بريس','shoulders',ARRAY['triceps'],'strength','dumbbell',ARRAY['shoulder'],3.5),
+      -- 2.8: single-joint medial deltoid; equivalent to front raises
+      ('Lateral Side Raises','رفرفه جانبي','shoulders',ARRAY[]::text[],'strength','dumbbell',ARRAY['shoulder'],2.8),
+      -- 2.8: identical movement pattern to dumbbell front raise
+      ('Plate Front Raise','امامي بالقرص','shoulders',ARRAY['upper_chest'],'strength','barbell',ARRAY['shoulder'],2.8),
+      -- 2.8: machine isolation posterior deltoid; equivalent to other machine isolations
+      ('Rear Delt Fly Machine','جهاز كتف خلفي','shoulders',ARRAY['rear_deltoid','upper_back'],'strength','machine',ARRAY['shoulder'],2.8),
+      -- 3.3: trapezius (large muscle), heavy barbell loads; above pure deltoid isolation
+      ('Barbell Shrugs','ترابيس بالبار','shoulders',ARRAY['traps'],'strength','barbell',ARRAY[]::text[],3.3),
+      -- 3.0: dumbbell shrugs, lighter loads than barbell variant
+      ('Dumbbell Shrugs','ترابيس بالدامبل','shoulders',ARRAY['traps'],'strength','dumbbell',ARRAY[]::text[],3.0),
+      -- ── LEGS ───────────────────────────────────────────────────────────────────
+      -- 5.0: leg extension 6.0 MET direct (Reis 2017); session-level moderate: 5.0
+      ('Leg Extension','رفرفه امامي ارجل','quads',ARRAY[]::text[],'strength','machine',ARRAY['knee'],5.0),
+      -- 5.5: between leg press (5.0) and free squat (5.5), machine-guided
+      ('Hack Squats','هاك سكوات','quads',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['knee','lower_back'],5.5),
+      -- 5.5: Compendium squats/explosive 5.0 (code 02061); Reis 2017 half-squat peak 8.5; session moderate: 5.5
+      ('Squats','سكوات','quads',ARRAY['glutes','hamstrings'],'strength','barbell',ARRAY['knee','lower_back'],5.5),
+      -- 5.0: 45° leg press 4.9 MET direct (Reis 2017); session-level: 5.0
+      ('Leg Press','دفاع','quads',ARRAY['glutes','hamstrings'],'strength','machine',ARRAY['knee','lower_back'],5.0),
+      -- 4.3: hamstrings large muscle; session estimate from João et al. 2021 (PMC8714826)
+      ('Leg Curls','رفرفه خلفي ارجل','hamstrings',ARRAY[]::text[],'strength','machine',ARRAY['knee'],4.3),
+      -- 4.5: direct measurement, unilateral balance demand (Dias et al. 2021)
+      ('Lunges','طعن','quads',ARRAY['glutes','hamstrings'],'strength','bodyweight',ARRAY['knee'],4.5),
+      -- 3.3: machine adductor; large muscle group, seated, single-joint
+      ('Hip Adductor Machine','جهاز داخلي','quads',ARRAY['inner_thigh'],'strength','machine',ARRAY['knee'],3.3),
+      -- 3.0: body-weight heel-raise studies 2.1–3.2 MET; machine: 3.0
+      ('Calf Raise Machine','جهاز بطات','calves',ARRAY[]::text[],'strength','machine',ARRAY[]::text[],3.0),
+      -- ── CARDIO ─────────────────────────────────────────────────────────────────
+      -- Cardio MET values from Ainsworth 2011 Compendium (PMID:21681120)
+      ('Treadmill Walk','سير','cardio',ARRAY[]::text[],'cardio','machine',ARRAY[]::text[],3.5),
+      ('Treadmill Run','جري','cardio',ARRAY[]::text[],'cardio','machine',ARRAY[]::text[],9.8),
+      ('Elliptical','اوبتكال','cardio',ARRAY[]::text[],'cardio','machine',ARRAY['knee'],5.5),
+      ('Stationary Bike','دراجة ثابتة','cardio',ARRAY[]::text[],'cardio','machine',ARRAY['knee'],5.5),
+      ('Rowing Machine','تجديف','cardio',ARRAY['back','arms'],'cardio','machine',ARRAY['lower_back'],7.0),
+      ('Jump Rope','حبل القفز','cardio',ARRAY[]::text[],'cardio','bodyweight',ARRAY['knee'],10.0),
+      ('Stair Climber','سلم متحرك','cardio',ARRAY['quads','glutes'],'cardio','machine',ARRAY['knee'],9.0)
     `);
   }
 
@@ -969,6 +1008,16 @@ async function runMigrationsInternal(): Promise<void> {
         UPDATE exercises SET met_value = 3.3 WHERE exercise_name = 'Hip Adductor Machine'     AND is_custom = FALSE;
         -- Calf raise: body-weight heel-raise studies 2.1–3.2 MET; machine: 3.0
         UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Calf Raise Machine'       AND is_custom = FALSE;
+
+        -- Cardio — correct/confirm values (Ainsworth 2011 Compendium) ─────────────
+        -- Treadmill Run was previously seeded at 4.3 (slow jog); correct value is 9.8
+        UPDATE exercises SET met_value = 9.8 WHERE exercise_name = 'Treadmill Run'            AND is_custom = FALSE;
+        UPDATE exercises SET met_value = 3.5 WHERE exercise_name = 'Treadmill Walk'           AND is_custom = FALSE;
+        UPDATE exercises SET met_value = 5.5 WHERE exercise_name = 'Elliptical'               AND is_custom = FALSE;
+        UPDATE exercises SET met_value = 5.5 WHERE exercise_name = 'Stationary Bike'          AND is_custom = FALSE;
+        UPDATE exercises SET met_value = 7.0 WHERE exercise_name = 'Rowing Machine'           AND is_custom = FALSE;
+        UPDATE exercises SET met_value = 10.0 WHERE exercise_name = 'Jump Rope'               AND is_custom = FALSE;
+        UPDATE exercises SET met_value = 9.0 WHERE exercise_name = 'Stair Climber'            AND is_custom = FALSE;
 
         INSERT INTO platform_settings (key, value)
         VALUES ('migration_exercise_met_values_v1', 'done')
