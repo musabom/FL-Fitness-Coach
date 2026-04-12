@@ -1011,10 +1011,10 @@ export default function TrainingBuilder() {
     onError: () => toast({ title: "Failed to create workout", variant: "destructive" }),
   });
 
-  // Cycle data
+  // Cycle data — all URLs go through buildUrl so ?clientId= is included in coach/admin mode
   const { data: userCycle } = useQuery<{ training_mode: string; slots: Array<{ workout_id: number | null; position: number }>; start_date: string; cycle_length: number }>({
     queryKey: ["user-cycle"],
-    queryFn: () => customFetch(`${BASE}/user-cycle`),
+    queryFn: () => customFetch(buildUrl(`${BASE}/user-cycle`)),
     staleTime: 0,
   });
 
@@ -1029,13 +1029,13 @@ export default function TrainingBuilder() {
   const trainingMode = userCycle?.training_mode ?? 'schedule';
 
   const addToCycleMutation = useMutation({
-    mutationFn: (workout_id: number) => customFetch(`${BASE}/user-cycle/workouts`, { method: "POST", body: JSON.stringify({ workout_id }), headers: { "Content-Type": "application/json" } }),
+    mutationFn: (workout_id: number) => customFetch(buildUrl(`${BASE}/user-cycle/workouts`), { method: "POST", body: JSON.stringify({ workout_id }), headers: { "Content-Type": "application/json" } }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-cycle"] }); toast({ title: "Added to cycle" }); },
     onError: () => toast({ title: "Failed to add to cycle", variant: "destructive" }),
   });
 
   const removeFromCycleMutation = useMutation({
-    mutationFn: (workout_id: number) => customFetch(`${BASE}/user-cycle/workouts/${workout_id}`, { method: "DELETE" }),
+    mutationFn: (workout_id: number) => customFetch(buildUrl(`${BASE}/user-cycle/workouts/${workout_id}`), { method: "DELETE" }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-cycle"] }); toast({ title: "Removed from cycle" }); },
     onError: () => toast({ title: "Failed to remove from cycle", variant: "destructive" }),
   });
