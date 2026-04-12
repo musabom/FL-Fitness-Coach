@@ -13,12 +13,23 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
 
 // ── Calorie estimation helpers ─────────────────────────────────────────────────
 
-const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
+// Intensity multipliers applied on top of the exercise's own MET value.
+// Research basis: Reis et al. (2017, PLOS ONE PMC5524349) shows ~2-3× energy cost
+// difference between low (20% 1-RM) and exhaustive (80% 1-RM) loads.
+// Session-level multipliers (rest included): light ≈ 0.80×, moderate = 1.00×, heavy ≈ 1.25×
+const INTENSITY_MULTIPLIER: Record<string, number> = { light: 0.80, moderate: 1.00, heavy: 1.25 };
 
-function estimateStrengthCalories(sets: number, repsMin: number, repsMax: number, restSecs: number, weightKg: number, effort = "moderate") {
+// Fallback MET for exercises that have no per-exercise met_value in DB yet (custom exercises)
+const FALLBACK_MET = 4.0;
+
+function estimateStrengthCalories(
+  sets: number, repsMin: number, repsMax: number, restSecs: number,
+  weightKg: number, effort = "moderate", exerciseMet?: number
+) {
   const avgReps = (repsMin + repsMax) / 2;
   const durationMins = (sets * (avgReps * 3 + restSecs)) / 60;
-  const met = EFFORT_MET[effort] ?? EFFORT_MET.moderate;
+  const baseMet = exerciseMet ?? FALLBACK_MET;
+  const met = baseMet * (INTENSITY_MULTIPLIER[effort] ?? 1.0);
   return +(met * weightKg * (durationMins / 60)).toFixed(1);
 }
 
@@ -49,7 +60,8 @@ function buildWorkouts(workoutRows: any[], exerciseRows: any[], scheduleRows: an
       estimated_calories = estimateCardioCalories(Number(e.met_value) || 5, Number(e.duration_mins) || 0, weightKg);
       duration_mins = Number(e.duration_mins) || 0;
     } else {
-      estimated_calories = estimateStrengthCalories(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds), weightKg, e.effort_level || "moderate");
+      const exerciseMet = e.met_value ? Number(e.met_value) : undefined;
+      estimated_calories = estimateStrengthCalories(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds), weightKg, e.effort_level || "moderate", exerciseMet);
       duration_mins = estimateStrengthDuration(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds));
     }
     exercisesByWorkout[e.workout_id].push({ ...e, estimated_calories, duration_mins_computed: +duration_mins.toFixed(1) });
@@ -57,14 +69,8 @@ function buildWorkouts(workoutRows: any[], exerciseRows: any[], scheduleRows: an
 
   return workoutRows.map(w => {
     const exercises = (exercisesByWorkout[w.id] || []).sort((a: any, b: any) => a.order_index - b.order_index);
-    const strengthExercises = exercises.filter((e: any) => e.exercise_type !== "cardio");
-    const cardioExercises = exercises.filter((e: any) => e.exercise_type === "cardio");
-    const strengthDuration = strengthExercises.reduce((sum: number, e: any) => sum + e.duration_mins_computed, 0);
-    const strengthCalories = strengthDuration > 0
-      ? +(EFFORT_MET.moderate * weightKg * (strengthDuration / 60)).toFixed(1)
-      : 0;
-    const cardioCalories = cardioExercises.reduce((sum: number, e: any) => sum + e.estimated_calories, 0);
-    const total_calories = +(strengthCalories + cardioCalories).toFixed(1);
+    // Sum per-exercise estimated_calories (already uses per-exercise MET × intensity multiplier)
+    const total_calories = +(exercises.reduce((sum: number, e: any) => sum + e.estimated_calories, 0)).toFixed(1);
     return {
       id: w.id,
       workout_name: w.workout_name,

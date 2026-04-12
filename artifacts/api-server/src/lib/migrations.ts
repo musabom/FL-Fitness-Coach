@@ -869,6 +869,114 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`ALTER TABLE cycle_programs ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_cycle_programs_user_default ON cycle_programs(user_id) WHERE is_default = TRUE`);
 
+  // ── Per-exercise MET values for strength exercises (one-time back-fill) ────────
+  // Sources: Reis et al. 2017 (PMC5524349) — direct measurement of 8 exercises via
+  // indirect calorimetry; Ainsworth et al. 2011 Compendium (PMID:21681120);
+  // Dias et al. 2021 (MDPI Applied Sciences 11:6687); Utter et al. 2004 (PMC3942638).
+  // Values represent session-level moderate-effort MET (60–75% 1-RM, rest included).
+  // Intensity scaling (light 0.80×, heavy 1.25×) is applied at runtime in workouts.ts.
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM platform_settings WHERE key = 'migration_exercise_met_values_v1'
+      ) THEN
+        -- Chest ─────────────────────────────────────────────────────────────────
+        -- Barbell bench press: 3.4 MET (direct, Reis 2017); rounded to 3.5
+        UPDATE exercises SET met_value = 3.5 WHERE exercise_name = 'Barbell Bench Press'        AND is_custom = FALSE;
+        -- Machine eliminates stabilisers: ~10% below free-weight bench
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Machine Chest Press'        AND is_custom = FALSE;
+        -- Dumbbell adds stabiliser cost ≈ barbell bench (Reis 2017 analog)
+        UPDATE exercises SET met_value = 3.5 WHERE exercise_name = 'Dumbbell Press'             AND is_custom = FALSE;
+        -- Machine decline, same muscle mass as flat machine press
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Decline Chest Press Machine' AND is_custom = FALSE;
+        -- Incline (45°) press: 4.3 MET direct (Reis 2017); machine −10% → 3.8
+        UPDATE exercises SET met_value = 3.8 WHERE exercise_name = 'Incline Chest Press Machine' AND is_custom = FALSE;
+        -- Single-joint isolation, pec deck; below all press variations
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Machine Chest Fly'          AND is_custom = FALSE;
+
+        -- Biceps ─────────────────────────────────────────────────────────────────
+        -- Scott-bench Z-bar curl: 2.5 MET direct (Reis 2017)
+        UPDATE exercises SET met_value = 2.5 WHERE exercise_name = 'Biceps Curl Alternating Dumbbell' AND is_custom = FALSE;
+        -- Standing adds minor core stabilisation above Scott bench
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Barbell Biceps Curl'        AND is_custom = FALSE;
+        -- Neutral grip, heavier loads possible; ≈ barbell curl (Reis 2017 analog)
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Hammer Curl'               AND is_custom = FALSE;
+        -- Seated brace limits load → lowest-MET biceps exercise
+        UPDATE exercises SET met_value = 2.3 WHERE exercise_name = 'Concentrated Curl'         AND is_custom = FALSE;
+
+        -- Back ───────────────────────────────────────────────────────────────────
+        -- Wide-grip lat pulldown: 2.9 MET direct (Reis 2017); rounded to 3.0
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Lat Pulldown'              AND is_custom = FALSE;
+        -- Free-weight bent-over row: 3.8 MET (Dias et al. 2021)
+        UPDATE exercises SET met_value = 3.8 WHERE exercise_name = 'Dumbbell Row'              AND is_custom = FALSE;
+        -- Machine eliminates trunk stabilisation vs dumbbell row
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Seated Row Machine'        AND is_custom = FALSE;
+        -- Grip width change, same energy cost as wide-grip (Reis 2017 analog)
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Close Grip Lat Pulldown'   AND is_custom = FALSE;
+        -- Cable seated row ≈ machine seated row
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Seat Cable Row'            AND is_custom = FALSE;
+        -- Heavy bilateral hip-hinged compound; highest-MET back exercise
+        UPDATE exercises SET met_value = 4.5 WHERE exercise_name = 'T-Bar Row'                 AND is_custom = FALSE;
+        -- Erector spinae, posterior chain; Compendium body-weight resistance 3.0 + load adj.
+        UPDATE exercises SET met_value = 3.3 WHERE exercise_name = 'Back Extension'            AND is_custom = FALSE;
+
+        -- Triceps ─────────────────────────────────────────────────────────────────
+        -- High-pulley cable extension: 3.1 MET direct (Reis 2017)
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Reverse Grip Tricep Pushdown' AND is_custom = FALSE;
+        -- Rope grip = same energy as straight bar (Reis 2017 analog)
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Tricep Pushdown Straight Rope' AND is_custom = FALSE;
+        -- Straight bar: closest direct match in Reis 2017
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Tricep Pushdown Straight Bar'  AND is_custom = FALSE;
+        -- Overhead stretches long head → ~10% above pushdown
+        UPDATE exercises SET met_value = 3.3 WHERE exercise_name = 'Overhead Tricep Extension' AND is_custom = FALSE;
+        -- Machine dip isolates triceps; ≈ other machine triceps exercises
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Tricep Dip Machine'        AND is_custom = FALSE;
+
+        -- Shoulders ───────────────────────────────────────────────────────────────
+        -- Single-joint, anterior deltoid only; lowest-MET shoulder exercise
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Front Raises'              AND is_custom = FALSE;
+        -- Machine shoulder press; session avg ~3 MET (Utter 2004)
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Shoulder Press Machine'    AND is_custom = FALSE;
+        -- Free dumbbell overhead: VO2 4.6–7.0 ml/kg/min → session ~3.5 MET (Dias 2021)
+        UPDATE exercises SET met_value = 3.5 WHERE exercise_name = 'Dumbbell Shoulder Press'   AND is_custom = FALSE;
+        -- Single-joint medial deltoid; equivalent to front raises
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Lateral Side Raises'       AND is_custom = FALSE;
+        -- Identical movement to dumbbell front raise
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Plate Front Raise'         AND is_custom = FALSE;
+        -- Machine isolation, posterior deltoid; equivalent to other machine isolations
+        UPDATE exercises SET met_value = 2.8 WHERE exercise_name = 'Rear Delt Fly Machine'     AND is_custom = FALSE;
+        -- Trapezius (large muscle), heavy barbell loads; above pure deltoid isolation
+        UPDATE exercises SET met_value = 3.3 WHERE exercise_name = 'Barbell Shrugs'            AND is_custom = FALSE;
+        -- Dumbbell shrugs: lighter loads than barbell variant
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Dumbbell Shrugs'           AND is_custom = FALSE;
+
+        -- Legs ────────────────────────────────────────────────────────────────────
+        -- Leg extension: 6.0 MET direct (Reis 2017) — highest isolation exercise;
+        -- session-level estimate at moderate intensity: 5.0
+        UPDATE exercises SET met_value = 5.0 WHERE exercise_name = 'Leg Extension'             AND is_custom = FALSE;
+        -- Hack squat: between leg press (5.0) and free squat (5.5), machine-guided
+        UPDATE exercises SET met_value = 5.5 WHERE exercise_name = 'Hack Squats'              AND is_custom = FALSE;
+        -- Free barbell squat: Compendium 5.0 (code 02061); Reis 2017 half-squat peak 8.5;
+        -- session-level moderate effort: 5.5 (Robergs 2007, PMID:17313290)
+        UPDATE exercises SET met_value = 5.5 WHERE exercise_name = 'Squats'                   AND is_custom = FALSE;
+        -- 45° leg press: 4.9 MET direct (Reis 2017); session-level: 5.0
+        UPDATE exercises SET met_value = 5.0 WHERE exercise_name = 'Leg Press'                AND is_custom = FALSE;
+        -- Hamstrings: large muscle, comparable to leg extension; session estimate: 4.3
+        UPDATE exercises SET met_value = 4.3 WHERE exercise_name = 'Leg Curls'               AND is_custom = FALSE;
+        -- Lunges: direct measurement (Dias 2021); unilateral balance demand: 4.5
+        UPDATE exercises SET met_value = 4.5 WHERE exercise_name = 'Lunges'                   AND is_custom = FALSE;
+        -- Machine adductor: large muscle group, seated, single-joint
+        UPDATE exercises SET met_value = 3.3 WHERE exercise_name = 'Hip Adductor Machine'     AND is_custom = FALSE;
+        -- Calf raise: body-weight heel-raise studies 2.1–3.2 MET; machine: 3.0
+        UPDATE exercises SET met_value = 3.0 WHERE exercise_name = 'Calf Raise Machine'       AND is_custom = FALSE;
+
+        INSERT INTO platform_settings (key, value)
+        VALUES ('migration_exercise_met_values_v1', 'done')
+        ON CONFLICT (key) DO NOTHING;
+      END IF;
+    END $$;
+  `);
+
   // ── Purge phantom stock rows (one-time) ──────────────────────────────────────
   // The old meal-completion deduct endpoint auto-created food_stock rows via
   // INSERT...ON CONFLICT. Undoing a completion then pushed them to non-zero values
