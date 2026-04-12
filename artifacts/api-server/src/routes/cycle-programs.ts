@@ -452,6 +452,87 @@ router.delete("/user-cycle/workouts/:workoutId", async (req, res): Promise<void>
   }
 });
 
+// ── POST /user-cycle/rest — append a rest day to the user's default cycle ─────
+
+router.post("/user-cycle/rest", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const prog = await getOrCreateDefaultCycle(userId);
+
+    const maxPosRes = await pool.query(
+      `SELECT COALESCE(MAX(position), -1) as max_pos FROM cycle_program_slots WHERE program_id = $1`,
+      [prog.id]
+    );
+    const nextPos = Number(maxPosRes.rows[0].max_pos) + 1;
+
+    await pool.query(
+      `INSERT INTO cycle_program_slots (program_id, position, workout_id) VALUES ($1, $2, NULL)`,
+      [prog.id, nextPos]
+    );
+    await pool.query(
+      `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
+      [nextPos + 1, prog.id]
+    );
+
+    const modeRes = await pool.query(
+      `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+      [userId]
+    );
+    const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+    const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+    res.json({ position: nextPos, ...result });
+  } catch (err) {
+    console.error("POST /user-cycle/rest error:", err);
+    res.status(500).json({ error: "Failed to add rest day" });
+  }
+});
+
+// ── DELETE /user-cycle/rest/:position — remove a rest day slot and re-index ───
+
+router.delete("/user-cycle/rest/:position", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const position = Number(req.params["position"]);
+    const prog = await getOrCreateDefaultCycle(userId);
+
+    // Only delete if the slot at this position is actually a rest day (workout_id IS NULL)
+    const deleted = await pool.query(
+      `DELETE FROM cycle_program_slots WHERE program_id = $1 AND position = $2 AND workout_id IS NULL RETURNING id`,
+      [prog.id, position]
+    );
+    if (deleted.rows.length === 0) {
+      res.status(404).json({ error: "No rest day at that position" });
+      return;
+    }
+
+    // Re-index remaining slots to close the gap
+    const remaining = await pool.query(
+      `SELECT id FROM cycle_program_slots WHERE program_id = $1 ORDER BY position`,
+      [prog.id]
+    );
+    for (let i = 0; i < remaining.rows.length; i++) {
+      await pool.query(`UPDATE cycle_program_slots SET position = $1 WHERE id = $2`, [i, remaining.rows[i].id]);
+    }
+    await pool.query(
+      `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
+      [Math.max(remaining.rows.length, 1), prog.id]
+    );
+
+    const modeRes = await pool.query(
+      `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+      [userId]
+    );
+    const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+    const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("DELETE /user-cycle/rest error:", err);
+    res.status(500).json({ error: "Failed to remove rest day" });
+  }
+});
+
 // ── PUT /user-cycle/reorder ───────────────────────────────────────────────────
 
 router.put("/user-cycle/reorder", async (req, res): Promise<void> => {

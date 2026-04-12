@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import {
   ChevronLeft, Plus, Trash2, Pencil, Check, X, Search, Loader2,
   Dumbbell, Flame, ChevronDown, ChevronUp, GripVertical, Timer,
-  Zap, ArrowUp, ArrowDown, Activity, RotateCcw
+  Zap, ArrowUp, ArrowDown, Activity, RotateCcw, Moon
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -1040,6 +1040,35 @@ export default function TrainingBuilder() {
     onError: () => toast({ title: "Failed to remove from cycle", variant: "destructive" }),
   });
 
+  const addRestMutation = useMutation({
+    mutationFn: () => customFetch(buildUrl(`${BASE}/user-cycle/rest`), { method: "POST" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-cycle"] }); toast({ title: "Rest day added to cycle" }); },
+    onError: () => toast({ title: "Failed to add rest day", variant: "destructive" }),
+  });
+
+  const removeRestMutation = useMutation({
+    mutationFn: (position: number) => customFetch(buildUrl(`${BASE}/user-cycle/rest/${position}`), { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-cycle"] }); toast({ title: "Rest day removed" }); },
+    onError: () => toast({ title: "Failed to remove rest day", variant: "destructive" }),
+  });
+
+  // Today's position in the cycle (null if before start date or no cycle)
+  const todayCyclePos = useMemo(() => {
+    if (!userCycle?.start_date || !userCycle?.cycle_length) return null;
+    const startMs = new Date(userCycle.start_date + "T00:00:00").getTime();
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    const daysSince = Math.floor((todayMs - startMs) / 86400000);
+    if (daysSince < 0) return null;
+    return ((daysSince % userCycle.cycle_length) + userCycle.cycle_length) % userCycle.cycle_length;
+  }, [userCycle]);
+
+  // Map workout_id → workout_name for the cycle strip
+  const workoutNameMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const w of workouts) map.set(w.id, w.workout_name);
+    return map;
+  }, [workouts]);
+
   const todayBurn = todayWorkouts.reduce((sum, w) => sum + w.total_calories, 0);
 
   return (
@@ -1129,6 +1158,63 @@ export default function TrainingBuilder() {
               </div>
             )}
           </Card>
+
+          {/* Cycle strip */}
+          {userCycle?.slots && userCycle.slots.length > 0 && (
+            <Card className="bg-[#0F1F3D] border-border/40 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <RotateCcw className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">Cycle — {userCycle.cycle_length} days</span>
+                </div>
+                <button onClick={() => setActiveTab("cycle")} className="text-[10px] text-primary hover:underline">
+                  Edit →
+                </button>
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {userCycle.slots.slice().sort((a, b) => a.position - b.position).map((slot) => {
+                  const isToday = todayCyclePos === slot.position;
+                  const workoutName = slot.workout_id ? (workoutNameMap.get(slot.workout_id) ?? "Workout") : null;
+                  return (
+                    <div
+                      key={slot.position}
+                      className={`flex-shrink-0 flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1.5 border text-center min-w-[52px] ${
+                        isToday
+                          ? "bg-primary/20 border-primary text-primary"
+                          : slot.workout_id
+                          ? "bg-[#0F1F3D] border-border/40 text-foreground"
+                          : "bg-muted/30 border-border/20 text-muted-foreground"
+                      }`}
+                    >
+                      <span className="text-[9px] font-bold uppercase tracking-wider">
+                        {isToday ? "Today" : `D${slot.position + 1}`}
+                      </span>
+                      {slot.workout_id ? <Dumbbell className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                      <span className="text-[9px] leading-tight max-w-[44px] truncate">
+                        {workoutName ?? "Rest"}
+                      </span>
+                      {!slot.workout_id && (
+                        <button
+                          onClick={() => removeRestMutation.mutate(slot.position)}
+                          className="text-[8px] text-muted-foreground hover:text-destructive mt-0.5"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => addRestMutation.mutate()}
+                  disabled={addRestMutation.isPending}
+                  className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-1.5 border border-dashed border-border/40 text-muted-foreground hover:border-primary/40 hover:text-primary transition-all min-w-[52px]"
+                >
+                  <Moon className="w-3 h-3" />
+                  <span className="text-[9px] leading-tight text-center">+ Rest</span>
+                </button>
+              </div>
+            </Card>
+          )}
 
           {/* Loading */}
           {isLoading && (
