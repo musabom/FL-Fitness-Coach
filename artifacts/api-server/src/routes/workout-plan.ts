@@ -11,12 +11,16 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
   return (res.locals["userId"] as number | undefined) ?? req.session.userId;
 }
 
-const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
+// Intensity multipliers applied on top of the exercise's own MET value.
+// Matches the calculation in workouts.ts (Reis et al. 2017, PMC5524349).
+const INTENSITY_MULTIPLIER: Record<string, number> = { light: 0.80, moderate: 1.00, heavy: 1.25 };
+const FALLBACK_MET = 4.0;
 
-function estimateStrengthCalories(sets: number, repsMin: number, repsMax: number, restSecs: number, weightKg: number, effort = "moderate") {
+function estimateStrengthCalories(sets: number, repsMin: number, repsMax: number, restSecs: number, weightKg: number, effort = "moderate", exerciseMet?: number) {
   const avgReps = (repsMin + repsMax) / 2;
   const durationMins = (sets * (avgReps * 3 + restSecs)) / 60;
-  const met = EFFORT_MET[effort] ?? EFFORT_MET.moderate;
+  const baseMet = exerciseMet ?? FALLBACK_MET;
+  const met = baseMet * (INTENSITY_MULTIPLIER[effort] ?? 1.0);
   return +(met * weightKg * (durationMins / 60)).toFixed(1);
 }
 
@@ -52,7 +56,8 @@ async function getWorkoutSummary(workoutId: number, weightKg: number) {
       estimated_calories = estimateCardioCalories(Number(e.met_value) || 5, Number(e.duration_mins) || 0, weightKg);
       duration_mins_computed = Number(e.duration_mins) || 0;
     } else {
-      estimated_calories = estimateStrengthCalories(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds), weightKg, e.effort_level || "moderate");
+      const exerciseMet = e.met_value ? Number(e.met_value) : undefined;
+      estimated_calories = estimateStrengthCalories(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds), weightKg, e.effort_level || "moderate", exerciseMet);
       duration_mins_computed = +estimateStrengthDuration(Number(e.sets), Number(e.reps_min), Number(e.reps_max), Number(e.rest_seconds)).toFixed(1);
     }
     return {
@@ -77,14 +82,8 @@ async function getWorkoutSummary(workoutId: number, weightKg: number) {
     };
   });
 
-  const strengthExercises = exercises.filter(e => e.exercise_type !== "cardio");
-  const cardioExercises = exercises.filter(e => e.exercise_type === "cardio");
-  const strengthDuration = strengthExercises.reduce((sum, e) => sum + e.duration_mins_computed, 0);
-  const strengthCalories = strengthDuration > 0
-    ? +(EFFORT_MET.moderate * weightKg * (strengthDuration / 60)).toFixed(1)
-    : 0;
-  const cardioCalories = cardioExercises.reduce((sum, e) => sum + e.estimated_calories, 0);
-  const total_calories = +(strengthCalories + cardioCalories).toFixed(1);
+  // Sum per-exercise calories — each already uses its own MET × intensity multiplier
+  const total_calories = +(exercises.reduce((sum, e) => sum + e.estimated_calories, 0)).toFixed(1);
 
   return {
     id: workoutRes.rows[0].id,
