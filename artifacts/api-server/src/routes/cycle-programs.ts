@@ -534,34 +534,44 @@ router.delete("/user-cycle/rest/:position", async (req, res): Promise<void> => {
 });
 
 // ── PUT /user-cycle/reorder ───────────────────────────────────────────────────
+// Accepts ordered_slot_ids (DB primary keys of cycle_program_slots rows) so
+// both workout and rest day slots can be reordered freely.
 
 router.put("/user-cycle/reorder", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;
   try {
-    const { ordered_workout_ids } = req.body as { ordered_workout_ids?: number[] };
-    if (!Array.isArray(ordered_workout_ids)) {
-      res.status(400).json({ error: "ordered_workout_ids array is required" });
+    const { ordered_slot_ids } = req.body as { ordered_slot_ids?: number[] };
+    if (!Array.isArray(ordered_slot_ids)) {
+      res.status(400).json({ error: "ordered_slot_ids array is required" });
       return;
     }
 
     const prog = await getOrCreateDefaultCycle(userId);
 
-    // First pass: shift all positions to a high temp range to avoid unique constraint conflicts
+    // Verify all slot IDs belong to this program
+    const slotCheck = await pool.query(
+      `SELECT id FROM cycle_program_slots WHERE program_id = $1`,
+      [prog.id]
+    );
+    const validIds = new Set(slotCheck.rows.map((r: any) => Number(r.id)));
+    const filteredIds = ordered_slot_ids.filter(id => validIds.has(Number(id)));
+
+    // First pass: shift all to a safe temp range to avoid unique constraint conflicts
     await pool.query(
       `UPDATE cycle_program_slots SET position = position + 10000 WHERE program_id = $1`,
       [prog.id]
     );
-    // Second pass: assign real positions
-    for (let i = 0; i < ordered_workout_ids.length; i++) {
+    // Second pass: assign real positions by slot ID
+    for (let i = 0; i < filteredIds.length; i++) {
       await pool.query(
-        `UPDATE cycle_program_slots SET position = $1 WHERE program_id = $2 AND workout_id = $3`,
-        [i, prog.id, ordered_workout_ids[i]]
+        `UPDATE cycle_program_slots SET position = $1 WHERE id = $2 AND program_id = $3`,
+        [i, filteredIds[i], prog.id]
       );
     }
     await pool.query(
       `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
-      [Math.max(ordered_workout_ids.length, 1), prog.id]
+      [Math.max(filteredIds.length, 1), prog.id]
     );
 
     const modeRes = await pool.query(
