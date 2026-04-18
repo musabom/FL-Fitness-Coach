@@ -518,11 +518,20 @@ export function CycleProgramContent() {
     onError: () => toast({ title: "Failed to update start date", variant: "destructive" }),
   });
 
+  // Invalidate everything that depends on cycle slot order
+  function invalidateCycleAndPlan() {
+    queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+    queryClient.invalidateQueries({ queryKey: ["workout-plan"] });
+    queryClient.invalidateQueries({ queryKey: ["workouts-today"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-today"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-weekly"] });
+  }
+
   // Remove a workout slot
   const removeWorkoutMutation = useMutation({
     mutationFn: (workout_id: number) => customFetch(`${BASE}/user-cycle/workouts/${workout_id}`, { method: "DELETE" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      invalidateCycleAndPlan();
       toast({ title: "Removed from cycle" });
     },
     onError: () => toast({ title: "Failed to remove", variant: "destructive" }),
@@ -532,7 +541,7 @@ export function CycleProgramContent() {
   const removeRestMutation = useMutation({
     mutationFn: (position: number) => customFetch(`${BASE}/user-cycle/rest/${position}`, { method: "DELETE" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      invalidateCycleAndPlan();
       toast({ title: "Rest day removed" });
     },
     onError: () => toast({ title: "Failed to remove rest day", variant: "destructive" }),
@@ -542,7 +551,7 @@ export function CycleProgramContent() {
   const addRestMutation = useMutation({
     mutationFn: () => customFetch(`${BASE}/user-cycle/rest`, { method: "POST" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      invalidateCycleAndPlan();
       toast({ title: "Rest day added — use ↑↓ to position it" });
     },
     onError: () => toast({ title: "Failed to add rest day", variant: "destructive" }),
@@ -555,7 +564,7 @@ export function CycleProgramContent() {
       body: JSON.stringify({ ordered_slot_ids }),
       headers: { "Content-Type": "application/json" },
     }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["user-cycle"] }),
+    onSuccess: () => invalidateCycleAndPlan(),
     onError: () => toast({ title: "Failed to reorder", variant: "destructive" }),
   });
 
