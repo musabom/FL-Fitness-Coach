@@ -463,6 +463,7 @@ export function CycleProgramContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const [editingDate, setEditingDate] = useState(false);
 
   const { data: cycle, isLoading } = useQuery<UserCycle>({
     queryKey: ["user-cycle"],
@@ -628,27 +629,40 @@ export function CycleProgramContent() {
 
       {/* Start date */}
       <div className="px-4 py-3 rounded-xl bg-[#0F1F3D] border border-border/40">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase">Cycle Start Date</p>
-            <p className="text-sm font-semibold text-foreground mt-0.5">
-              {cycle?.start_date ? new Date(cycle.start_date.slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
-            </p>
-          </div>
-          <div className="relative w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-            <Pencil className="w-3.5 h-3.5 pointer-events-none" />
+        <p className="text-xs font-medium text-muted-foreground uppercase mb-1.5">Cycle Start Date</p>
+        {editingDate ? (
+          <div className="flex items-center gap-2">
             <input
               ref={dateInputRef}
               type="date"
-              key={cycle?.start_date ?? "none"}
-              defaultValue={cycle?.start_date ?? ""}
+              defaultValue={cycle?.start_date?.slice(0, 10) ?? ""}
+              autoFocus
+              className="flex-1 rounded-lg bg-[#1B3260] border border-primary/40 text-foreground text-sm px-3 py-1.5 focus:outline-none focus:border-primary"
               onChange={e => {
-                if (e.target.value) updateStartDateMutation.mutate(e.target.value);
+                if (e.target.value) {
+                  updateStartDateMutation.mutate(e.target.value);
+                  setEditingDate(false);
+                }
               }}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              onBlur={() => setEditingDate(false)}
             />
+            <button onClick={() => setEditingDate(false)} className="text-muted-foreground hover:text-foreground p-1">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">
+              {cycle?.start_date ? new Date(cycle.start_date.slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+            </p>
+            <button
+              onClick={() => setEditingDate(true)}
+              className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Cycle slot list */}
