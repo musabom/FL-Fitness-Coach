@@ -464,6 +464,7 @@ export function CycleProgramContent() {
   const queryClient = useQueryClient();
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [editingDate, setEditingDate] = useState(false);
+  const [pendingDate, setPendingDate] = useState("");
 
   const { data: cycle, isLoading } = useQuery<UserCycle>({
     queryKey: ["user-cycle"],
@@ -635,18 +636,22 @@ export function CycleProgramContent() {
             <input
               ref={dateInputRef}
               type="date"
-              defaultValue={cycle?.start_date?.slice(0, 10) ?? ""}
-              autoFocus
+              value={pendingDate}
               className="flex-1 rounded-lg bg-[#1B3260] border border-primary/40 text-foreground text-sm px-3 py-1.5 focus:outline-none focus:border-primary"
-              onChange={e => {
-                if (e.target.value) {
-                  updateStartDateMutation.mutate(e.target.value);
-                  setEditingDate(false);
-                }
-              }}
-              onBlur={() => setEditingDate(false)}
+              onChange={e => setPendingDate(e.target.value)}
             />
-            <button onClick={() => setEditingDate(false)} className="text-muted-foreground hover:text-foreground p-1">
+            <button
+              onClick={() => {
+                if (pendingDate && pendingDate !== cycle?.start_date?.slice(0, 10)) {
+                  updateStartDateMutation.mutate(pendingDate);
+                }
+                setEditingDate(false);
+              }}
+              className="w-8 h-8 flex items-center justify-center text-primary hover:text-primary/80 transition-colors"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => setEditingDate(false)} className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -656,7 +661,10 @@ export function CycleProgramContent() {
               {cycle?.start_date ? new Date(cycle.start_date.slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
             </p>
             <button
-              onClick={() => setEditingDate(true)}
+              onClick={() => {
+                setPendingDate(cycle?.start_date?.slice(0, 10) ?? "");
+                setEditingDate(true);
+              }}
               className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
             >
               <Pencil className="w-3.5 h-3.5" />
