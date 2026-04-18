@@ -794,7 +794,7 @@ function WorkoutCard({ workout, cyclePosition, onAddToCycle, onRemoveFromCycle, 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const buildUrl = useClientUrl();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [customExerciseOpen, setCustomExerciseOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
