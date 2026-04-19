@@ -178,7 +178,7 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onVi
   const total = workout.exercises.length;
 
   return (
-    <Card className={`bg-[#0F1F3D] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
+    <Card className={`bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)] overflow-hidden transition-all ${entry.completed ? "opacity-60" : ""}`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={onToggleComplete} className="shrink-0 text-muted-foreground hover:text-primary transition-colors" aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}>
@@ -234,7 +234,11 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onVi
                   {ex.completed ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5" />}
                 </button>
                 {imgUrl && (
-                  <button onClick={() => onViewImage?.(imgUrl)} className="shrink-0 w-10 h-10 rounded overflow-hidden hover:opacity-80 transition-opacity">
+                  <button
+                    onClick={() => onViewImage?.(imgUrl)}
+                    className="shrink-0 overflow-hidden hover:opacity-80 transition-opacity border border-[rgba(240,246,255,0.06)]"
+                    style={{ width: 52, height: 52, borderRadius: 20 }}
+                  >
                     <img src={imgUrl} alt={ex.exercise_name} className="w-full h-full object-cover" />
                   </button>
                 )}
@@ -520,27 +524,39 @@ export default function WorkoutPlan() {
           </button>
         </div>
       )}
-      {/* Header */}
-      <header className="px-5 pt-6 pb-4 flex items-center justify-between sticky bg-background/90 backdrop-blur-xl z-20 border-b border-border/40" style={{ top: activeClient ? "44px" : "0" }}>
-        <Link href="/dashboard">
-          <button className="w-9 h-9 flex items-center justify-center rounded-full border border-border/40 hover:bg-muted transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        </Link>
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-primary" />
-          <h1 className="text-base font-semibold">{t("workoutPlan.title")}</h1>
+      {/* FLAppHeader */}
+      <header
+        className="px-5 pt-12 pb-5 relative sticky bg-background/80 backdrop-blur-xl z-20 border-b border-[rgba(255,255,255,0.04)]"
+        style={{ top: activeClient ? "44px" : "0" }}
+      >
+        {/* Ambient teal glow */}
+        <div
+          className="absolute inset-x-0 top-0 h-40 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at top, rgba(45,212,191,0.12), transparent 60%)" }}
+        />
+        <div className="relative flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard">
+              <button className="w-9 h-9 flex items-center justify-center rounded-full border border-[rgba(240,246,255,0.06)] hover:bg-muted transition-colors mt-0.5 shrink-0">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </Link>
+            <div>
+              <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">Training</p>
+              <h1 className="text-[26px] font-bold tracking-[-0.02em] leading-tight text-foreground">
+                {t("workoutPlan.title")}
+              </h1>
+            </div>
+          </div>
+          {date !== today && (
+            <button
+              onClick={() => setDate(today)}
+              className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1.5 hover:bg-primary/10 transition-colors mt-1"
+            >
+              Today
+            </button>
+          )}
         </div>
-        {date !== today ? (
-          <button
-            onClick={() => setDate(today)}
-            className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors"
-          >
-            Today
-          </button>
-        ) : (
-          <div className="w-16" />
-        )}
       </header>
 
       {/* Date navigator */}
@@ -564,29 +580,29 @@ export default function WorkoutPlan() {
       </div>
 
       {/* Summary section */}
-      <div className="px-5 py-4 border-b border-border/20 space-y-3">
-        {/* Calorie pills */}
+      <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)] space-y-3">
+        {/* MiniStatPill row */}
         <div className="flex gap-2">
           {/* Planned */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-primary/15 border border-primary/30">
-            <div className="text-base font-bold tabular-nums text-primary">
-              {Math.round(totalCalories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Planned</div>
+          <div className="flex-1 rounded-2xl px-3 py-3 text-center bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.06)]">
+            <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground mb-1">Planned</p>
+            <p className="text-[18px] font-bold tabular-nums leading-none text-primary">
+              {Math.round(totalCalories)}<span className="text-[10px] font-medium ml-0.5 text-muted-foreground">kcal</span>
+            </p>
           </div>
           {/* Burned */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
-            <div className="text-base font-bold tabular-nums text-foreground">
-              {Math.round(burnedCalories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Burned</div>
+          <div className="flex-1 rounded-2xl px-3 py-3 text-center bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.06)]">
+            <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground mb-1">Burned</p>
+            <p className="text-[18px] font-bold tabular-nums leading-none text-foreground">
+              {Math.round(burnedCalories)}<span className="text-[10px] font-medium ml-0.5 text-muted-foreground">kcal</span>
+            </p>
           </div>
           {/* Remaining */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
-            <div className="text-base font-bold tabular-nums text-foreground">
-              {Math.round(Math.max(0, totalCalories - burnedCalories))}<span className="text-[10px] font-medium ml-0.5">kcal</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Remaining</div>
+          <div className="flex-1 rounded-2xl px-3 py-3 text-center bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.06)]">
+            <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground mb-1">Left</p>
+            <p className="text-[18px] font-bold tabular-nums leading-none text-foreground">
+              {Math.round(Math.max(0, totalCalories - burnedCalories))}<span className="text-[10px] font-medium ml-0.5 text-muted-foreground">kcal</span>
+            </p>
           </div>
         </div>
 
@@ -599,9 +615,9 @@ export default function WorkoutPlan() {
                 {Math.round(burnedCalories)} / {Math.round(totalCalories)} kcal
               </span>
             </div>
-            <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden">
+            <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-primary transition-all"
+                className="h-full bg-[#F97316] rounded-full transition-all duration-500"
                 style={{ width: `${Math.min((burnedCalories / totalCalories) * 100, 100)}%` }}
               />
             </div>
@@ -617,9 +633,9 @@ export default function WorkoutPlan() {
                 {completedCount} / {entries.length}
               </span>
             </div>
-            <div className="h-2 bg-[#0F1F3D] rounded-full overflow-hidden">
+            <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-500 transition-all duration-300"
+                className="h-full bg-primary rounded-full transition-all duration-500"
                 style={{ width: `${entries.length > 0 ? (completedCount / entries.length) * 100 : 0}%` }}
               />
             </div>
@@ -680,7 +696,8 @@ export default function WorkoutPlan() {
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(672px, 100vw) - 40px)" }}>
         <Button
           onClick={() => setShowSheet(true)}
-          className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2"
+          size="lg"
+          className="w-full justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Add Workout

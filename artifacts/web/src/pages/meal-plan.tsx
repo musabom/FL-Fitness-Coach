@@ -164,7 +164,7 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
   const total = meal.portions.length;
 
   return (
-    <Card className={`bg-[#0F1F3D] border-border/40 overflow-hidden transition-all ${entry.completed ? "opacity-70" : ""}`}>
+    <Card className={`bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)] overflow-hidden transition-all ${entry.completed ? "opacity-60" : ""}`}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={onToggleComplete} className="shrink-0 text-muted-foreground hover:text-primary transition-colors" aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}>
@@ -191,8 +191,8 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
       {/* Portion progress bar */}
       {total > 0 && (
         <div className="px-4 pb-2">
-          <div className="h-1 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(completedCount / total) * 100}%` }} />
+          <div className="h-1 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${(completedCount / total) * 100}%` }} />
           </div>
         </div>
       )}
@@ -527,24 +527,39 @@ export default function MealPlan() {
           </button>
         </div>
       )}
-      {/* Header */}
-      <header className="px-5 pt-6 pb-4 flex items-center justify-between sticky bg-background/90 backdrop-blur-xl z-20 border-b border-border/40" style={{ top: activeClient ? "44px" : "0" }}>
-        <Link href="/dashboard">
-          <button className="w-9 h-9 flex items-center justify-center rounded-full border border-border/40 hover:bg-muted transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        </Link>
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-primary" />
-          <h1 className="text-base font-semibold">{t("mealPlan.title")}</h1>
+      {/* FLAppHeader */}
+      <header
+        className="px-5 pt-12 pb-5 relative sticky bg-background/80 backdrop-blur-xl z-20 border-b border-[rgba(255,255,255,0.04)]"
+        style={{ top: activeClient ? "44px" : "0" }}
+      >
+        {/* Ambient teal glow */}
+        <div
+          className="absolute inset-x-0 top-0 h-40 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at top, rgba(45,212,191,0.12), transparent 60%)" }}
+        />
+        <div className="relative flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard">
+              <button className="w-9 h-9 flex items-center justify-center rounded-full border border-[rgba(240,246,255,0.06)] hover:bg-muted transition-colors mt-0.5 shrink-0">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </Link>
+            <div>
+              <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">Nutrition</p>
+              <h1 className="text-[26px] font-bold tracking-[-0.02em] leading-tight text-foreground">
+                {t("mealPlan.title")}
+              </h1>
+            </div>
+          </div>
+          {date !== today && (
+            <button
+              onClick={() => setDate(today)}
+              className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1.5 hover:bg-primary/10 transition-colors mt-1"
+            >
+              Today
+            </button>
+          )}
         </div>
-        {date !== today ? (
-          <button onClick={() => setDate(today)} className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/10 transition-colors">
-            Today
-          </button>
-        ) : (
-          <div className="w-16" />
-        )}
       </header>
 
       {/* Date navigator */}
@@ -564,96 +579,102 @@ export default function MealPlan() {
       </div>
 
       {/* Daily summary */}
-      <div className="px-5 py-4 border-b border-border/20 space-y-3">
-        {/* Planned / Completed / Remaining pills */}
+      <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)] space-y-3">
+        {/* MiniStatPill row */}
         <div className="flex gap-2">
           {/* Planned */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-primary/15 border border-primary/30">
-            <div className="text-base font-bold tabular-nums text-primary">
-              {Math.round(dailyTotals.calories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Planned</div>
+          <div className="flex-1 rounded-2xl px-3 py-3 text-center bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.06)]">
+            <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground mb-1">Planned</p>
+            <p className="text-[18px] font-bold tabular-nums leading-none text-primary">
+              {Math.round(dailyTotals.calories)}<span className="text-[10px] font-medium ml-0.5 text-muted-foreground">kcal</span>
+            </p>
           </div>
-          {/* Completed */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
-            <div className="text-base font-bold tabular-nums text-foreground">
-              {Math.round(consumedTotals.calories)}<span className="text-[10px] font-medium ml-0.5">kcal</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Completed</div>
+          {/* Consumed */}
+          <div className="flex-1 rounded-2xl px-3 py-3 text-center bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.06)]">
+            <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground mb-1">Consumed</p>
+            <p className="text-[18px] font-bold tabular-nums leading-none text-foreground">
+              {Math.round(consumedTotals.calories)}<span className="text-[10px] font-medium ml-0.5 text-muted-foreground">kcal</span>
+            </p>
           </div>
           {/* Remaining */}
-          <div className="flex-1 rounded-xl px-2 py-2.5 text-center bg-[#0F1F3D]">
-            <div className="text-base font-bold tabular-nums text-foreground">
-              {Math.round(Math.max(0, dailyTotals.calories - consumedTotals.calories))}<span className="text-[10px] font-medium ml-0.5">kcal</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Remaining</div>
+          <div className="flex-1 rounded-2xl px-3 py-3 text-center bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.06)]">
+            <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground mb-1">Left</p>
+            <p className="text-[18px] font-bold tabular-nums leading-none text-foreground">
+              {Math.round(Math.max(0, dailyTotals.calories - consumedTotals.calories))}<span className="text-[10px] font-medium ml-0.5 text-muted-foreground">kcal</span>
+            </p>
           </div>
         </div>
 
-        {/* Progress bars vs target */}
+        {/* MacroBar grid vs target */}
         {plan && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {/* Calories */}
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase">Calories</span>
-                <span className="text-xs font-semibold text-foreground">
-                  {Math.round(consumedTotals.calories)} / {plan.calorieTarget} kcal
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Calories</span>
+                <span className="text-[11px] font-semibold tabular-nums">
+                  <span className="text-[#2DD4BF]">{Math.round(consumedTotals.calories)}</span>
+                  <span className="text-muted-foreground"> / {plan.calorieTarget} kcal</span>
                 </span>
               </div>
-              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-primary transition-all" style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
+              {/* planned bar (dim) */}
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
+                <div className="h-full bg-[rgba(45,212,191,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
-                <div className="h-full bg-primary/60 transition-all" style={{ width: `${Math.min((consumedTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
+              {/* consumed bar */}
+              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#2DD4BF] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
               </div>
             </div>
 
             {/* Protein */}
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase">Protein</span>
-                <span className="text-xs font-semibold text-foreground">
-                  {Math.round(consumedTotals.protein_g)} / {plan.proteinG}g
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Protein</span>
+                <span className="text-[11px] font-semibold tabular-nums">
+                  <span className="text-[#3B82F6]">{Math.round(consumedTotals.protein_g)}</span>
+                  <span className="text-muted-foreground"> / {plan.proteinG}g</span>
                 </span>
               </div>
-              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
+                <div className="h-full bg-[rgba(59,130,246,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500/70 transition-all" style={{ width: `${Math.min((consumedTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
+              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
               </div>
             </div>
 
             {/* Carbs */}
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase">Carbs</span>
-                <span className="text-xs font-semibold text-foreground">
-                  {Math.round(consumedTotals.carbs_g)} / {plan.carbsG}g
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Carbs</span>
+                <span className="text-[11px] font-semibold tabular-nums">
+                  <span className="text-[#F59E0B]">{Math.round(consumedTotals.carbs_g)}</span>
+                  <span className="text-muted-foreground"> / {plan.carbsG}g</span>
                 </span>
               </div>
-              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-amber-400 transition-all" style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
+                <div className="h-full bg-[rgba(245,158,11,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
-                <div className="h-full bg-amber-400/70 transition-all" style={{ width: `${Math.min((consumedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
+              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#F59E0B] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
               </div>
             </div>
 
             {/* Fat */}
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase">Fat</span>
-                <span className="text-xs font-semibold text-foreground">
-                  {Math.round(consumedTotals.fat_g)} / {plan.fatG}g
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Fat</span>
+                <span className="text-[11px] font-semibold tabular-nums">
+                  <span className="text-[#EAB308]">{Math.round(consumedTotals.fat_g)}</span>
+                  <span className="text-muted-foreground"> / {plan.fatG}g</span>
                 </span>
               </div>
-              <div className="h-1.5 bg-[#0F1F3D] rounded-full overflow-hidden mb-1">
-                <div className="h-full bg-yellow-400 transition-all" style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
+                <div className="h-full bg-[rgba(234,179,8,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
               </div>
-              <div className="h-1 bg-[#0F1F3D] rounded-full overflow-hidden">
-                <div className="h-full bg-yellow-400/70 transition-all" style={{ width: `${Math.min((consumedTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
+              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#EAB308] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
               </div>
             </div>
           </div>
@@ -663,12 +684,12 @@ export default function MealPlan() {
         {entries.length > 0 && (
           <div className="space-y-1.5 pt-1">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase">Meals</span>
-              <span className="text-xs font-semibold text-foreground">{completedCount} / {entries.length}</span>
+              <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Meals</span>
+              <span className="text-[11px] font-semibold text-foreground">{completedCount} / {entries.length}</span>
             </div>
-            <div className="h-2 bg-[#0F1F3D] rounded-full overflow-hidden">
+            <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-500 transition-all duration-300"
+                className="h-full bg-primary rounded-full transition-all duration-500"
                 style={{ width: `${entries.length > 0 ? (completedCount / entries.length) * 100 : 0}%` }}
               />
             </div>
@@ -713,7 +734,7 @@ export default function MealPlan() {
 
       {/* Add Meal FAB */}
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(672px, 100vw) - 40px)" }}>
-        <Button onClick={() => setShowSheet(true)} className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-black font-semibold text-sm gap-2">
+        <Button onClick={() => setShowSheet(true)} size="lg" className="w-full justify-center gap-2">
           <Plus className="w-4 h-4" />
           Add Meal
         </Button>

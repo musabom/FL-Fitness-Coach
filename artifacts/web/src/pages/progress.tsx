@@ -110,53 +110,74 @@ export default function Progress() {
 
   return (
     <div className="mobile-container overflow-y-auto scrollbar-none pb-24">
-      {/* Header */}
-      <header className="px-6 py-4 sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50 flex justify-between items-center">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("progress.title")}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{t("progress.subtitle")}</p>
+      {/* FLAppHeader */}
+      <header className="px-5 pt-14 pb-5 relative sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-[rgba(255,255,255,0.04)]">
+        {/* Ambient teal glow */}
+        <div
+          className="absolute inset-x-0 top-0 h-48 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at top, rgba(45,212,191,0.18), transparent 60%)" }}
+        />
+        <div className="relative flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">
+              {t("progress.subtitle")}
+            </p>
+            <h1 className="text-[28px] font-bold tracking-[-0.02em] leading-tight text-foreground mt-0.5">
+              {t("progress.title")}
+            </h1>
+          </div>
+          <div className="mt-1">
+            <LanguageSwitcher variant="icon-only" />
+          </div>
         </div>
-        <LanguageSwitcher variant="icon-only" />
       </header>
 
-      <main className="px-6 pt-6 space-y-8">
+      <main className="px-5 pt-6 space-y-8">
 
         {/* ── Chart 1: Weight ─────────────────────────────────────────────────── */}
         <section className="space-y-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.weight")}</p>
-              {currentWeight !== null && (
-                <p className="text-sm font-semibold text-foreground mt-0.5">
-                  {t("progress.current")} {currentWeight}{t("common.kg")}
-                </p>
+          {/* Big weight metric + change badge */}
+          {currentWeight !== null && (
+            <div className="flex items-end justify-between mb-1">
+              <div>
+                <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">{t("progress.weight")}</p>
+                <div className="flex items-end gap-1.5 mt-0.5">
+                  <span className="text-[42px] font-bold tabular-nums leading-none tracking-[-0.03em] text-foreground">
+                    {currentWeight}
+                  </span>
+                  <span className="text-base font-medium text-muted-foreground mb-1.5">{t("common.kg")}</span>
+                </div>
+              </div>
+              {weightChange !== null && (
+                <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold mb-1 ${
+                  weightChange < 0
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : weightChange > 0
+                      ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                      : "bg-white/5 text-muted-foreground border border-white/10"
+                }`}>
+                  {weightChange < 0 ? (
+                    <TrendingDown className="w-3.5 h-3.5" />
+                  ) : weightChange > 0 ? (
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <Minus className="w-3.5 h-3.5" />
+                  )}
+                  {weightChange < 0
+                    ? `${t("progress.lost")} ${Math.abs(weightChange)}${t("common.kg")}`
+                    : weightChange > 0
+                      ? `${t("progress.gained")} ${weightChange}${t("common.kg")}`
+                      : t("progress.noChange")} {t("progress.sinceStart")}
+                </div>
               )}
             </div>
-            {weightChange !== null && (
-              <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                weightChange < 0
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : weightChange > 0
-                    ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                    : "bg-white/5 text-muted-foreground border border-white/10"
-              }`}>
-                {weightChange < 0 ? (
-                  <TrendingDown className="w-3.5 h-3.5" />
-                ) : weightChange > 0 ? (
-                  <TrendingUp className="w-3.5 h-3.5" />
-                ) : (
-                  <Minus className="w-3.5 h-3.5" />
-                )}
-                {weightChange < 0
-                  ? `${t("progress.lost")} ${Math.abs(weightChange)}${t("common.kg")}`
-                  : weightChange > 0
-                    ? `${t("progress.gained")} ${weightChange}${t("common.kg")}`
-                    : t("progress.noChange")} {t("progress.sinceStart")}
-              </div>
-            )}
-          </div>
+          )}
 
-          <Card className="p-4 bg-[#0F1F3D] border-none">
+          {currentWeight === null && (
+            <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">{t("progress.weight")}</p>
+          )}
+
+          <Card className="p-4 bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)]">
             {weightHistory.length < 2 ? (
               <EmptyState message={t("progress.noWeightData")} />
             ) : (
@@ -196,9 +217,9 @@ export default function Progress() {
 
         {/* ── Chart 2: Meal Compliance ─────────────────────────────────────────── */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.mealCompliance")}</p>
+          <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">{t("progress.mealCompliance")}</p>
 
-          <Card className="p-4 bg-[#0F1F3D] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)]">
             {mealChartData.length === 0 ? (
               <EmptyState message={t("progress.noMealData")} />
             ) : (
@@ -261,9 +282,9 @@ export default function Progress() {
 
         {/* ── Chart 3: Workout Compliance ──────────────────────────────────────── */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.workoutCompliance")}</p>
+          <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">{t("progress.workoutCompliance")}</p>
 
-          <Card className="p-4 bg-[#0F1F3D] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)]">
             {workoutChartData.length === 0 ? (
               <EmptyState message={t("progress.noWorkoutData")} />
             ) : (
@@ -326,9 +347,9 @@ export default function Progress() {
 
         {/* ── Chart 4: Daily Deficit vs Maintenance Calories ────────────────────── */}
         <section className="space-y-3">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("progress.dailyDeficit")}</p>
+          <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">{t("progress.dailyDeficit")}</p>
 
-          <Card className="p-4 bg-[#0F1F3D] border-none">
+          <Card className="p-4 bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)]">
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={dailyDeficit} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />

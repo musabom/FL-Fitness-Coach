@@ -232,7 +232,7 @@ export default function Onboarding() {
       case 1:
         return (
           <div className="space-y-8">
-            <h2 className="text-3xl font-semibold tracking-tight">{t("onboarding.step1Title")}</h2>
+            <h2 className="text-[28px] font-bold tracking-[-0.02em] leading-tight">{t("onboarding.step1Title")}</h2>
             
             <div className="space-y-6">
               <div>
@@ -316,7 +316,7 @@ export default function Onboarding() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-semibold tracking-tight mb-2">{t("onboarding.step2Title")}</h2>
+              <h2 className="text-[28px] font-bold tracking-[-0.02em] leading-tight mb-2">{t("onboarding.step2Title")}</h2>
               <p className="text-muted-foreground">{t("onboarding.weightGapNote")} {Math.abs(Number(formData.weightKg) - Number(formData.targetWeightKg)).toFixed(1)}{t("onboarding.kg")}</p>
             </div>
             {goalsLoading ? (
@@ -345,7 +345,7 @@ export default function Onboarding() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4 mt-2"
                   >
-                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-border space-y-4">
+                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)] space-y-4">
                       <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("onboarding.deficitSurplus")}</p>
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium flex justify-between">
@@ -375,7 +375,7 @@ export default function Onboarding() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-4 mt-2"
                   >
-                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-border space-y-4">
+                    <div className="p-4 bg-[#0F1F3D] rounded-2xl border border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)] space-y-4">
                       <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t("onboarding.customParams")}</p>
 
                       <div className="space-y-1.5">
@@ -473,7 +473,7 @@ export default function Onboarding() {
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight">{t("onboarding.step3Title")}</h2>
+            <h2 className="text-[28px] font-bold tracking-[-0.02em] leading-tight">{t("onboarding.step3Title")}</h2>
             <p className="text-muted-foreground">{t("onboarding.step3Subtitle")}</p>
             <div className="space-y-3">
               {[
@@ -501,18 +501,18 @@ export default function Onboarding() {
 
   return (
     <div className="mobile-container flex flex-col h-screen overflow-hidden">
-      <header className="px-6 py-6 flex items-center gap-4">
+      <header className="px-6 pt-14 pb-4 flex items-center gap-4">
         {step > 1 ? (
-          <button 
+          <button
             onClick={() => setStep(s => s - 1)}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted active:scale-95 transition-all"
+            className="w-10 h-10 rounded-full border border-[rgba(240,246,255,0.06)] flex items-center justify-center hover:bg-muted active:scale-95 transition-all"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
         ) : (
           <button
             onClick={() => logout.mutate()}
-            className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 active:scale-95 transition-all"
+            className="w-10 h-10 rounded-full border border-[rgba(240,246,255,0.06)] flex items-center justify-center hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 active:scale-95 transition-all"
             title="Sign out"
           >
             <LogOut className="w-5 h-5" />
@@ -521,7 +521,7 @@ export default function Onboarding() {
         <div className="flex-1">
           <Progress value={(step / totalSteps) * 100} />
         </div>
-        <div className="w-10 text-right text-sm font-medium text-muted-foreground">
+        <div className="w-10 text-right text-[11px] font-semibold tracking-wide text-muted-foreground">
           {step}/{totalSteps}
         </div>
       </header>

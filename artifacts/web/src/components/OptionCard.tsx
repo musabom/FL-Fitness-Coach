@@ -16,9 +16,9 @@ export function OptionCard({ title, description, selected, onClick, type = "radi
       onClick={onClick}
       className={cn(
         "cursor-pointer p-5 rounded-2xl border transition-all duration-200 flex items-center gap-4 active:scale-[0.98]",
-        selected 
-          ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(13,158,117,0.1)]" 
-          : "border-card-border bg-card hover:bg-card/80 hover:border-card-border/80"
+        selected
+          ? "border-primary/40 bg-primary/10 shadow-[0_0_20px_rgba(45,212,191,0.12),0_0_0_1px_rgba(45,212,191,0.2)]"
+          : "border-[rgba(240,246,255,0.06)] bg-card hover:bg-card/80 hover:border-primary/20"
       )}
     >
       <div className={cn(
