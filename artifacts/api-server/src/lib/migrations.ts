@@ -1026,6 +1026,42 @@ async function runMigrationsInternal(): Promise<void> {
     END $$;
   `);
 
+  // ── Calendar-based rest days for cycle programs ───────────────────────────────
+  // rest_day_mode: 'in_cycle' (default, legacy) – rest days are null slots in the
+  //   cycle strip.  'calendar_based' – rest days are anchored to specific days of
+  //   the week; the training sequence advances independently.
+  // rest_days_of_week: array of integers 0–6 (0=Sun … 6=Sat), only used when
+  //   rest_day_mode = 'calendar_based'.
+  await pool.query(`ALTER TABLE cycle_programs ADD COLUMN IF NOT EXISTS rest_day_mode VARCHAR(20) NOT NULL DEFAULT 'in_cycle'`);
+  await pool.query(`ALTER TABLE cycle_programs ADD COLUMN IF NOT EXISTS rest_days_of_week INTEGER[] NOT NULL DEFAULT '{}'`);
+
+  // ── Migrate all cycles to calendar_based rest days (one-time) ────────────────
+  // Rest days are now always defined by weekday, not by null slots in the cycle.
+  // 1. Move every existing cycle to calendar_based mode.
+  // 2. Remove all null (rest-day) slots — they are meaningless in the new model.
+  // 3. Re-sync cycle_length so it equals the number of remaining training slots.
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM platform_settings WHERE key = 'migration_calendar_based_rest_days_v1'
+      ) THEN
+        UPDATE cycle_programs SET rest_day_mode = 'calendar_based';
+
+        DELETE FROM cycle_program_slots WHERE workout_id IS NULL;
+
+        UPDATE cycle_programs cp
+        SET cycle_length = GREATEST(
+          (SELECT COUNT(*) FROM cycle_program_slots WHERE program_id = cp.id),
+          1
+        );
+
+        INSERT INTO platform_settings (key, value)
+        VALUES ('migration_calendar_based_rest_days_v1', 'done')
+        ON CONFLICT (key) DO NOTHING;
+      END IF;
+    END $$;
+  `);
+
   // ── Purge phantom stock rows (one-time) ──────────────────────────────────────
   // The old meal-completion deduct endpoint auto-created food_stock rows via
   // INSERT...ON CONFLICT. Undoing a completion then pushed them to non-zero values

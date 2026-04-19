@@ -95,6 +95,8 @@ interface DayWorkoutPlan {
   entries: PlanEntry[];
   total_calories: number;
   burned_calories: number;
+  /** True when a calendar_based cycle programme marks this day as a rest day. */
+  is_calendar_rest_day?: boolean;
 }
 
 interface LibraryWorkout {
@@ -493,6 +495,7 @@ export default function WorkoutPlan() {
   const entries = dayPlan?.entries ?? [];
   const totalCalories = dayPlan?.total_calories ?? 0;
   const burnedCalories = dayPlan?.burned_calories ?? 0;
+  const isCalendarRestDay = dayPlan?.is_calendar_rest_day ?? false;
   const completedCount = entries.filter(e => e.completed).length;
   const existingWorkoutIds = useMemo(() => new Set(entries.map(e => e.workout.id)), [entries]);
 
@@ -632,7 +635,21 @@ export default function WorkoutPlan() {
           </div>
         )}
 
-        {!isLoading && entries.length === 0 && (
+        {!isLoading && entries.length === 0 && isCalendarRestDay && (
+          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-blue-300">Scheduled Rest Day</p>
+              <p className="text-xs text-muted-foreground mt-1">Your training cycle resumes tomorrow — enjoy the recovery!</p>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && entries.length === 0 && !isCalendarRestDay && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <div className="w-16 h-16 rounded-full bg-[#0F1F3D] flex items-center justify-center">
               <Dumbbell className="w-7 h-7 text-muted-foreground/40" />

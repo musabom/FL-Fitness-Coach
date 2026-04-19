@@ -59,10 +59,11 @@ router.post("/cycle-programs", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;
 
-  const { name, start_date, cycle_length } = req.body as {
+  const { name, start_date, cycle_length, rest_days_of_week } = req.body as {
     name?: string;
     start_date?: string;
     cycle_length?: number;
+    rest_days_of_week?: number[];
   };
 
   if (!name?.trim()) {
@@ -78,14 +79,18 @@ router.post("/cycle-programs", async (req, res): Promise<void> => {
     res.status(400).json({ error: "cycle_length must be between 1 and 14" });
     return;
   }
+  const rdow: number[] = Array.isArray(rest_days_of_week)
+    ? rest_days_of_week.filter(d => Number.isInteger(d) && d >= 0 && d <= 6)
+    : [];
 
+  // rest_day_mode is always 'calendar_based' — rest days are weekday-anchored
   const result = await pool.query(
-    `INSERT INTO cycle_programs (user_id, name, start_date, cycle_length)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [userId, name.trim(), start_date, len]
+    `INSERT INTO cycle_programs (user_id, name, start_date, cycle_length, rest_day_mode, rest_days_of_week)
+     VALUES ($1, $2, $3, $4, 'calendar_based', $5) RETURNING *`,
+    [userId, name.trim(), start_date, len, rdow]
   );
 
-  // Auto-create empty slots
+  // Auto-create empty slots (no null/rest slots — only real workout slots)
   const prog = result.rows[0];
   for (let i = 0; i < len; i++) {
     await pool.query(
@@ -115,11 +120,12 @@ router.patch("/cycle-programs/:id", async (req, res): Promise<void> => {
   if (!userId) return;
 
   const progId = Number(req.params["id"]);
-  const { name, start_date, cycle_length, is_active } = req.body as {
+  const { name, start_date, cycle_length, is_active, rest_days_of_week } = req.body as {
     name?: string;
     start_date?: string;
     cycle_length?: number;
     is_active?: boolean;
+    rest_days_of_week?: number[];
   };
 
   // Fetch existing
@@ -137,16 +143,21 @@ router.patch("/cycle-programs/:id", async (req, res): Promise<void> => {
   const newStartDate = start_date ?? current.start_date;
   const newCycleLength = cycle_length !== undefined ? Number(cycle_length) : Number(current.cycle_length);
   const newIsActive = is_active !== undefined ? is_active : current.is_active;
+  const newRestDaysOfWeek: number[] = rest_days_of_week !== undefined
+    ? (Array.isArray(rest_days_of_week) ? rest_days_of_week.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [])
+    : (Array.isArray(current.rest_days_of_week) ? current.rest_days_of_week : []);
 
   if (newCycleLength < 1 || newCycleLength > 14) {
     res.status(400).json({ error: "cycle_length must be between 1 and 14" });
     return;
   }
 
+  // rest_day_mode is always 'calendar_based'
   await pool.query(
-    `UPDATE cycle_programs SET name = $1, start_date = $2, cycle_length = $3, is_active = $4
-     WHERE id = $5 AND user_id = $6`,
-    [newName, newStartDate, newCycleLength, newIsActive, progId, userId]
+    `UPDATE cycle_programs SET name = $1, start_date = $2, cycle_length = $3, is_active = $4,
+       rest_day_mode = 'calendar_based', rest_days_of_week = $5
+     WHERE id = $6 AND user_id = $7`,
+    [newName, newStartDate, newCycleLength, newIsActive, newRestDaysOfWeek, progId, userId]
   );
 
   // If cycle_length changed, reconcile slots
@@ -220,14 +231,15 @@ router.put("/cycle-programs/:id/slots", async (req, res): Promise<void> => {
     const pos = Number(slot.position);
     if (pos < 0 || pos >= cycleLength) continue;
 
-    // Verify workout ownership if provided
-    if (slot.workout_id) {
-      const ownerCheck = await pool.query(
-        `SELECT id FROM user_workouts WHERE id = $1 AND user_id = $2`,
-        [slot.workout_id, userId]
-      );
-      if (!ownerCheck.rows.length) continue;
-    }
+    // Rest day slots (null workout_id) are no longer allowed — skip silently
+    if (!slot.workout_id) continue;
+
+    // Verify workout ownership
+    const ownerCheck = await pool.query(
+      `SELECT id FROM user_workouts WHERE id = $1 AND user_id = $2`,
+      [slot.workout_id, userId]
+    );
+    if (!ownerCheck.rows.length) continue;
 
     await pool.query(
       `INSERT INTO cycle_program_slots (program_id, position, workout_id, label)
@@ -317,8 +329,8 @@ async function getOrCreateDefaultCycle(userId: number): Promise<any> {
 
   const today = new Date().toISOString().slice(0, 10);
   const created = await pool.query(
-    `INSERT INTO cycle_programs (user_id, name, start_date, cycle_length, is_default, is_active)
-     VALUES ($1, 'My Cycle', $2, 1, TRUE, TRUE) RETURNING *`,
+    `INSERT INTO cycle_programs (user_id, name, start_date, cycle_length, is_default, is_active, rest_day_mode)
+     VALUES ($1, 'My Cycle', $2, 1, TRUE, TRUE, 'calendar_based') RETURNING *`,
     [userId, today]
   );
   return created.rows[0];
@@ -452,85 +464,16 @@ router.delete("/user-cycle/workouts/:workoutId", async (req, res): Promise<void>
   }
 });
 
-// ── POST /user-cycle/rest — append a rest day to the user's default cycle ─────
-
-router.post("/user-cycle/rest", async (req, res): Promise<void> => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
-  try {
-    const prog = await getOrCreateDefaultCycle(userId);
-
-    const maxPosRes = await pool.query(
-      `SELECT COALESCE(MAX(position), -1) as max_pos FROM cycle_program_slots WHERE program_id = $1`,
-      [prog.id]
-    );
-    const nextPos = Number(maxPosRes.rows[0].max_pos) + 1;
-
-    await pool.query(
-      `INSERT INTO cycle_program_slots (program_id, position, workout_id) VALUES ($1, $2, NULL)`,
-      [prog.id, nextPos]
-    );
-    await pool.query(
-      `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
-      [nextPos + 1, prog.id]
-    );
-
-    const modeRes = await pool.query(
-      `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
-      [userId]
-    );
-    const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
-    const result = await getCycleWithSlots(prog.id, userId, trainingMode);
-    res.json({ position: nextPos, ...result });
-  } catch (err) {
-    console.error("POST /user-cycle/rest error:", err);
-    res.status(500).json({ error: "Failed to add rest day" });
-  }
+// ── POST /user-cycle/rest — removed: rest days are now weekday-based ──────────
+// Rest days are no longer slots in the cycle strip. Configure rest days via
+// PATCH /user-cycle/rest-days instead.
+router.post("/user-cycle/rest", (_req, res): void => {
+  res.status(410).json({ error: "Rest day slots are no longer supported. Configure rest days by weekday via PATCH /user-cycle/rest-days." });
 });
 
-// ── DELETE /user-cycle/rest/:position — remove a rest day slot and re-index ───
-
-router.delete("/user-cycle/rest/:position", async (req, res): Promise<void> => {
-  const userId = requireAuth(req, res);
-  if (!userId) return;
-  try {
-    const position = Number(req.params["position"]);
-    const prog = await getOrCreateDefaultCycle(userId);
-
-    // Only delete if the slot at this position is actually a rest day (workout_id IS NULL)
-    const deleted = await pool.query(
-      `DELETE FROM cycle_program_slots WHERE program_id = $1 AND position = $2 AND workout_id IS NULL RETURNING id`,
-      [prog.id, position]
-    );
-    if (deleted.rows.length === 0) {
-      res.status(404).json({ error: "No rest day at that position" });
-      return;
-    }
-
-    // Re-index remaining slots to close the gap
-    const remaining = await pool.query(
-      `SELECT id FROM cycle_program_slots WHERE program_id = $1 ORDER BY position`,
-      [prog.id]
-    );
-    for (let i = 0; i < remaining.rows.length; i++) {
-      await pool.query(`UPDATE cycle_program_slots SET position = $1 WHERE id = $2`, [i, remaining.rows[i].id]);
-    }
-    await pool.query(
-      `UPDATE cycle_programs SET cycle_length = $1 WHERE id = $2`,
-      [Math.max(remaining.rows.length, 1), prog.id]
-    );
-
-    const modeRes = await pool.query(
-      `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
-      [userId]
-    );
-    const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
-    const result = await getCycleWithSlots(prog.id, userId, trainingMode);
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    console.error("DELETE /user-cycle/rest error:", err);
-    res.status(500).json({ error: "Failed to remove rest day" });
-  }
+// ── DELETE /user-cycle/rest/:position — removed: rest day slots no longer exist
+router.delete("/user-cycle/rest/:position", (_req, res): void => {
+  res.status(410).json({ error: "Rest day slots are no longer supported." });
 });
 
 // ── PUT /user-cycle/reorder ───────────────────────────────────────────────────
@@ -609,6 +552,68 @@ router.patch("/user-cycle/start-date", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("PATCH /user-cycle/start-date error:", err);
     res.status(500).json({ error: "Failed to update start date" });
+  }
+});
+
+// ── PATCH /user-cycle/rest-days ───────────────────────────────────────────────
+// Update the rest-day strategy for the user's default cycle.
+// Body: { rest_day_mode?: 'in_cycle'|'calendar_based', rest_days_of_week?: number[] }
+
+router.patch("/user-cycle/rest-days", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const { rest_day_mode, rest_days_of_week } = req.body as {
+      rest_day_mode?: string;
+      rest_days_of_week?: number[];
+    };
+
+    if (rest_day_mode !== undefined && !['in_cycle', 'calendar_based'].includes(rest_day_mode)) {
+      res.status(400).json({ error: "rest_day_mode must be 'in_cycle' or 'calendar_based'" });
+      return;
+    }
+    if (rest_days_of_week !== undefined && (!Array.isArray(rest_days_of_week) ||
+        rest_days_of_week.some(d => !Number.isInteger(d) || d < 0 || d > 6))) {
+      res.status(400).json({ error: "rest_days_of_week must be an array of integers 0–6" });
+      return;
+    }
+
+    const prog = await getOrCreateDefaultCycle(userId);
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIdx = 1;
+
+    if (rest_day_mode !== undefined) {
+      updates.push(`rest_day_mode = $${paramIdx++}`);
+      params.push(rest_day_mode);
+    }
+    if (rest_days_of_week !== undefined) {
+      updates.push(`rest_days_of_week = $${paramIdx++}`);
+      params.push(rest_days_of_week);
+    }
+
+    if (updates.length === 0) {
+      res.status(400).json({ error: "Nothing to update" });
+      return;
+    }
+
+    params.push(prog.id);
+    await pool.query(
+      `UPDATE cycle_programs SET ${updates.join(", ")} WHERE id = $${paramIdx}`,
+      params
+    );
+
+    const modeRes = await pool.query(
+      `SELECT COALESCE(training_mode, 'schedule') as training_mode FROM user_profiles WHERE user_id = $1`,
+      [userId]
+    );
+    const trainingMode = modeRes.rows[0]?.training_mode ?? 'schedule';
+    const result = await getCycleWithSlots(prog.id, userId, trainingMode);
+    res.json(result);
+  } catch (err) {
+    console.error("PATCH /user-cycle/rest-days error:", err);
+    res.status(500).json({ error: "Failed to update rest day settings" });
   }
 });
 

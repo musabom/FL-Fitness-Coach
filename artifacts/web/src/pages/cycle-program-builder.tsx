@@ -2,8 +2,8 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
-  ChevronLeft, Plus, Trash2, Pencil, Check, X, RotateCcw,
-  Dumbbell, Loader2, BedDouble, Zap, ChevronDown, ChevronUp, Moon,
+  ChevronLeft, Trash2, Pencil, Check, X, RotateCcw,
+  Dumbbell, Loader2, ChevronDown, ChevronUp, Moon,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -89,17 +89,6 @@ function WorkoutPickerSheet({
           </button>
         </div>
         <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2 pb-6">
-          {/* Rest day option */}
-          <button
-            onClick={() => onPick(null)}
-            className="w-full text-left rounded-xl px-4 py-3 border border-border/40 bg-[#0F1F3D] hover:border-primary/40 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <BedDouble className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-sm text-muted-foreground">Rest Day (no workout)</span>
-            </div>
-          </button>
-
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -218,7 +207,7 @@ function CreateProgramSheet({ onClose }: { onClose: () => void }) {
 
           <Button
             onClick={() => {
-              if (!name.trim()) return toast({ title: "Program name is required", variant: "destructive" });
+              if (!name.trim()) { toast({ title: "Program name is required", variant: "destructive" }); return; }
               createMutation.mutate({ name: name.trim(), start_date: startDate, cycle_length: cycleLength });
             }}
             disabled={createMutation.isPending}
@@ -413,7 +402,7 @@ function ProgramCard({ prog }: { prog: CycleProgram }) {
                     ) : (
                       <>
                         <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                          <BedDouble className="w-3.5 h-3.5" /> Rest Day
+                          <Moon className="w-3.5 h-3.5" /> Rest Day
                         </p>
                         <p className="text-[10px] text-muted-foreground">Day {slot.position + 1} · Tap to assign workout</p>
                       </>
@@ -456,7 +445,52 @@ interface UserCycle {
   start_date: string;
   cycle_length: number;
   training_mode: string;
+  rest_day_mode: string;
+  rest_days_of_week: number[];
   slots: Array<{ id: number; position: number; workout_id: number | null; workout_name: string | null }>;
+}
+
+// ── Calendar-based rest-day helpers (mirrors server logic) ────────────────────
+
+const DOW_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+const DOW_FULL   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
+/** Count days in [start, end) that fall on a given day-of-week set. O(1). */
+function countRestDaysInRange(start: Date, end: Date, restDows: number[]): number {
+  if (restDows.length === 0) return 0;
+  const totalDays = Math.floor((end.getTime() - start.getTime()) / 86400000);
+  if (totalDays <= 0) return 0;
+  const fullWeeks = Math.floor(totalDays / 7);
+  let count = fullWeeks * restDows.length;
+  const startDow = start.getDay();
+  for (let i = 0; i < totalDays % 7; i++) {
+    if (restDows.includes((startDow + i) % 7)) count++;
+  }
+  return count;
+}
+
+/**
+ * Returns the index into the training-only slot array that corresponds to
+ * today in calendar_based mode, or null if today is a rest day / before start.
+ */
+function getTodayCalendarSlotIndex(cycle: UserCycle): number | null {
+  const today    = new Date(getTodayLocal() + "T00:00:00");
+  const start    = new Date(cycle.start_date.slice(0, 10) + "T00:00:00");
+  const daysSince = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  if (daysSince < 0) return null;
+
+  const restDows = cycle.rest_days_of_week ?? [];
+  if (restDows.includes(today.getDay())) return null; // today is a rest day
+
+  const restBefore     = countRestDaysInRange(start, today, restDows);
+  const trainingBefore = daysSince - restBefore;
+
+  const trainSlots = (cycle.slots ?? [])
+    .filter(s => s.workout_id !== null)
+    .sort((a, b) => a.position - b.position);
+  if (trainSlots.length === 0) return null;
+
+  return ((trainingBefore % trainSlots.length) + trainSlots.length) % trainSlots.length;
 }
 
 export function CycleProgramContent() {
@@ -472,10 +506,13 @@ export function CycleProgramContent() {
     staleTime: 0,
   });
 
-  const trainingMode = cycle?.training_mode ?? 'schedule';
-  // All slots (workouts + rest days), sorted by position
+  const trainingMode   = cycle?.training_mode   ?? 'schedule';
+  const restDaysOfWeek = cycle?.rest_days_of_week ?? [];
+
+  // Only training (non-null) slots are shown — rest days are always weekday-based
   const slots = (cycle?.slots ?? []).slice().sort((a, b) => a.position - b.position);
-  const hasWorkouts = slots.some(s => s.workout_id !== null);
+  const displaySlots = slots.filter(s => s.workout_id !== null);
+  const hasWorkouts = displaySlots.length > 0;
 
   const toggleModeMutation = useMutation({
     mutationFn: (mode: string) => customFetch(`${BASE}/training-mode`, {
@@ -539,26 +576,6 @@ export function CycleProgramContent() {
     onError: () => toast({ title: "Failed to remove", variant: "destructive" }),
   });
 
-  // Remove a rest day slot
-  const removeRestMutation = useMutation({
-    mutationFn: (position: number) => customFetch(`${BASE}/user-cycle/rest/${position}`, { method: "DELETE" }),
-    onSuccess: () => {
-      invalidateCycleAndPlan();
-      toast({ title: "Rest day removed" });
-    },
-    onError: () => toast({ title: "Failed to remove rest day", variant: "destructive" }),
-  });
-
-  // Add a rest day (appends, then user reorders with ↑↓)
-  const addRestMutation = useMutation({
-    mutationFn: () => customFetch(`${BASE}/user-cycle/rest`, { method: "POST" }),
-    onSuccess: () => {
-      invalidateCycleAndPlan();
-      toast({ title: "Rest day added — use ↑↓ to position it" });
-    },
-    onError: () => toast({ title: "Failed to add rest day", variant: "destructive" }),
-  });
-
   // Reorder using slot DB IDs (works for both workouts and rest days)
   const reorderMutation = useMutation({
     mutationFn: (ordered_slot_ids: number[]) => customFetch(`${BASE}/user-cycle/reorder`, {
@@ -570,25 +587,60 @@ export function CycleProgramContent() {
     onError: () => toast({ title: "Failed to reorder", variant: "destructive" }),
   });
 
+  // Update rest-day mode / weekday selection
+  const updateRestDaysMutation = useMutation({
+    mutationFn: (body: { rest_day_mode?: string; rest_days_of_week?: number[] }) =>
+      customFetch(`${BASE}/user-cycle/rest-days`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onMutate: (body) => {
+      // Optimistic update so the UI responds instantly
+      queryClient.setQueryData(["user-cycle"], (old: any) =>
+        old ? { ...old, ...body } : old
+      );
+    },
+    onSuccess: () => {
+      invalidateCycleAndPlan();
+      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-cycle"] });
+      toast({ title: "Failed to update rest day settings", variant: "destructive" });
+    },
+  });
+
+  function handleDowToggle(dow: number) {
+    const current = restDaysOfWeek ?? [];
+    const next = current.includes(dow)
+      ? current.filter(d => d !== dow)
+      : [...current, dow].sort((a, b) => a - b);
+    updateRestDaysMutation.mutate({ rest_days_of_week: next });
+  }
+
   function move(idx: number, dir: -1 | 1) {
-    const ids = slots.map(s => s.id);
+    const ids = displaySlots.map(s => s.id);
     const newIds = [...ids];
     [newIds[idx], newIds[idx + dir]] = [newIds[idx + dir], newIds[idx]];
     reorderMutation.mutate(newIds);
   }
 
-  // Today's cycle position is based on cycle_length (all slots, including rest)
-  function getTodayPosition(): number | null {
-    if (!cycle || !cycle.cycle_length || slots.length === 0) return null;
-    const today = new Date().toISOString().slice(0, 10);
-    const startMs = new Date(cycle.start_date.slice(0, 10) + "T00:00:00").getTime();
-    const todayMs = new Date(today + "T00:00:00").getTime();
-    const days = Math.floor((todayMs - startMs) / 86400000);
-    if (days < 0) return null;
-    return ((days % cycle.cycle_length) + cycle.cycle_length) % cycle.cycle_length;
+  // Today's active training slot (calendar-based)
+  function getTodaySlotInfo(): { position: number; isRestDay: boolean } | null {
+    if (!cycle || displaySlots.length === 0) return null;
+    const today = new Date(getTodayLocal() + "T00:00:00");
+    const start = new Date(cycle.start_date.slice(0, 10) + "T00:00:00");
+    if (today < start) return null;
+    if ((restDaysOfWeek ?? []).includes(today.getDay())) return { position: -1, isRestDay: true };
+    const idx = getTodayCalendarSlotIndex(cycle);
+    if (idx === null) return null;
+    return displaySlots[idx] ? { position: displaySlots[idx].position, isRestDay: false } : null;
   }
 
-  const todaySlotPosition = getTodayPosition();
+  const todaySlotInfo      = getTodaySlotInfo();
+  const todaySlotPosition  = todaySlotInfo?.position ?? null;
+  const todayIsCalendarRest = todaySlotInfo?.isRestDay ?? false;
 
   if (isLoading) {
     return (
@@ -673,68 +725,95 @@ export function CycleProgramContent() {
         )}
       </div>
 
-      {/* Cycle slot list */}
-      {slots.length === 0 ? (
+      {/* ── Rest Days ─────────────────────────────────────────────────────── */}
+      <div className="px-4 py-3.5 rounded-xl bg-[#0F1F3D] border border-border/40 space-y-3">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase">Rest Days</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Your training cycle picks up exactly where it left off after each rest day
+          </p>
+        </div>
+        <div className="flex gap-1.5 justify-between">
+          {DOW_LABELS.map((label, dow) => {
+            const active = (restDaysOfWeek ?? []).includes(dow);
+            return (
+              <button
+                key={dow}
+                onClick={() => handleDowToggle(dow)}
+                disabled={updateRestDaysMutation.isPending}
+                title={DOW_FULL[dow]}
+                className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all ${
+                  active
+                    ? "bg-blue-500/25 text-blue-300 border-blue-500/50"
+                    : "bg-[#1B3260] text-muted-foreground border-border/30 hover:border-blue-400/30 hover:text-blue-300/60"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        {(restDaysOfWeek ?? []).length > 0 ? (
+          <p className="text-[11px] text-blue-300/70">
+            Rest on {(restDaysOfWeek ?? []).sort((a, b) => a - b).map(d => DOW_FULL[d]).join(" · ")}
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground/50">No rest days selected — tap a day to add one</p>
+        )}
+      </div>
+
+      {/* Today is a scheduled rest day banner */}
+      {todayIsCalendarRest && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+          <Moon className="w-4 h-4 text-blue-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-blue-300">Today is a rest day</p>
+            <p className="text-[11px] text-muted-foreground">Your training cycle will resume tomorrow</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Training sequence ─────────────────────────────────────────────── */}
+      {displaySlots.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
           <RotateCcw className="w-8 h-8 text-muted-foreground/30" />
-          <p className="text-sm font-medium text-foreground">No days in cycle yet</p>
+          <p className="text-sm font-medium text-foreground">No workouts in cycle yet</p>
           <p className="text-xs text-muted-foreground">Go to the <span className="text-primary font-medium">Workouts tab</span> and tap <span className="text-violet-400 font-medium">"+ Add to Cycle"</span> on each workout</p>
         </div>
       ) : (
         <div className="space-y-2">
           <p className="text-[10px] font-medium text-muted-foreground uppercase px-1">
-            Cycle Order — {slots.length} day{slots.length !== 1 ? "s" : ""}, then repeats
+            Training Sequence — {displaySlots.length} workout{displaySlots.length !== 1 ? "s" : ""}, repeats continuously
           </p>
 
-          {slots.map((slot, idx) => {
-            const isToday = todaySlotPosition === slot.position;
-            const isRest = slot.workout_id === null;
+          {displaySlots.map((slot, idx) => {
+            const isToday = todaySlotPosition === slot.position && !todayIsCalendarRest;
 
             return (
               <div
                 key={slot.id}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-all ${
-                  isToday
-                    ? isRest
-                      ? "bg-blue-500/10 border-blue-500/30"
-                      : "bg-violet-500/10 border-violet-500/30"
-                    : isRest
-                    ? "bg-[#0B1630] border-border/20"
-                    : "bg-[#0F1F3D] border-border/30"
+                  isToday ? "bg-violet-500/10 border-violet-500/30" : "bg-[#0F1F3D] border-border/30"
                 }`}
               >
-                {/* Day number badge */}
+                {/* Training number badge */}
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                  isToday
-                    ? isRest ? "bg-blue-500 text-white" : "bg-violet-500 text-white"
-                    : isRest ? "bg-[#1B3260] text-muted-foreground" : "bg-[#1B3260] text-muted-foreground"
+                  isToday ? "bg-violet-500 text-white" : "bg-[#1B3260] text-muted-foreground"
                 }`}>
-                  {idx + 1}
+                  T{idx + 1}
                 </div>
 
                 {/* Label */}
                 <div className="flex-1 min-w-0">
-                  {isRest ? (
-                    <>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                        <Moon className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-blue-300/80 font-medium">Rest Day</span>
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">Day {idx + 1}{isToday ? " · Today" : ""}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium text-foreground truncate">{slot.workout_name}</p>
-                      <p className="text-[10px] text-muted-foreground">Day {idx + 1}{isToday ? " · Today" : ""}</p>
-                    </>
-                  )}
+                  <p className="text-sm font-medium text-foreground truncate">{slot.workout_name}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Training {idx + 1}{isToday ? " · Today" : ""}
+                  </p>
                 </div>
 
                 {/* Today badge */}
                 {isToday && (
-                  <span className={`shrink-0 text-[10px] font-semibold rounded-full px-2 py-0.5 ${
-                    isRest ? "text-blue-400 bg-blue-500/15" : "text-violet-400 bg-violet-500/15"
-                  }`}>Today</span>
+                  <span className="shrink-0 text-[10px] font-semibold text-violet-400 bg-violet-500/15 rounded-full px-2 py-0.5">Today</span>
                 )}
 
                 {/* Reorder + delete */}
@@ -747,18 +826,15 @@ export function CycleProgramContent() {
                     <ChevronUp className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => idx < slots.length - 1 && move(idx, 1)}
-                    disabled={idx === slots.length - 1 || reorderMutation.isPending}
+                    onClick={() => idx < displaySlots.length - 1 && move(idx, 1)}
+                    disabled={idx === displaySlots.length - 1 || reorderMutation.isPending}
                     className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => isRest
-                      ? removeRestMutation.mutate(slot.position)
-                      : removeWorkoutMutation.mutate(slot.workout_id as number)
-                    }
-                    disabled={removeWorkoutMutation.isPending || removeRestMutation.isPending}
+                    onClick={() => removeWorkoutMutation.mutate(slot.workout_id as number)}
+                    disabled={removeWorkoutMutation.isPending}
                     className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors ml-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -767,19 +843,6 @@ export function CycleProgramContent() {
               </div>
             );
           })}
-
-          {/* Add rest day button */}
-          <button
-            onClick={() => addRestMutation.mutate()}
-            disabled={addRestMutation.isPending}
-            className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 border border-dashed border-border/40 text-muted-foreground hover:border-blue-400/40 hover:text-blue-300 transition-all"
-          >
-            {addRestMutation.isPending
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Moon className="w-3.5 h-3.5" />
-            }
-            <span className="text-sm">+ Rest Day</span>
-          </button>
         </div>
       )}
     </div>

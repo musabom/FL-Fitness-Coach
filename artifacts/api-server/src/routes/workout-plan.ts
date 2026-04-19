@@ -93,6 +93,29 @@ async function getWorkoutSummary(workoutId: number, weightKg: number) {
   };
 }
 
+// ── Calendar-based rest day helpers ──────────────────────────────────────────
+//
+// Counts how many days in [startDateStr, endDateStr) (end exclusive) fall on
+// one of the given days-of-week (0=Sun … 6=Sat).  O(1) via whole-week math.
+function countRestDaysInRange(
+  startDateStr: string,
+  endDateStr: string,
+  restDaysOfWeek: number[]
+): number {
+  if (restDaysOfWeek.length === 0) return 0;
+  const startMs = new Date(startDateStr + "T00:00:00").getTime();
+  const endMs   = new Date(endDateStr   + "T00:00:00").getTime();
+  const totalDays = Math.floor((endMs - startMs) / 86400000);
+  if (totalDays <= 0) return 0;
+  const fullWeeks = Math.floor(totalDays / 7);
+  let count = fullWeeks * restDaysOfWeek.length;
+  const startDow = new Date(startDateStr + "T00:00:00").getDay();
+  for (let i = 0; i < totalDays % 7; i++) {
+    if (restDaysOfWeek.includes((startDow + i) % 7)) count++;
+  }
+  return count;
+}
+
 // ── GET /workout-plan?date=YYYY-MM-DD ─────────────────────────────────────────
 
 router.get("/workout-plan", async (req, res): Promise<void> => {
@@ -194,23 +217,98 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
   );
 
   const cycleEntries: Array<NonNullable<(typeof entries)[0]>> = [];
+  // Set to true when a calendar_based cycle programme designates today as a rest day
+  let isCalendarRestDay = false;
 
   for (const prog of cycleProgsRes.rows) {
     try {
-      // Compute which position this date falls on in the cycle
       // node-postgres returns DATE columns as JS Date objects, so use toISOString()
       const startDateOnly = prog.start_date instanceof Date
         ? prog.start_date.toISOString().slice(0, 10)
         : String(prog.start_date).slice(0, 10);
       const startMs = new Date(startDateOnly + "T00:00:00").getTime();
-      const dateMs = new Date(dateStr + "T00:00:00").getTime();
+      const dateMs  = new Date(dateStr       + "T00:00:00").getTime();
       const daysSinceStart = Math.floor((dateMs - startMs) / 86400000);
 
       // Only show cycle if date is on or after start_date
       if (daysSinceStart < 0) continue;
 
+      const restDayMode: string = prog.rest_day_mode ?? 'in_cycle';
+      const restDaysOfWeek: number[] = Array.isArray(prog.rest_days_of_week)
+        ? (prog.rest_days_of_week as any[]).map(Number)
+        : [];
+
+      // ── calendar_based mode ─────────────────────────────────────────────────
+      // Rest days are anchored to specific weekdays; the training sequence
+      // advances only on non-rest calendar days.
+      if (restDayMode === 'calendar_based') {
+        // Is today a designated rest day?
+        if (restDaysOfWeek.includes(d.getDay())) {
+          isCalendarRestDay = true;
+          continue; // nothing to show for this programme today
+        }
+
+        // Check for a per-date exclusion override
+        const exclusionCheck = await pool.query(
+          `SELECT id FROM cycle_program_exclusions WHERE user_id = $1 AND program_id = $2 AND date = $3`,
+          [userId, prog.id, dateStr]
+        );
+        if (exclusionCheck.rows.length > 0) continue;
+
+        // Count rest days that fell between start_date and today (exclusive),
+        // then derive how many training days have already happened.
+        const restDaysBefore    = countRestDaysInRange(startDateOnly, dateStr, restDaysOfWeek);
+        const trainingDaysBefore = daysSinceStart - restDaysBefore;
+
+        // Only consider slots that have a workout (null slots are ignored in this mode)
+        const trainingSlotsRes = await pool.query(
+          `SELECT * FROM cycle_program_slots WHERE program_id = $1 AND workout_id IS NOT NULL ORDER BY position`,
+          [prog.id]
+        );
+        const trainingSlots = trainingSlotsRes.rows;
+        if (trainingSlots.length === 0) continue;
+
+        const slotIndex = ((trainingDaysBefore % trainingSlots.length) + trainingSlots.length) % trainingSlots.length;
+        const slot = trainingSlots[slotIndex];
+
+        if (allWorkoutRefs.some(r => r.workout_id === slot.workout_id)) continue;
+
+        const workout = await getWorkoutSummary(slot.workout_id, weightKg);
+        if (!workout) continue;
+
+        const cycleWpcRes = await pool.query(
+          `SELECT workout_id FROM workout_plan_completions WHERE user_id = $1 AND date = $2 AND workout_id = $3`,
+          [userId, dateStr, slot.workout_id]
+        );
+        const cycleWecRes = await pool.query(
+          `SELECT workout_exercise_id FROM workout_exercise_completions WHERE user_id = $1 AND date = $2 AND workout_id = $3`,
+          [userId, dateStr, slot.workout_id]
+        );
+        const cycleCompletedExercises = new Set(cycleWecRes.rows.map((r: any) => Number(r.workout_exercise_id)));
+
+        cycleEntries.push({
+          entry_id: 0,
+          is_entry: false,
+          source: "cycle" as const,
+          cycle_program_id: prog.id,
+          cycle_program_name: prog.name,
+          cycle_position: slotIndex,
+          cycle_slot_label: slot.label ?? null,
+          completed: cycleWpcRes.rows.length > 0,
+          workout: {
+            ...workout,
+            exercises: workout.exercises.map(e => ({
+              ...e,
+              completed: cycleCompletedExercises.has(e.id),
+            })),
+          },
+        } as any);
+
+        continue; // done with this programme for calendar_based mode
+      }
+
+      // ── in_cycle mode (original behaviour) ─────────────────────────────────
       const cycleLength = Number(prog.cycle_length);
-      // Guard: need at least 1 slot for cycle to work
       if (!cycleLength || cycleLength < 1) continue;
 
       const position = ((daysSinceStart % cycleLength) + cycleLength) % cycleLength;
@@ -233,14 +331,12 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
       if (!slot || !slot.workout_id) continue;
 
       // Skip if this workout is already in the scheduled entries
-      const alreadyInScheduled = allWorkoutRefs.some(r => r.workout_id === slot.workout_id);
-      if (alreadyInScheduled) continue;
+      if (allWorkoutRefs.some(r => r.workout_id === slot.workout_id)) continue;
 
       const workout = await getWorkoutSummary(slot.workout_id, weightKg);
       if (!workout) continue;
 
       // Load completions for this cycle workout specifically
-      // (allWorkoutIds is empty in cycle mode so completedWorkouts/completedExercises are always empty)
       const cycleWpcRes = await pool.query(
         `SELECT workout_id FROM workout_plan_completions WHERE user_id = $1 AND date = $2 AND workout_id = $3`,
         [userId, dateStr, slot.workout_id]
@@ -289,13 +385,14 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     return sum + completedCalories;
   }, 0);
 
-  console.log(`workout-plan ${dateStr}: mode=${trainingMode} cycleProgs=${cycleProgsRes.rows.length} cycleEntries=${cycleEntries.length} total=${validEntries.length}`);
+  console.log(`workout-plan ${dateStr}: mode=${trainingMode} cycleProgs=${cycleProgsRes.rows.length} cycleEntries=${cycleEntries.length} total=${validEntries.length} isCalendarRest=${isCalendarRestDay}`);
   res.json({
     date: dateStr,
     day_of_week: dayOfWeek,
     entries: validEntries,
     total_calories: +total_calories.toFixed(1),
     burned_calories: +burned_calories.toFixed(1),
+    is_calendar_rest_day: isCalendarRestDay,
   });
   } catch (err) {
     console.error("GET /workout-plan error:", err);
