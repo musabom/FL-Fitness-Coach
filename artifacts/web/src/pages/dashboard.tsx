@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation, Link } from "wouter";
 import {
   Settings, LogOut, Loader2, ChevronRight, ChevronDown,
-  UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, ClipboardList, Flame, Zap, Edit2, Check, X,
+  UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, TrendingUp, ClipboardList, Flame, Zap, Edit2, Check, X,
   ArrowLeft, UserCheck, Bell, Search, AlertTriangle, RotateCcw, CheckCircle2, MessageCircle, Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -461,60 +461,66 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="px-6 py-4 flex justify-between items-center sticky top-0 bg-background/80 backdrop-blur-xl z-10 border-b border-border/50" style={{ top: isCoachView ? "44px" : "0" }}>
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("dashboard.title")}</h1>
-          <p className="text-sm font-medium text-foreground/80 mt-0.5">
-            {isCoachView ? (activeClient?.name ?? activeClient?.email) : (user?.fullName ?? user?.email ?? "")}
-          </p>
-          <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString(lang === "ar" ? 'ar-SA' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <LanguageSwitcher variant="icon-only" />
-          {isCoachView && (
+      {/* ── FLAppHeader ───────────────────────────────────────────── */}
+      <header
+        className="px-5 pt-14 pb-4 relative sticky bg-background/80 backdrop-blur-xl z-10 border-b border-[rgba(255,255,255,0.04)]"
+        style={{ top: isCoachView ? "44px" : "0" }}
+      >
+        {/* Ambient teal glow — FLAppHeader signature */}
+        <div
+          className="absolute inset-x-0 top-0 h-48 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at top, rgba(45,212,191,0.18), transparent 60%)" }}
+        />
+        <div className="relative flex items-start justify-between">
+          {/* Left: overline + title */}
+          <div>
+            <p className="fl-overline">
+              {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+            <h1 className="mt-1 text-[28px] font-bold tracking-[-0.02em] text-foreground leading-tight">
+              {isCoachView
+                ? (activeClient?.name ?? activeClient?.email)
+                : (user?.fullName ? `${t("dashboard.title").split(" ")[0]} ${user.fullName.split(" ")[0]}` : t("dashboard.title"))}
+            </h1>
+          </div>
+
+          {/* Right: action icons */}
+          <div className="flex items-center gap-2 pt-1">
+            <LanguageSwitcher variant="icon-only" />
+            {(isCoachView || user?.role === "coach") && (
+              <button
+                onClick={handleBackToManagement}
+                className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                title={viewMode === "admin" ? "Back to Admin Panel" : "Back to My Clients"}
+              >
+                <ArrowLeft className="w-[18px] h-[18px]" strokeWidth={2} />
+              </button>
+            )}
+            {(isCoachView || user?.role === "member") && (
+              <Link
+                href="/profile/edit"
+                className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+              >
+                <Settings className="w-[18px] h-[18px]" strokeWidth={2} />
+              </Link>
+            )}
+            {!isCoachView && user?.role === "member" && (
+              <button
+                onClick={() => setLocation("/coaches")}
+                className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                title={t("dashboard.browse")}
+              >
+                <Search className="w-[18px] h-[18px]" strokeWidth={2} />
+              </button>
+            )}
             <button
-              onClick={handleBackToManagement}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
-              title={viewMode === "admin" ? "Back to Admin Panel" : "Back to My Clients"}
+              onClick={() => logout.mutate()}
+              className="w-10 h-10 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center hover:bg-destructive/20 transition-colors"
+              title={t("common.signOut")}
             >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
+              <LogOut className="w-[18px] h-[18px] text-destructive" strokeWidth={2} />
             </button>
-          )}
-          {!isCoachView && user?.role === "coach" && (
-            <button
-              onClick={handleBackToManagement}
-              className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
-              title="Back to My Clients"
-            >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-          )}
-          {(isCoachView || user?.role === "member") && (
-            <Link href="/profile/edit" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors">
-              <Settings className="w-5 h-5 text-foreground" />
-            </Link>
-          )}
-          {!isCoachView && user?.role === "member" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation("/coaches")}
-              className="text-xs gap-1.5 text-muted-foreground hover:text-foreground border border-border/50"
-            >
-              <Search className="w-3.5 h-3.5" />
-              {t("dashboard.browse")}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => logout.mutate()}
-            className="text-xs gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            {t("common.signOut")}
-          </Button>
+          </div>
         </div>
       </header>
       <main className="px-6 pt-6 space-y-6">
@@ -633,185 +639,90 @@ export default function Dashboard() {
           </button>
         )}
 
-        {/* Toggle */}
-        <div className="flex gap-1 p-1 bg-[#0F1F3D] rounded-2xl">
-          <button
-            onClick={() => setView("daily")}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "daily" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {t("dashboard.daily")}
-          </button>
-          <button
-            onClick={() => setView("weekly")}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${view === "weekly" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {t("dashboard.weekly")}
-          </button>
+        {/* FLTabs — segmented pill */}
+        <div className="flex justify-center">
+          <div className="inline-flex gap-1 p-1 bg-card rounded-2xl border border-[rgba(240,246,255,0.06)]">
+            {(["daily", "weekly"] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                  view === v
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {v === "daily" ? t("dashboard.daily") : t("dashboard.weekly")}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ─── DAILY VIEW ─── */}
         {view === "daily" && (
           <>
-            {/* AM I ON TRACK? Card */}
-            <section className="py-4">
-              <Card className="p-5 bg-[#0F1F3D] border-none">
-                <h3 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-4">{t("dashboard.onTrack")}</h3>
+            {/* ── AM I ON TRACK? — MiniStatPills + 2×2 MacroBars ── */}
+            <Card className="overflow-hidden">
+              {/* Overline */}
+              <div className="px-5 pt-4 pb-1">
+                <p className="fl-overline">{t("dashboard.onTrack")}</p>
+              </div>
 
-                {/* Column headers */}
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"></div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.consumed")}</div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.target")}</div>
-                  <div className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t("dashboard.variance")}</div>
-                </div>
-
-                {/* Table */}
-                <div className="space-y-1">
-                  {/* Row 1: Calories */}
-                  <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
-                    <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.calories")}</span>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.calories)}<span className="text-[10px] text-muted-foreground ml-0.5">kcal</span></div>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(plan.calorieTarget)}<span className="text-[10px] text-muted-foreground ml-0.5">kcal</span></div>
-                    </div>
-                    <div className={`text-center text-sm font-bold ${
-                      (() => {
-                        const variance = consumed.calories - plan.calorieTarget;
-                        return variance >= 0 ? "text-green-500" : "text-red-500";
-                      })()
-                    }`}>
-                      {(() => {
-                        const variance = consumed.calories - plan.calorieTarget;
-                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}`;
-                      })()}
-                    </div>
+              {/* MiniStatPill row: Planned / Burned / Deficit */}
+              {(() => {
+                const tdee = plan.tdeeEstimated ?? plan.calorieTarget ?? 0;
+                const burnedCals = training.burned_calories ?? 0;
+                const deficit = consumed.calories - burnedCals - tdee;
+                const deficitColor = deficit < -200 ? "#2DD4BF" : deficit < 0 ? "#F59E0B" : "#EF4444";
+                return (
+                  <div className="flex gap-2 px-5 pt-3 pb-4">
+                    {[
+                      { label: t("dashboard.planned"), value: Math.round(plan.calorieTarget), unit: "kcal", color: "#F0F6FF" },
+                      { label: t("dashboard.burned"), value: Math.round(burnedCals), unit: "kcal", color: "#F97316" },
+                      { label: t("dashboard.total"), value: Math.abs(Math.round(deficit)), unit: deficit < 0 ? "deficit" : "surplus", color: deficitColor },
+                    ].map(pill => (
+                      <div key={pill.label} className="flex-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.05)] rounded-2xl px-2.5 py-3 flex flex-col items-center gap-1">
+                        <p className="fl-overline">{pill.label}</p>
+                        <span className="text-[22px] font-bold leading-none" style={{ color: pill.color, letterSpacing: "-0.02em" }}>{pill.value}</span>
+                        <span className="text-[10px] text-muted-foreground">{pill.unit}</span>
+                      </div>
+                    ))}
                   </div>
+                );
+              })()}
 
-                  {/* Row 2: Protein */}
-                  <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
-                    <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.protein")}</span>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.protein_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(planned.protein_g || plan.proteinG)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
-                    </div>
-                    <div className={`text-center text-sm font-bold ${
-                      (() => {
-                        const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
-                        return variance >= 0 ? "text-green-500" : "text-red-500";
-                      })()
-                    }`}>
-                      {(() => {
-                        const variance = consumed.protein_g - (planned.protein_g || plan.proteinG);
-                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}g`;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Row 3: Carbs */}
-                  <div className="grid grid-cols-4 gap-2 py-2.5 border-b border-white/5">
-                    <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.carbs")}</span>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.carbs_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(planned.carbs_g || plan.carbsG)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
-                    </div>
-                    <div className={`text-center text-sm font-bold ${
-                      (() => {
-                        const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
-                        return variance >= 0 ? "text-green-500" : "text-red-500";
-                      })()
-                    }`}>
-                      {(() => {
-                        const variance = consumed.carbs_g - (planned.carbs_g || plan.carbsG);
-                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}g`;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Row 4: Fat */}
-                  <div className="grid grid-cols-4 gap-2 py-2.5">
-                    <div className="flex items-center">
-                      <span className="text-xs font-semibold text-muted-foreground">{t("dashboard.fats")}</span>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(consumed.fat_g)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
-                    </div>
-                    <div className="text-center text-sm">
-                      <div className="font-bold text-foreground">{Math.round(planned.fat_g || plan.fatG)}<span className="text-[10px] text-muted-foreground ml-0.5">g</span></div>
-                    </div>
-                    <div className={`text-center text-sm font-bold ${
-                      (() => {
-                        const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
-                        return variance >= 0 ? "text-green-500" : "text-red-500";
-                      })()
-                    }`}>
-                      {(() => {
-                        const variance = consumed.fat_g - (planned.fat_g || plan.fatG);
-                        return `${variance >= 0 ? "+" : "−"}${Math.abs(Math.round(variance))}g`;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* TODAY'S DEFICIT */}
-                <div className="mt-6 pt-4 border-t border-white/5 space-y-2.5">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{t("dashboard.dailyDeficit")}</h4>
-                  
-                  {/* Maintenance (TDEE) */}
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">{t("dashboard.maintenance")}</span>
-                    <span className="font-bold text-foreground">{Math.round(plan.tdeeEstimated ?? 0)} {t("common.kcal")}</span>
-                  </div>
-
-                  {/* Consumed */}
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">{t("dashboard.consumed")}</span>
-                    <span className="font-bold text-foreground">{Math.round(consumed.calories ?? 0)} {t("common.kcal")}</span>
-                  </div>
-
-                  {/* Training Burn */}
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">{t("dashboard.trainingBurn")}</span>
-                    <span className="font-bold text-foreground">{Math.round(training.burned_calories ?? 0)} {t("common.kcal")}</span>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-px bg-white/10 my-2" />
-
-                  {/* Total Deficit */}
-                  {(() => {
-                    const tdee = plan.tdeeEstimated ?? 0;
-                    const consumedCals = consumed.calories ?? 0;
-                    const burned = training.burned_calories ?? 0;
-                    const dailyDeficit = consumedCals - burned - tdee;
-                    
-                    let color = "text-primary"; // teal if negative (deficit)
-                    if (dailyDeficit > -200 && dailyDeficit < 0) color = "text-amber-500"; // amber if -200 to 0
-                    if (dailyDeficit >= 0) color = "text-red-500"; // red if positive (surplus)
-                    
-                    return (
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-semibold text-foreground">{t("dashboard.total")}</span>
-                        <span className={`text-lg font-bold ${color}`}>
-                          {dailyDeficit >= 0 ? "+" : ""}{Math.round(dailyDeficit)} kcal
+              {/* 2×2 MacroBar grid */}
+              <div className="grid grid-cols-2 gap-4 px-5 pb-5">
+                {[
+                  { label: t("dashboard.protein"), consumed: consumed.protein_g, planned: planned.protein_g || plan.proteinG, color: "#3B82F6", unit: "g" },
+                  { label: t("dashboard.carbs"),   consumed: consumed.carbs_g,   planned: planned.carbs_g   || plan.carbsG,   color: "#F59E0B", unit: "g" },
+                  { label: t("dashboard.fats"),    consumed: consumed.fat_g,     planned: planned.fat_g     || plan.fatG,     color: "#EAB308", unit: "g" },
+                  { label: t("dashboard.calories"),consumed: consumed.calories,  planned: plan.calorieTarget,                  color: "#2DD4BF", unit: "kcal" },
+                ].map(bar => {
+                  const pct = bar.planned > 0 ? Math.min(100, (bar.consumed / bar.planned) * 100) : 0;
+                  const net = bar.consumed - bar.planned;
+                  return (
+                    <div key={bar.label} className="space-y-1.5">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[13px] font-semibold text-foreground">
+                          {Math.round(bar.consumed)}<span className="text-[10px] text-muted-foreground mx-0.5">/</span>{Math.round(bar.planned)}<span className="text-[10px] text-muted-foreground ml-0.5">{bar.unit}</span>
+                        </span>
+                        <span className="text-[11px] font-semibold" style={{ color: net >= 0 ? bar.color : "#7B95B8" }}>
+                          {net >= 0 ? "+" : ""}{Math.round(net)}{bar.unit === "kcal" ? "" : bar.unit}
                         </span>
                       </div>
-                    );
-                  })()}
-                </div>
-              </Card>
-            </section>
+                      <div className="h-2.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: bar.color }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground text-right">{bar.label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
 
             {/* Daily Target — Hidden */}
             {false && (
@@ -843,8 +754,8 @@ export default function Dashboard() {
                     <span className="text-2xl font-bold text-orange-400">{Math.round(todayData?.totalBurned ?? 0)}</span>
                     <span className="text-xs text-muted-foreground">kcal</span>
                     <div className="text-[10px] text-muted-foreground mt-1 text-center">
-                      <div>{Math.round(todayData?.tdeeEstimated ?? 0)} kcal baseline</div>
-                      {(todayData?.workoutBurned ?? 0) > 0 && <div>+{Math.round(todayData?.workoutBurned ?? 0)} kcal exercise</div>}
+                      <div>{Math.round((todayData as any)?.tdeeEstimated ?? 0)} kcal baseline</div>
+                      {((todayData as any)?.workoutBurned ?? 0) > 0 && <div>+{Math.round((todayData as any)?.workoutBurned ?? 0)} kcal exercise</div>}
                     </div>
                   </div>
                   <div className="flex-1 flex flex-col items-center gap-1 p-3 rounded-xl bg-white/[0.03] border border-white/5">
@@ -1058,6 +969,37 @@ export default function Dashboard() {
                   </p>
                 )}
               </Card>
+            </section>
+
+            {/* ── Quick Actions 2×2 grid ────────────────────────────── */}
+            <section className="space-y-3">
+              <p className="fl-overline px-1">{t("dashboard.todaysPlan") ?? "Today's Plan"}</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { href: "/nutrition/meal-plan", icon: CalendarDays,  label: t("nav.meals"),    sub: `${Math.round(consumed.calories)} / ${Math.round(plan.calorieTarget)} kcal`,  active: false },
+                  { href: "/training/plan",       icon: Dumbbell,       label: t("nav.workouts"), sub: `${Math.round(training.burned_calories)} kcal ${t("dashboard.burned")}`,       active: true },
+                  { href: "/nutrition/shopping-list", icon: ShoppingCart, label: t("nav.shop"),  sub: t("dashboard.groceries") ?? "Shopping list",                                   active: false },
+                  { href: "/progress",            icon: TrendingUp,     label: t("nav.progress"), sub: `${plan.weightKg} kg → ${plan.targetWeightKg} kg`,                           active: false },
+                ].map(({ href, icon: Icon, label, sub, active }) => (
+                  <Link key={href} href={href}>
+                    <button className={`w-full text-left p-4 rounded-2xl border transition-all duration-150 active:scale-[0.97] flex flex-col gap-3 ${
+                      active
+                        ? "bg-primary/8 border-primary/30 hover:border-primary/50"
+                        : "bg-card border-[rgba(240,246,255,0.06)] hover:border-border"
+                    }`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        active ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                      }`}>
+                        <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-semibold text-foreground">{label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>
+                      </div>
+                    </button>
+                  </Link>
+                ))}
+              </div>
             </section>
           </>
         )}

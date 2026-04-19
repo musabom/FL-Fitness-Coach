@@ -1,42 +1,67 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cairo:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cairo:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
   --font-sans: 'Inter', sans-serif;
 
   /* ── FutureLine brand palette ── */
-  --color-background: #0B1630;       /* deep navy — replaces near-black   */
-  --color-foreground: #F0F6FF;       /* cool white                         */
+  --color-background: #0B1630;
+  --color-foreground: #F0F6FF;
 
-  --color-primary: #2DD4BF;          /* FutureLine teal                    */
-  --color-primary-foreground: #081025; /* dark navy text on teal buttons   */
+  --color-primary: #2DD4BF;
+  --color-primary-foreground: #081025;
 
-  --color-card: #0F1F3D;             /* dark navy card                     */
-  --color-card-border: #1B3260;      /* navy border                        */
-  --color-card-foreground: #F0F6FF;  /* cool white                         */
+  --color-card: #0F1F3D;
+  --color-card-border: #1B3260;
+  --color-card-foreground: #F0F6FF;
 
-  --color-muted: #101C36;            /* dark muted navy                    */
-  --color-muted-foreground: #7B95B8; /* muted blue-gray                    */
+  --color-muted: #101C36;
+  --color-muted-foreground: #7B95B8;
 
-  --color-border: #1B3260;           /* navy border                        */
-  --color-input: #0F1F3D;            /* dark navy input                    */
-  --color-ring: #2DD4BF;             /* teal focus ring                    */
+  --color-border: #1B3260;
+  --color-input: #0F1F3D;
+  --color-ring: #2DD4BF;
 
-  --color-destructive: #ef4444;
+  --color-destructive: #EF4444;
   --color-destructive-foreground: #ffffff;
 
-  --color-warning: #f59e0b;
+  --color-warning: #F59E0B;
+  --color-success: #22C55E;
+  --color-info: #3B82F6;
+
+  /* Macro palette */
+  --color-macro-protein: #3B82F6;
+  --color-macro-carbs:   #F59E0B;
+  --color-macro-fat:     #EAB308;
+  --color-macro-burn:    #F97316;
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
+  --radius-pill: 9999px;
 }
 
 :root {
   --background: 220 68% 12%;
   --foreground: 213 100% 97%;
+
+  /* ── FL design tokens (used in inline styles & CSS) ── */
+  --fl-primary:           #2DD4BF;
+  --fl-primary-glow:      rgba(45,212,191,0.15);
+  --fl-primary-fg:        #081025;
+  --fl-bg:                #0B1630;
+  --fl-bg-elevated:       #0F1F3D;
+  --fl-fg:                #F0F6FF;
+  --fl-fg-muted:          #7B95B8;
+  --fl-border:            #1B3260;
+  --fl-hairline:          rgba(240,246,255,0.05);
+  --fl-shadow-card:       0 10px 30px -12px rgba(0,0,0,0.4);
+  --fl-shadow-glow:       0 0 20px rgba(45,212,191,0.15);
+  --fl-shadow-glow-lg:    0 0 40px rgba(45,212,191,0.25);
+  --fl-ambient-glow:      radial-gradient(ellipse at top, rgba(45,212,191,0.18), transparent 60%);
+  --fl-ease-out:          cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @layer base {
@@ -67,3 +92,49 @@
 .mobile-container {
   @apply w-full max-w-2xl mx-auto min-h-screen bg-background relative shadow-2xl shadow-black/50 border-x border-white/5;
 }
+
+/* ── FL Design System utility classes ─────────────────────── */
+
+/* Overline — "AM I ON TRACK?", section labels */
+.fl-overline {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fl-fg-muted);
+  line-height: 1.3;
+}
+
+/* Large data metric (weight, calories) */
+.fl-metric {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--fl-primary);
+  line-height: 1;
+}
+
+/* Teal glow shadow on primary buttons */
+.fl-glow {
+  box-shadow: var(--fl-shadow-glow);
+}
+.fl-glow-lg {
+  box-shadow: var(--fl-shadow-glow-lg);
+}
+
+/* Card default shadow */
+.fl-card-shadow {
+  box-shadow: var(--fl-shadow-card);
+}
+
+/* Ambient header glow */
+.fl-ambient {
+  background: var(--fl-ambient-glow);
+}
+
+/* Macro bar colors (used as bg-[var(--fl-macro-*)] in Tailwind JIT) */
+.fl-bar-protein { background-color: #3B82F6; }
+.fl-bar-carbs   { background-color: #F59E0B; }
+.fl-bar-fat     { background-color: #EAB308; }
+.fl-bar-burn    { background-color: #F97316; }
+.fl-bar-cals    { background-color: #2DD4BF; }
