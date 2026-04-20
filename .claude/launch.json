@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "API Server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@workspace/api-server", "dev"],
+      "port": 8080,
+      "env": {
+        "PORT": "8080",
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/fl_fitness"
+      }
+    },
+    {
+      "name": "Web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@workspace/web", "dev"],
+      "port": 5173,
+      "env": {
+        "PORT": "5173",
+        "BASE_PATH": "/"
+      }
+    },
+    {
+      "name": "Mockup Sandbox",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@workspace/mockup-sandbox", "dev"],
+      "port": 5174,
+      "env": {
+        "PORT": "5174",
+        "BASE_PATH": "/"
+      }
+    }
+  ]
+}
