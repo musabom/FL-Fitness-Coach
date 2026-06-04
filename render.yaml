@@ -1,0 +1,32 @@
+# Render Blueprint — deploys FL Fitness Coach (Express API + built React frontend)
+# as a single free web service. Pair with a free Neon Postgres: create the DB,
+# then set DATABASE_URL in the Render dashboard (it is marked sync:false below).
+#
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: fl-fitness-coach
+    runtime: node
+    plan: free
+    region: oregon
+    healthCheckPath: /api/healthz
+    buildCommand: |
+      npm install -g pnpm@9
+      pnpm install --frozen-lockfile
+      PORT=10000 BASE_PATH=/ pnpm --filter @workspace/web build
+      pnpm --filter @workspace/api-server build
+    startCommand: node artifacts/api-server/dist/index.cjs
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Where the bundled server finds the built frontend (relative to repo root).
+      - key: PUBLIC_DIR
+        value: artifacts/web/dist/public
+      # Auto-generated random secret for express-session.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Paste your Neon Postgres connection string here in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false

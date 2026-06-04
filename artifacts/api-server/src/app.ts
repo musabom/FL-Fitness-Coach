@@ -1,3 +1,4 @@
+import path from "path";
 import express, { type Express } from "express";
 import cors from "cors";
 import session from "express-session";
@@ -52,5 +53,20 @@ app.use(
 );
 
 app.use("/api", router);
+
+// In production, serve the built frontend from the same origin (single-service
+// deploy). In development this is skipped — Vite serves the frontend and proxies
+// /api to this server. PUBLIC_DIR overrides the default location.
+if (isProduction) {
+  const publicDir = process.env.PUBLIC_DIR
+    ? path.resolve(process.env.PUBLIC_DIR)
+    : path.resolve(process.cwd(), "artifacts/web/dist/public");
+  app.use(express.static(publicDir));
+  // SPA fallback: any non-API GET that didn't match a static file gets index.html.
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api")) return next();
+    res.sendFile(path.join(publicDir, "index.html"));
+  });
+}
 
 export default app;
