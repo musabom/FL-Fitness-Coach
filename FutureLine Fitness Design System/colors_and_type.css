@@ -1,0 +1,214 @@
+/* ============================================================
+   FutureLine Fitness — Design System Tokens
+   Source of truth for colors, typography, spacing, effects
+   Sourced from artifacts/web/src/index.css + extracted patterns
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cairo:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* ── CORE BRAND ────────────────────────────────────────── */
+  --fl-primary:           #2DD4BF;   /* FutureLine teal */
+  --fl-primary-glow:      rgba(45, 212, 191, 0.15);
+  --fl-primary-fg:        #081025;
+  --fl-primary-hover:     #26BFAE;
+
+  /* Accent gradients derived from the logo (deep navy → teal) */
+  --fl-logo-grad:         linear-gradient(135deg, #0B1630 0%, #1B3260 50%, #2DD4BF 100%);
+  --fl-ambient-glow:      radial-gradient(ellipse at top, rgba(45,212,191,0.18), transparent 60%);
+
+  /* ── SURFACES (dark navy hierarchy) ─────────────────────── */
+  --fl-bg:                #0B1630;   /* deep navy — app background */
+  --fl-bg-elevated:       #0F1F3D;   /* card / modal */
+  --fl-bg-input:          #0F1F3D;
+  --fl-bg-muted:          #101C36;
+  --fl-bg-overlay:        #111111;   /* bottom-nav dark */
+
+  /* ── FOREGROUNDS ────────────────────────────────────────── */
+  --fl-fg:                #F0F6FF;   /* cool white */
+  --fl-fg-muted:          #7B95B8;   /* muted blue-gray */
+  --fl-fg-subtle:         rgba(240, 246, 255, 0.55);
+
+  /* ── BORDERS ────────────────────────────────────────────── */
+  --fl-border:            #1B3260;
+  --fl-border-soft:       rgba(27, 50, 96, 0.5);
+  --fl-border-hairline:   rgba(240, 246, 255, 0.05);
+
+  /* ── SEMANTIC ───────────────────────────────────────────── */
+  --fl-destructive:       #EF4444;
+  --fl-destructive-fg:    #FFFFFF;
+  --fl-warning:           #F59E0B;
+  --fl-success:           #22C55E;
+  --fl-info:              #3B82F6;
+
+  /* Macro bar specific (seen throughout dashboard) */
+  --fl-macro-protein:     #3B82F6;   /* blue */
+  --fl-macro-carbs:       #F59E0B;   /* amber */
+  --fl-macro-fat:         #EAB308;   /* yellow */
+  --fl-macro-burn:        #F97316;   /* orange */
+  --fl-macro-cals:        #2DD4BF;   /* teal (primary) */
+
+  /* ── RADII ──────────────────────────────────────────────── */
+  --fl-radius-sm:         0.25rem;   /* 4px */
+  --fl-radius-md:         0.5rem;    /* 8px */
+  --fl-radius-lg:         0.75rem;   /* 12px */
+  --fl-radius-xl:         1rem;      /* 16px — inputs, buttons */
+  --fl-radius-2xl:        1.5rem;    /* 24px — cards, primary surface */
+  --fl-radius-pill:       9999px;
+
+  /* ── SHADOWS ────────────────────────────────────────────── */
+  --fl-shadow-card:       0 10px 30px -12px rgba(0, 0, 0, 0.4);
+  --fl-shadow-card-lg:    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --fl-shadow-glow:       0 0 20px rgba(45, 212, 191, 0.15);
+  --fl-shadow-glow-lg:    0 0 40px rgba(45, 212, 191, 0.25);
+
+  /* ── SPACING (tailwind-aligned) ─────────────────────────── */
+  --fl-space-1:           0.25rem;
+  --fl-space-2:           0.5rem;
+  --fl-space-3:           0.75rem;
+  --fl-space-4:           1rem;
+  --fl-space-5:           1.25rem;
+  --fl-space-6:           1.5rem;
+  --fl-space-8:           2rem;
+  --fl-space-10:          2.5rem;
+  --fl-space-12:          3rem;
+
+  /* ── TYPE SYSTEM ────────────────────────────────────────── */
+  --fl-font-sans:         'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --fl-font-arabic:       'Cairo', sans-serif;
+
+  /* Display / hero */
+  --fl-display-size:      3rem;       /* 48px */
+  --fl-display-weight:    700;
+  --fl-display-tracking:  -0.02em;
+  --fl-display-lh:        1.05;
+
+  /* H1 — page titles */
+  --fl-h1-size:           2.25rem;    /* 36px */
+  --fl-h1-weight:         700;
+  --fl-h1-tracking:       -0.02em;
+  --fl-h1-lh:             1.1;
+
+  /* H2 — section titles */
+  --fl-h2-size:           1.5rem;     /* 24px */
+  --fl-h2-weight:         600;
+  --fl-h2-tracking:       -0.015em;
+  --fl-h2-lh:             1.2;
+
+  /* H3 — card titles */
+  --fl-h3-size:           1.125rem;   /* 18px */
+  --fl-h3-weight:         600;
+  --fl-h3-tracking:       -0.01em;
+  --fl-h3-lh:             1.3;
+
+  /* Body */
+  --fl-body-size:         0.875rem;   /* 14px */
+  --fl-body-weight:       400;
+  --fl-body-lh:           1.5;
+
+  /* Small / label */
+  --fl-small-size:        0.75rem;    /* 12px */
+  --fl-small-weight:      500;
+  --fl-small-lh:          1.4;
+
+  /* Tiny / overline */
+  --fl-tiny-size:         0.625rem;   /* 10px */
+  --fl-tiny-weight:       600;
+  --fl-tiny-tracking:     0.1em;
+  --fl-tiny-lh:           1.3;
+
+  /* Data / metric */
+  --fl-metric-size:       2.5rem;     /* 40px */
+  --fl-metric-weight:     700;
+  --fl-metric-tracking:   -0.03em;
+
+  /* ── MOTION ─────────────────────────────────────────────── */
+  --fl-ease-out:          cubic-bezier(0.16, 1, 0.3, 1);
+  --fl-ease-in-out:       cubic-bezier(0.65, 0, 0.35, 1);
+  --fl-spring:            cubic-bezier(0.34, 1.56, 0.64, 1);
+  --fl-dur-fast:          150ms;
+  --fl-dur-base:          300ms;
+  --fl-dur-slow:          500ms;
+}
+
+/* ── SEMANTIC ELEMENT STYLES ──────────────────────────────── */
+
+.fl-h1 {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-h1-size);
+  font-weight: var(--fl-h1-weight);
+  letter-spacing: var(--fl-h1-tracking);
+  line-height: var(--fl-h1-lh);
+  color: var(--fl-fg);
+}
+
+.fl-h2 {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-h2-size);
+  font-weight: var(--fl-h2-weight);
+  letter-spacing: var(--fl-h2-tracking);
+  line-height: var(--fl-h2-lh);
+  color: var(--fl-fg);
+}
+
+.fl-h3 {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-h3-size);
+  font-weight: var(--fl-h3-weight);
+  letter-spacing: var(--fl-h3-tracking);
+  line-height: var(--fl-h3-lh);
+  color: var(--fl-fg);
+}
+
+.fl-display {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-display-size);
+  font-weight: var(--fl-display-weight);
+  letter-spacing: var(--fl-display-tracking);
+  line-height: var(--fl-display-lh);
+  color: var(--fl-fg);
+}
+
+.fl-body {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-body-size);
+  font-weight: var(--fl-body-weight);
+  line-height: var(--fl-body-lh);
+  color: var(--fl-fg);
+}
+
+.fl-body-muted {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-body-size);
+  font-weight: var(--fl-body-weight);
+  line-height: var(--fl-body-lh);
+  color: var(--fl-fg-muted);
+}
+
+.fl-label {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-small-size);
+  font-weight: var(--fl-small-weight);
+  line-height: var(--fl-small-lh);
+  color: var(--fl-fg-muted);
+}
+
+/* Overline — used heavily for section headers ("AM I ON TRACK?") */
+.fl-overline {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-tiny-size);
+  font-weight: var(--fl-tiny-weight);
+  letter-spacing: var(--fl-tiny-tracking);
+  line-height: var(--fl-tiny-lh);
+  text-transform: uppercase;
+  color: var(--fl-fg-muted);
+}
+
+/* Metric — used for large data points */
+.fl-metric {
+  font-family: var(--fl-font-sans);
+  font-size: var(--fl-metric-size);
+  font-weight: var(--fl-metric-weight);
+  letter-spacing: var(--fl-metric-tracking);
+  color: var(--fl-primary);
+}

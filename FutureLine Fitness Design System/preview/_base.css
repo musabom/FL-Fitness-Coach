@@ -1,0 +1,21 @@
+@import url('../colors_and_type.css');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+  font-family: var(--fl-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  padding: 24px;
+  width: 700px;
+  box-sizing: border-box;
+  background: var(--fl-bg);
+}
+
+.row { display: flex; gap: 12px; align-items: center; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.grow { flex: 1; }

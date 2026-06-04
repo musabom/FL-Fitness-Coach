@@ -64,3 +64,4 @@ Thumbs.db
 
 # Local asset folders not part of source
 Y\ Gym\ Picture/
+.gstack/

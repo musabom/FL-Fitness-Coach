@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FutureLine Fitness — App UI Kit</title>
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0; background: #050A18;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #F0F6FF; -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 20%, rgba(45,212,191,0.12), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59,130,246,0.08), transparent 60%);
+    }
+    .page {
+      position: relative; z-index: 1;
+      padding: 48px 32px;
+      display: flex; flex-direction: column; gap: 48px;
+      max-width: 1400px; margin: 0 auto;
+    }
+    .hero {
+      display: flex; gap: 40px; align-items: center;
+    }
+    .hero-text h1 {
+      margin: 0; font-size: 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05;
+    }
+    .hero-text p { margin: 12px 0 0; color: #7B95B8; font-size: 15px; max-width: 440px; line-height: 1.5; }
+    .logo-chip {
+      width: 88px; height: 88px; border-radius: 24px; background: #fff;
+      padding: 8px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 60px rgba(45,212,191,0.2);
+    }
+    .logo-chip img { width: 100%; height: 100%; object-fit: contain; }
+    .tablabel {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+      color: #7B95B8; margin-bottom: 10px;
+    }
+
+    .flow {
+      display: flex; gap: 24px; overflow-x: auto; padding-bottom: 16px;
+      scroll-snap-type: x mandatory;
+    }
+    .flow-item {
+      flex-shrink: 0; scroll-snap-align: start;
+      display: flex; flex-direction: column; gap: 14px; align-items: center;
+    }
+    .flow-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #7B95B8;
+    }
+    .flow-title {
+      font-size: 16px; font-weight: 600; color: #F0F6FF;
+    }
+    .frame-wrap {
+      transform: scale(0.82); transform-origin: top center;
+      margin-bottom: -140px;
+    }
+
+    .nav-pills {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .nav-pills button {
+      padding: 10px 16px; border-radius: 12px; border: 1px solid #1B3260;
+      background: #0F1F3D; color: #F0F6FF; font-family: inherit; font-size: 13px;
+      font-weight: 500; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+      transition: all 150ms ease;
+    }
+    .nav-pills button.active {
+      background: rgba(45,212,191,0.1); border-color: #2DD4BF; color: #2DD4BF;
+    }
+    .nav-pills button:hover:not(.active) {
+      border-color: #2DD4BF; color: #F0F6FF;
+    }
+
+    .single-frame {
+      display: flex; justify-content: center; padding-top: 16px;
+    }
+
+    .components-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+    }
+    .comp-card {
+      background: #0F1F3D; border: 1px solid rgba(240,246,255,0.05); border-radius: 20px;
+      padding: 20px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .comp-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #7B95B8;
+    }
+    .comp-body { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="page">
+
+    <div class="hero">
+      <div class="logo-chip"><img src="../../assets/logo.png" alt="FutureLine"></div>
+      <div class="hero-text">
+        <h1>FutureLine Fitness<br><span style="color:#2DD4BF">App UI Kit</span></h1>
+        <p>The dark-navy + teal glow mobile experience. Onboarding, dashboard, training, nutrition and progress — pixel-faithful to the production app.</p>
+      </div>
+    </div>
+
+    <div class="single-frame" id="app-root"></div>
+
+    <div>
+      <div class="tablabel">Component Library</div>
+      <div class="components-grid" id="components"></div>
+    </div>
+
+  </div>
+
+  <script type="text/babel" src="ios-frame.jsx"></script>
+  <script type="text/babel" src="FLComponents.jsx"></script>
+  <script type="text/babel" src="FLScreens.jsx"></script>
+
+  <script type="text/babel">
+    const SCREENS = [
+      { key: 'login',       label: 'Login',       icon: 'log-in' },
+      { key: 'onboarding',  label: 'Onboarding',  icon: 'sparkles' },
+      { key: 'dashboard',   label: 'Dashboard',   icon: 'layout-dashboard' },
+      { key: 'meals',       label: 'Meal Plan',   icon: 'utensils-crossed' },
+      { key: 'workout',     label: 'Workout',     icon: 'dumbbell' },
+      { key: 'progress',    label: 'Progress',    icon: 'trending-up' },
+    ];
+
+    function App() {
+      const [screen, setScreen] = React.useState(() => localStorage.getItem('fl_screen') || 'dashboard');
+      React.useEffect(() => { localStorage.setItem('fl_screen', screen); }, [screen]);
+      React.useEffect(() => { window.lucide && window.lucide.createIcons(); }, [screen]);
+
+      const renderScreen = () => {
+        switch (screen) {
+          case 'login':      return <LoginScreen onLogin={() => setScreen('dashboard')} />;
+          case 'onboarding': return <OnboardingScreen onContinue={() => setScreen('dashboard')} />;
+          case 'dashboard':  return <DashboardScreen onNav={k => setScreen(k === 'workouts' ? 'workout' : k)} onOpenWorkout={() => setScreen('workout')} />;
+          case 'meals':      return <MealPlanScreen onNav={k => setScreen(k === 'workouts' ? 'workout' : k)} />;
+          case 'workout':    return <WorkoutScreen onBack={() => setScreen('dashboard')} />;
+          case 'progress':   return <ProgressScreen onNav={k => setScreen(k === 'workouts' ? 'workout' : k)} />;
+          default: return null;
+        }
+      };
+
+      return (
+        <>
+          <div className="nav-pills">
+            {SCREENS.map(s => (
+              <button key={s.key} className={screen === s.key ? 'active' : ''} onClick={() => setScreen(s.key)}>
+                <i data-lucide={s.icon} style={{ width: 14, height: 14 }}></i>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ height: 24 }} />
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <IOSDevice dark width={390} height={800}>{renderScreen()}</IOSDevice>
+          </div>
+        </>
+      );
+    }
+
+    function Components() {
+      const [goal, setGoal] = React.useState('cut');
+      const [tab, setTab] = React.useState('daily');
+      const cards = [
+        { label: 'Buttons', body: (
+          <>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <FLButton variant="primary">Sign in</FLButton>
+              <FLButton variant="outline">Cancel</FLButton>
+              <FLButton variant="ghost">Skip</FLButton>
+            </div>
+            <FLButton variant="destructive" icon="alert-triangle">Delete account</FLButton>
+          </>
+        )},
+        { label: 'Input', body: (
+          <div style={{width:'100%'}}><FLInput label="Email" placeholder="you@example.com" /></div>
+        )},
+        { label: 'Badges', body: (
+          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            <FLBadge>Active</FLBadge>
+            <FLBadge variant="secondary">Beta</FLBadge>
+            <FLBadge variant="destructive">3</FLBadge>
+            <FLBadge variant="outline">Nutrition</FLBadge>
+            <FLBadge variant="tinted">★ Coach-approved</FLBadge>
+          </div>
+        )},
+        { label: 'Segmented tabs', body: (
+          <FLTabs items={[{key:'daily',label:'Daily'},{key:'weekly',label:'Weekly'}]} active={tab} onChange={setTab} />
+        )},
+        { label: 'Option card', body: (
+          <div style={{width:'100%'}}>
+            <FLOptionCard icon="trending-down" title="Cut" description="Moderate deficit" selected={goal==='cut'} onClick={() => setGoal('cut')} />
+          </div>
+        )},
+        { label: 'Macro bar', body: (
+          <div style={{width:'100%'}}><MacroBar label="Protein" consumed={168} planned={165} color={FL.protein} /></div>
+        )},
+        { label: 'Stat tile', body: (
+          <div style={{width:'100%'}}><StatTile icon="flame" label="Avg deficit" value="380" unit="kcal/day" color={FL.primary} /></div>
+        )},
+        { label: 'Banner (primary)', body: (
+          <div style={{width:'100%'}}><FLBanner variant="primary" icon="user-check" title="Your Coach" message="Focus on bar path today." /></div>
+        )},
+        { label: 'Banner (destructive)', body: (
+          <div style={{width:'100%'}}><FLBanner variant="destructive" icon="alert-triangle" title="Account Deactivated" message="Contact your admin." /></div>
+        )},
+      ];
+      React.useEffect(() => { window.lucide && window.lucide.createIcons(); });
+      return (
+        <>
+          {cards.map((c, i) => (
+            <div key={i} className="comp-card">
+              <div className="comp-label">{c.label}</div>
+              <div className="comp-body">{c.body}</div>
+            </div>
+          ))}
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('app-root')).render(
+      <div style={{width:'100%', display:'flex', flexDirection:'column', alignItems:'center'}}>
+        <div style={{width:'100%', maxWidth: 1200}}>
+          <div className="tablabel" style={{marginBottom: 10}}>Screens · Tap to switch</div>
+          <App />
+        </div>
+      </div>
+    );
+    ReactDOM.createRoot(document.getElementById('components')).render(<Components />);
+  </script>
+</body>
+</html>
