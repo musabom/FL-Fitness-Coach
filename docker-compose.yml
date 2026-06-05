@@ -1,0 +1,36 @@
+# FL Fitness Coach — self-contained deploy: the app + its own Postgres.
+# Secrets come from a server-only .env file (DB_PASSWORD, SESSION_SECRET);
+# .env is gitignored and never committed.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: fl_fitness
+    volumes:
+      - fl_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fl_fitness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      PUBLIC_DIR: /app/artifacts/web/dist/public
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/fl_fitness
+      SESSION_SECRET: ${SESSION_SECRET}
+    ports:
+      - "80:8080"
+
+volumes:
+  fl_db:

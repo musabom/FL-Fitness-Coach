@@ -1,0 +1,14 @@
+# Keep the build context small (faster, less memory on small VPSes).
+.git
+.claude
+node_modules
+**/node_modules
+artifacts/*/dist
+**/dist
+.env
+*.log
+.DS_Store
+# Large folders not needed to build/run the app
+attached_assets
+Y Gym Picture
+FutureLine Fitness Design System
