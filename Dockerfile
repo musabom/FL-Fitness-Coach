@@ -9,7 +9,7 @@ WORKDIR /app
 RUN npm install -g pnpm@9
 
 COPY . .
-RUN pnpm install --frozen-lockfile \
+RUN pnpm install --no-frozen-lockfile \
  && PORT=10000 BASE_PATH=/ pnpm --filter @workspace/web build \
  && pnpm --filter @workspace/api-server build
 
