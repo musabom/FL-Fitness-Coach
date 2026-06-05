@@ -29,8 +29,10 @@ services:
       PUBLIC_DIR: /app/artifacts/web/dist/public
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/fl_fitness
       SESSION_SECRET: ${SESSION_SECRET}
+    # Bind to loopback only; a reverse proxy (e.g. Caddy/nginx) fronts it.
+    # APP_PORT picks the host port so multiple apps can coexist on one box.
     ports:
-      - "80:8080"
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
 
 volumes:
   fl_db:
