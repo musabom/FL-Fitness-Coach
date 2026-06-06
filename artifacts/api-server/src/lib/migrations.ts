@@ -272,6 +272,15 @@ async function runMigrationsInternal(): Promise<void> {
     UPDATE exercises SET image_url = '/exercises/5-lunges_1773909454016.png'                      WHERE exercise_name = 'Lunges'                       AND image_url IS NULL;
     UPDATE exercises SET image_url = '/exercises/6-hip_adductor_machine_1773909454016.png'        WHERE exercise_name = 'Hip Adductor Machine'         AND image_url IS NULL;
     UPDATE exercises SET image_url = '/exercises/7-Calf_raise_machine_1773909454016.png'          WHERE exercise_name = 'Calf Raise Machine'           AND image_url IS NULL;
+
+    -- Free-licensed photos (Wikimedia Commons / Openverse). See public/exercises/ATTRIBUTION.md.
+    UPDATE exercises SET image_url = '/exercises/tricep-dip-machine.jpg' WHERE exercise_name = 'Tricep Dip Machine' AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/treadmill-walk.jpg'     WHERE exercise_name = 'Treadmill Walk'     AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/treadmill-run.jpg'      WHERE exercise_name = 'Treadmill Run'      AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/elliptical.jpg'         WHERE exercise_name = 'Elliptical'         AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/stationary-bike.jpg'    WHERE exercise_name = 'Stationary Bike'    AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/rowing-machine.jpg'     WHERE exercise_name = 'Rowing Machine'     AND image_url IS NULL;
+    UPDATE exercises SET image_url = '/exercises/jump-rope.jpg'          WHERE exercise_name = 'Jump Rope'          AND image_url IS NULL;
   `);
 
   // ── Workout Tables ──────────────────────────────────────────────────────────
