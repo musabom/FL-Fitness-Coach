@@ -9,6 +9,21 @@ export async function runMigrations(): Promise<void> {
 }
 
 async function runMigrationsInternal(): Promise<void> {
+  // ── Session store ─────────────────────────────────────────────────────────────
+  // connect-pg-simple stores sessions here. We create the table explicitly
+  // instead of relying on its `createTableIfMissing`, which reads a bundled
+  // table.sql that is absent from the esbuild production bundle (ENOENT there
+  // wedges the session store, so logins silently fail with "Not authenticated").
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "session" (
+      "sid" varchar NOT NULL,
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL,
+      CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`);
+
   // ── Enum Safety ──────────────────────────────────────────────────────────────
   // goal_mode is stored as VARCHAR(20) in this schema, but some deployments may
   // use a native PostgreSQL enum type. This block safely adds 'custom' if the

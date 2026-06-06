@@ -34,7 +34,11 @@ const PgSession = connectPgSimple(session);
 const sessionStore = new PgSession({
   pool,
   tableName: "session",
-  createTableIfMissing: true,
+  // Do NOT use createTableIfMissing: it reads connect-pg-simple's table.sql,
+  // which is not bundled by esbuild in production (ENOENT wedges the store and
+  // every session read/write fails -> users see "Not authenticated"). The
+  // session table is created in runMigrations() instead.
+  createTableIfMissing: false,
 });
 
 app.use(
