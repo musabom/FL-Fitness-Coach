@@ -28,6 +28,7 @@ interface Exercise {
   equipment: string;
   met_value?: number;
   is_custom?: boolean;
+  image_url?: string | null;
 }
 
 interface WorkoutExercise {
@@ -438,7 +439,7 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
                 </div>
               )}
               {exercises.map(ex => {
-                const imgUrl = getExerciseImageUrl(ex.exercise_name);
+                const imgUrl = ex.image_url || getExerciseImageUrl(ex.exercise_name);
                 return (
                   <button
                     key={ex.id}
@@ -470,9 +471,9 @@ function AddExerciseSheet({ workoutId, open, onClose, onOpenCustomExercise }: Ad
         ) : (
           <div className="overflow-y-auto flex-1 px-4 pb-20 space-y-4">
             {/* Exercise image */}
-            {getExerciseImageUrl(selectedExercise.exercise_name) && (
+            {(selectedExercise.image_url || getExerciseImageUrl(selectedExercise.exercise_name)) && (
               <img
-                src={getExerciseImageUrl(selectedExercise.exercise_name)!}
+                src={(selectedExercise.image_url || getExerciseImageUrl(selectedExercise.exercise_name))!}
                 alt={selectedExercise.exercise_name}
                 className="w-full h-48 rounded-xl object-cover bg-white/5"
               />
