@@ -54,6 +54,7 @@ interface PlanExercise {
   id: number;
   workout_id: number;
   exercise_name: string;
+  image_url?: string | null;
   muscle_primary: string;
   exercise_type: "strength" | "cardio";
   equipment: string;
@@ -227,7 +228,7 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onVi
           {workout.exercises.map(ex => {
             const isCardio = ex.exercise_type === "cardio";
             const equip = EQUIPMENT_ICONS[ex.equipment] ?? "";
-            const imgUrl = getExerciseImageUrl(ex.exercise_name);
+            const imgUrl = ex.image_url || getExerciseImageUrl(ex.exercise_name);
             return (
               <div key={ex.id} className={`flex items-center gap-3 py-2.5 ${ex.completed ? "opacity-50" : ""}`}>
                 <button onClick={() => onToggleExercise(ex.id)} className="shrink-0 text-muted-foreground hover:text-primary transition-colors">

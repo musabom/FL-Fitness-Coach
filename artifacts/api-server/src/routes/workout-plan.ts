@@ -41,7 +41,7 @@ async function getWorkoutSummary(workoutId: number, weightKg: number) {
   if (!workoutRes.rows.length) return null;
 
   const exercisesRes = await pool.query(
-    `SELECT we.*, e.exercise_name, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
+    `SELECT we.*, e.exercise_name, e.muscle_primary, e.exercise_type, e.met_value, e.equipment, e.image_url
      FROM workout_exercises we
      JOIN exercises e ON we.exercise_id = e.id
      WHERE we.workout_id = $1
@@ -65,6 +65,7 @@ async function getWorkoutSummary(workoutId: number, weightKg: number) {
       workout_id: e.workout_id,
       exercise_id: e.exercise_id,
       exercise_name: e.exercise_name,
+      image_url: e.image_url ?? null,
       muscle_primary: e.muscle_primary,
       exercise_type: e.exercise_type,
       equipment: e.equipment,

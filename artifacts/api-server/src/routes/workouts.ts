@@ -99,7 +99,7 @@ router.get("/workouts", async (req, res) => {
   if (ids.length === 0) return res.json([]);
 
   const exercisesRes = await pool.query(`
-    SELECT we.*, e.exercise_name, e.name_arabic, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
+    SELECT we.*, e.exercise_name, e.name_arabic, e.muscle_primary, e.exercise_type, e.met_value, e.equipment, e.image_url
     FROM workout_exercises we
     JOIN exercises e ON we.exercise_id = e.id
     WHERE we.workout_id = ANY($1)
@@ -266,7 +266,7 @@ router.get("/workouts/day/:day", async (req, res) => {
 
   const workoutsRes = await pool.query(`SELECT * FROM user_workouts WHERE id = ANY($1)`, [ids]);
   const exercisesRes = await pool.query(`
-    SELECT we.*, e.exercise_name, e.name_arabic, e.muscle_primary, e.exercise_type, e.met_value, e.equipment
+    SELECT we.*, e.exercise_name, e.name_arabic, e.muscle_primary, e.exercise_type, e.met_value, e.equipment, e.image_url
     FROM workout_exercises we
     JOIN exercises e ON we.exercise_id = e.id
     WHERE we.workout_id = ANY($1)
