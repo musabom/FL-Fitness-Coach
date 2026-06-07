@@ -680,6 +680,15 @@ export function CycleProgramContent() {
         )}
       </div>
 
+      {trainingMode !== 'cycle' && hasWorkouts && (
+        <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+          <p className="text-sm font-semibold text-amber-300">Cycle mode is off</p>
+          <p className="text-xs text-amber-200/70 mt-0.5">
+            Your Workouts &amp; Today still follow the fixed weekly schedule. Turn on Cycle mode above for this sequence to drive your plan.
+          </p>
+        </div>
+      )}
+
       {/* Start date */}
       <div className="px-4 py-3 rounded-xl bg-[#0F1F3D] border border-border/40">
         <p className="text-xs font-medium text-muted-foreground uppercase mb-1.5">Cycle Start Date</p>
@@ -787,7 +796,7 @@ export function CycleProgramContent() {
           </p>
 
           {displaySlots.map((slot, idx) => {
-            const isToday = todaySlotPosition === slot.position && !todayIsCalendarRest;
+            const isToday = todaySlotPosition === slot.position && !todayIsCalendarRest && trainingMode === 'cycle';
 
             return (
               <div
