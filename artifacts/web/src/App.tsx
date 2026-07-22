@@ -15,6 +15,7 @@ import Signup from "./pages/signup";
 import ForgotPassword from "./pages/forgot-password";
 import ResetPassword from "./pages/reset-password";
 import Onboarding from "./pages/onboarding";
+import Today from "./pages/today";
 import Dashboard from "./pages/dashboard";
 import ProfileEdit from "./pages/profile-edit";
 import NutritionMeals from "./pages/nutrition-meals";
@@ -78,7 +79,7 @@ function RootRedirect() {
 
   useEffect(() => {
     if (user?.role === "member") {
-      setLocation(user.hasProfile ? "/dashboard" : "/onboarding");
+      setLocation(user.hasProfile ? "/today" : "/onboarding");
     } else if (user?.role === "coach") {
       setLocation("/coach/clients");
     } else if (user?.role === "admin") {
@@ -111,7 +112,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       } else if (user.role === "coach") {
         setLocation("/coach/clients");
       } else {
-        setLocation("/dashboard");
+        setLocation("/today");
       }
       return;
     }
@@ -121,9 +122,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       if (!user.hasProfile && location !== "/onboarding") {
         setLocation("/onboarding");
       } else if (user.hasProfile && location === "/onboarding") {
-        setLocation("/dashboard");
+        setLocation("/today");
       } else if (user.hasProfile && location === "/") {
-        setLocation("/dashboard");
+        setLocation("/today");
       }
     }
 
@@ -190,6 +191,7 @@ function Router() {
         <Route path="/coach/services" component={CoachServicesPage} />
 
         {/* Member + Coach client view */}
+        <Route path="/today" component={Today} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/profile/edit" component={ProfileEdit} />
         <Route path="/nutrition/meals" component={NutritionMeals} />

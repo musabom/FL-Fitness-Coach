@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, TrendingUp, CalendarDays, Dumbbell,
-  UtensilsCrossed, ShoppingCart, ArrowLeft,
+  Home, LayoutDashboard, TrendingUp, CalendarDays, Dumbbell, ArrowLeft,
 } from "lucide-react";
 import { useCoachClient } from "@/context/coach-client-context";
 import { useLanguage } from "@/context/language-context";
@@ -12,13 +11,11 @@ export default function BottomNav() {
   const { t } = useLanguage();
 
   const NAV_ITEMS = [
-    { href: "/dashboard",              icon: LayoutDashboard,  label: t("nav.dashboard") },
-    { href: "/nutrition/meal-plan",    icon: CalendarDays,     label: t("nav.meals") },
-    { href: "/training/plan",          icon: Dumbbell,         label: t("nav.workouts") },
-    { href: "/progress",               icon: TrendingUp,       label: t("nav.progress") },
-    { href: "/nutrition/meals",        icon: UtensilsCrossed,  label: t("nav.builder") },
-    { href: "/training/builder",       icon: Dumbbell,         label: t("nav.exercise") },
-    { href: "/nutrition/shopping-list",icon: ShoppingCart,     label: t("nav.shop") },
+    { href: "/today",               icon: Home,            label: t("nav.today") },
+    { href: "/nutrition/meal-plan", icon: CalendarDays,    label: t("nav.meals") },
+    { href: "/training/plan",       icon: Dumbbell,        label: t("nav.training") },
+    { href: "/progress",            icon: TrendingUp,      label: t("nav.progress") },
+    { href: "/dashboard",           icon: LayoutDashboard, label: t("nav.stats") },
   ];
 
   const isActive = (href: string) =>
