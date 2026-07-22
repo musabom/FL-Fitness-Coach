@@ -89,13 +89,13 @@ interface LibraryMeal {
 
 // ── Macro pill ────────────────────────────────────────────────────────────────
 
-function MacroPill({ label, value, unit, accent = false }: { label: string; value: number; unit: string; accent?: boolean }) {
+function MacroPill({ label, value, unit, accent = false, color }: { label: string; value: number; unit: string; accent?: boolean; color?: string }) {
   return (
-    <div className={`flex-1 rounded-xl px-2 py-2.5 text-center ${accent ? "bg-primary/15 border border-primary/30" : "bg-[#0F1F3D]"}`}>
-      <div className={`text-base font-bold tabular-nums ${accent ? "text-primary" : "text-foreground"}`}>
-        {Math.round(value)}<span className="text-[10px] font-medium ml-0.5">{unit}</span>
+    <div className={`flex-1 rounded-xl px-1.5 py-2 text-center border ${accent ? "bg-primary/15 border-primary/30" : "bg-[#0B1630]/70 border-white/5"}`}>
+      <div className={`text-sm font-bold tabular-nums ${accent ? "text-primary" : "text-foreground"}`} style={!accent && color ? { color } : undefined}>
+        {Math.round(value)}<span className="text-[9px] font-medium ml-0.5 text-muted-foreground">{unit}</span>
       </div>
-      <div className="text-[10px] text-muted-foreground mt-0.5">{label}</div>
+      <div className="text-[9px] text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
 }
@@ -166,7 +166,7 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
   return (
     <Card className={`bg-[#0F1F3D] border-[rgba(240,246,255,0.06)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)] overflow-hidden transition-all ${entry.completed ? "opacity-60" : ""}`}>
       {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-3.5">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-2.5">
         <button onClick={onToggleComplete} className="shrink-0 text-muted-foreground hover:text-primary transition-colors" aria-label={entry.completed ? "Mark incomplete" : "Mark complete"}>
           {entry.completed
             ? <CheckCircle2 className="w-6 h-6 text-primary" />
@@ -174,18 +174,27 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
         </button>
 
         <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left min-w-0">
-          <p className={`font-semibold text-sm break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+          <p className={`font-bold text-[15px] break-words ${entry.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
             {meal.meal_name}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {Math.round(meal.totals.calories)} kcal · {Math.round(meal.totals.protein_g)}g P · {Math.round(meal.totals.carbs_g)}g C · {Math.round(meal.totals.fat_g)}g F
-          </p>
-          {total > 0 && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{completedCount}/{total} eaten</p>}
+          {total > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {total} food{total !== 1 ? "s" : ""} · {completedCount}/{total} eaten
+            </p>
+          )}
         </button>
 
         <button onClick={onRemove} className="shrink-0 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove meal">
           <Trash2 className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Macro pills */}
+      <div className="flex gap-1.5 px-4 pb-3">
+        <MacroPill label="Cal" value={meal.totals.calories} unit="" accent />
+        <MacroPill label="Protein" value={meal.totals.protein_g} unit="g" color="#3B82F6" />
+        <MacroPill label="Carbs" value={meal.totals.carbs_g} unit="g" color="#F59E0B" />
+        <MacroPill label="Fat" value={meal.totals.fat_g} unit="g" color="#EAB308" />
       </div>
 
       {/* Portion progress bar */}
@@ -241,20 +250,24 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
 
       {/* Tap to expand hint */}
       {!expanded && meal.portions.length > 0 && (
-        <button onClick={() => setExpanded(true)} className="w-full text-center text-[10px] text-muted-foreground/50 pb-2 hover:text-muted-foreground transition-colors">
+        <button onClick={() => setExpanded(true)} className="w-full text-center text-[10px] text-muted-foreground/50 pb-1 hover:text-muted-foreground transition-colors">
           {meal.portions.length} food{meal.portions.length !== 1 ? "s" : ""} · tap to view
         </button>
       )}
 
-      {/* Mark all eaten button when expanded */}
-      {expanded && total > 0 && !entry.completed && (
-        <div className="px-4 pb-3 pt-1">
-          <button onClick={onToggleComplete}
-            className={`w-full text-center rounded-xl py-2.5 text-xs font-semibold transition-all border ${completedCount === total ? "bg-primary/20 text-primary border-primary/40" : "bg-muted text-muted-foreground border-border/30"}`}>
-            {completedCount === total ? "Mark Meal Complete" : `Mark All Eaten (${total - completedCount} remaining)`}
-          </button>
-        </div>
-      )}
+      {/* Log meal CTA */}
+      <div className="px-4 pb-4 pt-1.5">
+        <button
+          onClick={onToggleComplete}
+          className={`w-full text-center rounded-2xl py-3 text-sm font-bold transition-all ${
+            entry.completed
+              ? "bg-primary/10 text-primary border border-primary/30"
+              : "bg-primary text-[#081025] shadow-[0_6px_20px_-6px_rgba(45,212,191,0.5)] active:scale-[0.99]"
+          }`}
+        >
+          {entry.completed ? "Logged ✓ · tap to undo" : "Log Meal"}
+        </button>
+      </div>
     </Card>
   );
 }
