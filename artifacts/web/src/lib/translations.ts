@@ -291,6 +291,8 @@ const en = {
     meals: "meals",
     exercises: "exercises",
     maintenanceTip: "Dashed line = maintenance calories · Solid teal = daily deficit.",
+    atAGlance: "At a glance",
+    avg: "avg",
   },
   mealPlan: {
     title: "Meal Plan",
@@ -811,6 +813,8 @@ const ar: typeof en = {
     meals: "وجبات",
     exercises: "تمارين",
     maintenanceTip: "الخط المتقطع = معدل الحرق الطبيعي · الخط الثابت = العجز اليومي.",
+    atAGlance: "نظرة سريعة",
+    avg: "متوسط",
   },
   mealPlan: {
     title: "خطة الوجبات",

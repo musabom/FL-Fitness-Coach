@@ -65,6 +65,46 @@ function CustomTooltip({ active, payload, label, unit = "" }: CustomTooltipProps
   );
 }
 
+// ── Sparkline stat cards (at-a-glance grid) ───────────────────────────────────
+
+function Sparkline({ points, color, height = 28 }: { points: number[]; color: string; height?: number }) {
+  if (points.length < 2) {
+    return <div className="rounded bg-white/[0.03]" style={{ height }} />;
+  }
+  const w = 100;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const step = w / (points.length - 1);
+  const coords = points.map((p, i) =>
+    `${(i * step).toFixed(1)},${(height - 3 - ((p - min) / range) * (height - 6)).toFixed(1)}`
+  );
+  const [lx, ly] = coords[coords.length - 1].split(",");
+  return (
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full block" style={{ height }} preserveAspectRatio="none" aria-hidden>
+      <polyline points={coords.join(" ")} fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <circle cx={lx} cy={ly} r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+function StatCard({ label, value, unit, sub, points, color }: {
+  label: string; value: string; unit?: string; sub?: string; points: number[]; color: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-[#0F1F3D] border border-[rgba(240,246,255,0.06)] p-3.5 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.4)]">
+      <p className="text-[9px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">{label}</p>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="text-xl font-bold tabular-nums text-foreground leading-none">{value}</span>
+        {unit && <span className="text-[10px] text-muted-foreground">{unit}</span>}
+      </div>
+      {sub && <p className="text-[9px] text-muted-foreground mt-1 truncate">{sub}</p>}
+      <div className="mt-2"><Sparkline points={points} color={color} /></div>
+    </div>
+  );
+}
+
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -133,6 +173,57 @@ export default function Progress() {
       </header>
 
       <main className="px-5 pt-6 space-y-8">
+
+        {/* ── At a glance: sparkline stat cards ───────────────────────────────── */}
+        {(() => {
+          const weightPoints = weightHistory.slice(-14).map(w => w.weight_kg);
+          const mealActive = mealCompliance.filter(d => d.planned > 0);
+          const mealPct = mealActive.length
+            ? Math.round((mealActive.reduce((s, d) => s + d.completed, 0) / mealActive.reduce((s, d) => s + d.planned, 0)) * 100)
+            : null;
+          const mealPoints = mealActive.slice(-14).map(d => d.planned > 0 ? d.completed / d.planned : 0);
+          const workoutActive = workoutCompliance.filter(d => d.planned > 0);
+          const workoutPct = workoutActive.length
+            ? Math.round((workoutActive.reduce((s, d) => s + d.completed, 0) / workoutActive.reduce((s, d) => s + d.planned, 0)) * 100)
+            : null;
+          const workoutPoints = workoutActive.slice(-14).map(d => d.planned > 0 ? d.completed / d.planned : 0);
+          const deficitPoints = dailyDeficit.slice(-14).map(d => d.daily_deficit);
+          const recentDeficit = dailyDeficit.slice(-7);
+          const avgDeficit = recentDeficit.length
+            ? Math.round(recentDeficit.reduce((s, d) => s + d.daily_deficit, 0) / recentDeficit.length)
+            : null;
+          return (
+            <section className="space-y-3">
+              <p className="text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground">{t("progress.atAGlance")}</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <StatCard
+                  label={t("progress.weight")}
+                  value={currentWeight !== null ? `${currentWeight}` : "—"}
+                  unit={t("common.kg")}
+                  sub={weightChange !== null ? `${weightChange > 0 ? "+" : ""}${weightChange} ${t("common.kg")} ${t("progress.sinceStart")}` : undefined}
+                  points={weightPoints} color={TEAL}
+                />
+                <StatCard
+                  label={t("progress.dailyDeficit")}
+                  value={avgDeficit !== null ? `${avgDeficit}` : "—"}
+                  unit={t("common.kcal")}
+                  sub={avgDeficit !== null ? `7d ${t("progress.avg")}` : undefined}
+                  points={deficitPoints} color="#F97316"
+                />
+                <StatCard
+                  label={t("progress.mealCompliance")}
+                  value={mealPct !== null ? `${mealPct}%` : "—"}
+                  points={mealPoints} color="#3B82F6"
+                />
+                <StatCard
+                  label={t("progress.workoutCompliance")}
+                  value={workoutPct !== null ? `${workoutPct}%` : "—"}
+                  points={workoutPoints} color="#C792EA"
+                />
+              </div>
+            </section>
+          );
+        })()}
 
         {/* ── Chart 1: Weight ─────────────────────────────────────────────────── */}
         <section className="space-y-3">
