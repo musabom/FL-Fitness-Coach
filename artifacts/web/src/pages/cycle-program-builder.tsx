@@ -448,6 +448,10 @@ interface UserCycle {
   rest_day_mode: string;
   rest_days_of_week: number[];
   slots: Array<{ id: number; position: number; workout_id: number | null; workout_name: string | null }>;
+  round?: Array<{
+    date: string; position: number; workout_id: number;
+    workout_name: string | null; completed: boolean; is_today: boolean;
+  }>;
 }
 
 // ── Calendar-based rest-day helpers (mirrors server logic) ────────────────────
@@ -791,6 +795,56 @@ export function CycleProgramContent() {
         </div>
       ) : (
         <div className="space-y-2">
+          {/* ── This round — day grid (calendar dates + completion) ─────────── */}
+          {trainingMode === "cycle" && (cycle?.round?.length ?? 0) > 0 && (
+            <>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase px-1">This Round</p>
+              <div className="grid grid-cols-4 gap-2 pb-2">
+                {cycle!.round!.map((r, i) => {
+                  const d = new Date(r.date + "T00:00:00");
+                  const isPast = !r.is_today && r.date < getTodayLocal();
+                  const missed = isPast && !r.completed;
+                  return (
+                    <div
+                      key={r.date}
+                      className={`relative rounded-xl border p-2 pt-2.5 text-center transition-all ${
+                        r.is_today
+                          ? "bg-violet-500/15 border-violet-500/50"
+                          : r.completed
+                            ? "bg-primary/10 border-primary/30"
+                            : isPast
+                              ? "bg-[#0F1F3D] border-border/40"
+                              : "bg-[#0F1F3D]/50 border-border/30 opacity-60"
+                      }`}
+                    >
+                      {r.completed && (
+                        <span className="absolute -top-1.5 -end-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow">
+                          <Check className="w-3 h-3 text-[#081025]" strokeWidth={3.5} />
+                        </span>
+                      )}
+                      {missed && (
+                        <span className="absolute -top-1 -end-1 w-2.5 h-2.5 rounded-full bg-amber-400/80" title="Missed" />
+                      )}
+                      <p className={`text-[9px] font-bold uppercase tracking-wide ${r.is_today ? "text-violet-300" : "text-muted-foreground"}`}>
+                        Day {i + 1}
+                      </p>
+                      <p className="text-base font-bold text-foreground leading-tight">{d.getDate()}</p>
+                      <p className="text-[9px] text-muted-foreground leading-tight">
+                        {d.toLocaleDateString("en", { month: "short" })}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground truncate mt-1" dir="auto">
+                        {r.workout_name ?? ""}
+                      </p>
+                      {r.is_today && (
+                        <p className="text-[8px] font-bold text-violet-400 uppercase mt-0.5">Today</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           <p className="text-[10px] font-medium text-muted-foreground uppercase px-1">
             Training Sequence — {displaySlots.length} workout{displaySlots.length !== 1 ? "s" : ""}, repeats continuously
           </p>

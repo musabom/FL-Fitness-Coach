@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
+import { computeCurrentRoundDates } from "../lib/cycle-dates";
 
 const router: IRouter = Router();
 
@@ -345,7 +346,48 @@ async function getCycleWithSlots(progId: number, userId: number, trainingMode: s
     [progId]
   );
   const prog = await pool.query(`SELECT * FROM cycle_programs WHERE id = $1`, [progId]);
-  return { ...prog.rows[0], slots: slotsRes.rows, training_mode: trainingMode };
+
+  // Current round for the day-grid: one calendar date per training slot
+  // (calendar_based mode only), with per-date completion flags.
+  const progRow = prog.rows[0];
+  let round: Array<{
+    date: string; position: number; workout_id: number;
+    workout_name: string | null; completed: boolean; is_today: boolean;
+  }> = [];
+  try {
+    const trainingSlots = slotsRes.rows.filter((s: any) => s.workout_id !== null);
+    if ((progRow?.rest_day_mode ?? "in_cycle") === "calendar_based" && trainingSlots.length > 0) {
+      const startDateOnly = progRow.start_date instanceof Date
+        ? progRow.start_date.toISOString().slice(0, 10)
+        : String(progRow.start_date).slice(0, 10);
+      const n = new Date();
+      const todayStr = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+      const restDows: number[] = Array.isArray(progRow.rest_days_of_week)
+        ? (progRow.rest_days_of_week as any[]).map(Number)
+        : [];
+      const dates = computeCurrentRoundDates(startDateOnly, todayStr, restDows, trainingSlots.length);
+      if (dates.length === trainingSlots.length) {
+        const compRes = await pool.query(
+          `SELECT date::text AS date, workout_id FROM workout_plan_completions
+           WHERE user_id = $1 AND date = ANY($2::date[])`,
+          [userId, dates]
+        );
+        const done = new Set(compRes.rows.map((r: any) => `${r.date}_${r.workout_id}`));
+        round = dates.map((date, i) => ({
+          date,
+          position: Number(trainingSlots[i].position),
+          workout_id: Number(trainingSlots[i].workout_id),
+          workout_name: trainingSlots[i].workout_name ?? null,
+          completed: done.has(`${date}_${trainingSlots[i].workout_id}`),
+          is_today: date === todayStr,
+        }));
+      }
+    }
+  } catch (err) {
+    console.error("cycle round computation failed:", err);
+  }
+
+  return { ...progRow, slots: slotsRes.rows, training_mode: trainingMode, round };
 }
 
 // ── GET /user-cycle ───────────────────────────────────────────────────────────
