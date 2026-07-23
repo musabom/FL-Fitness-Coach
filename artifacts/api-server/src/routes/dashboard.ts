@@ -21,41 +21,65 @@ const calcExerciseCalories = calcExerciseRowCalories;
 async function getNutritionData(userId: number, date: string) {
   try {
     // Consumed: sum of completed portions
+    // Completed planned portions, honoring day-scoped overrides
+    // (quantity/food swap; removed portions never count).
     const consumedRes = await pool.query(
       `SELECT
          COALESCE(SUM(
            CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-             THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
-             ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END
+             THEN COALESCE(f.calories, uf.calories) * COALESCE(o.quantity_g, mp.quantity_g)
+             ELSE COALESCE(f.calories, uf.calories) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END
          ), 0) AS calories,
          COALESCE(SUM(
            CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-             THEN COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g
-             ELSE COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g / 100 END
+             THEN COALESCE(f.protein_g, uf.protein_g) * COALESCE(o.quantity_g, mp.quantity_g)
+             ELSE COALESCE(f.protein_g, uf.protein_g) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END
          ), 0) AS protein_g,
          COALESCE(SUM(
            CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-             THEN COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g
-             ELSE COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g / 100 END
+             THEN COALESCE(f.carbs_g, uf.carbs_g) * COALESCE(o.quantity_g, mp.quantity_g)
+             ELSE COALESCE(f.carbs_g, uf.carbs_g) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END
          ), 0) AS carbs_g,
          COALESCE(SUM(
            CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-             THEN COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g
-             ELSE COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g / 100 END
+             THEN COALESCE(f.fat_g, uf.fat_g) * COALESCE(o.quantity_g, mp.quantity_g)
+             ELSE COALESCE(f.fat_g, uf.fat_g) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END
          ), 0) AS fat_g
        FROM meal_portion_completions mpc
        JOIN meal_portions mp ON mp.id = mpc.portion_id
-       LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
-       LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
-       WHERE mpc.user_id = $1 AND mpc.date = $2`,
+       LEFT JOIN meal_plan_portion_overrides o
+         ON o.user_id = mpc.user_id AND o.date = mpc.date AND o.portion_id = mp.id
+       LEFT JOIN foods f ON f.id = COALESCE(o.food_id, mp.food_id)
+         AND (CASE WHEN o.food_id IS NOT NULL THEN COALESCE(o.food_source, 'database') ELSE mp.food_source END) = 'database'
+       LEFT JOIN user_foods uf ON uf.id = COALESCE(o.food_id, mp.food_id)
+         AND (CASE WHEN o.food_id IS NOT NULL THEN COALESCE(o.food_source, 'database') ELSE mp.food_source END) = 'user'
+       WHERE mpc.user_id = $1 AND mpc.date = $2
+         AND COALESCE(o.removed, FALSE) = FALSE`,
+      [userId, date]
+    );
+    // Eaten day-added extras
+    const extrasRes = await pool.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.calories * o.quantity_g ELSE xf.calories * o.quantity_g / 100 END), 0) AS calories,
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.protein_g * o.quantity_g ELSE xf.protein_g * o.quantity_g / 100 END), 0) AS protein_g,
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.carbs_g * o.quantity_g ELSE xf.carbs_g * o.quantity_g / 100 END), 0) AS carbs_g,
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.fat_g * o.quantity_g ELSE xf.fat_g * o.quantity_g / 100 END), 0) AS fat_g
+       FROM meal_plan_portion_overrides o
+       JOIN LATERAL (
+         SELECT serving_unit, calories, protein_g, carbs_g, fat_g FROM foods WHERE id = o.food_id AND o.food_source = 'database'
+         UNION ALL
+         SELECT serving_unit, calories, protein_g, carbs_g, fat_g FROM user_foods WHERE id = o.food_id AND o.food_source = 'user'
+       ) xf ON TRUE
+       WHERE o.user_id = $1 AND o.date = $2 AND o.portion_id IS NULL AND o.completed = TRUE`,
       [userId, date]
     );
     const consumedRow = consumedRes.rows[0];
+    const exRow = extrasRes.rows[0];
     const consumed = {
-      calories: +Number(consumedRow.calories).toFixed(1),
-      protein_g: +Number(consumedRow.protein_g).toFixed(2),
-      carbs_g: +Number(consumedRow.carbs_g).toFixed(2),
-      fat_g: +Number(consumedRow.fat_g).toFixed(2),
+      calories: +(Number(consumedRow.calories) + Number(exRow.calories)).toFixed(1),
+      protein_g: +(Number(consumedRow.protein_g) + Number(exRow.protein_g)).toFixed(2),
+      carbs_g: +(Number(consumedRow.carbs_g) + Number(exRow.carbs_g)).toFixed(2),
+      fat_g: +(Number(consumedRow.fat_g) + Number(exRow.fat_g)).toFixed(2),
     };
 
     // Planned: user's active nutrition plan targets
@@ -227,29 +251,60 @@ async function getPlannedIntakeForDate(userId: number, date: string) {
        )
        SELECT
          COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
-           ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END), 0) AS calories,
+           THEN COALESCE(f.calories, uf.calories) * COALESCE(o.quantity_g, mp.quantity_g)
+           ELSE COALESCE(f.calories, uf.calories) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END), 0) AS calories,
          COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g
-           ELSE COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g / 100 END), 0) AS protein_g,
+           THEN COALESCE(f.protein_g, uf.protein_g) * COALESCE(o.quantity_g, mp.quantity_g)
+           ELSE COALESCE(f.protein_g, uf.protein_g) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END), 0) AS protein_g,
          COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g
-           ELSE COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g / 100 END), 0) AS carbs_g,
+           THEN COALESCE(f.carbs_g, uf.carbs_g) * COALESCE(o.quantity_g, mp.quantity_g)
+           ELSE COALESCE(f.carbs_g, uf.carbs_g) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END), 0) AS carbs_g,
          COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-           THEN COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g
-           ELSE COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g / 100 END), 0) AS fat_g
+           THEN COALESCE(f.fat_g, uf.fat_g) * COALESCE(o.quantity_g, mp.quantity_g)
+           ELSE COALESCE(f.fat_g, uf.fat_g) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END), 0) AS fat_g
        FROM day_meals dm
        JOIN meal_portions mp ON mp.meal_id = dm.meal_id
-       LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
-       LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'`,
+       LEFT JOIN meal_plan_portion_overrides o
+         ON o.user_id = $1 AND o.date = $2 AND o.portion_id = mp.id
+       LEFT JOIN foods f ON f.id = COALESCE(o.food_id, mp.food_id)
+         AND (CASE WHEN o.food_id IS NOT NULL THEN COALESCE(o.food_source, 'database') ELSE mp.food_source END) = 'database'
+       LEFT JOIN user_foods uf ON uf.id = COALESCE(o.food_id, mp.food_id)
+         AND (CASE WHEN o.food_id IS NOT NULL THEN COALESCE(o.food_source, 'database') ELSE mp.food_source END) = 'user'
+       WHERE COALESCE(o.removed, FALSE) = FALSE`,
+      [userId, date, dayOfWeek]
+    );
+    // Day-added extras count toward the planned menu (eaten or not)
+    const extrasRes = await pool.query(
+      `WITH day_meals AS (
+         SELECT meal_id FROM meal_plan_entries WHERE user_id = $1 AND date = $2
+         UNION
+         SELECT ms.meal_id FROM meal_schedule ms
+         WHERE ms.user_id = $1 AND ms.day_of_week = $3
+           AND NOT EXISTS (SELECT 1 FROM meal_plan_entries e  WHERE e.user_id = $1 AND e.date = $2 AND e.meal_id = ms.meal_id)
+           AND NOT EXISTS (SELECT 1 FROM meal_plan_exclusions x WHERE x.user_id = $1 AND x.date = $2 AND x.meal_id = ms.meal_id)
+       )
+       SELECT
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.calories * o.quantity_g ELSE xf.calories * o.quantity_g / 100 END), 0) AS calories,
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.protein_g * o.quantity_g ELSE xf.protein_g * o.quantity_g / 100 END), 0) AS protein_g,
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.carbs_g * o.quantity_g ELSE xf.carbs_g * o.quantity_g / 100 END), 0) AS carbs_g,
+         COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.fat_g * o.quantity_g ELSE xf.fat_g * o.quantity_g / 100 END), 0) AS fat_g
+       FROM meal_plan_portion_overrides o
+       JOIN day_meals dm ON dm.meal_id = o.meal_id
+       JOIN LATERAL (
+         SELECT serving_unit, calories, protein_g, carbs_g, fat_g FROM foods WHERE id = o.food_id AND o.food_source = 'database'
+         UNION ALL
+         SELECT serving_unit, calories, protein_g, carbs_g, fat_g FROM user_foods WHERE id = o.food_id AND o.food_source = 'user'
+       ) xf ON TRUE
+       WHERE o.user_id = $1 AND o.date = $2 AND o.portion_id IS NULL`,
       [userId, date, dayOfWeek]
     );
     const row = result.rows[0];
+    const ex = extrasRes.rows[0];
     return {
-      calories: +Number(row.calories).toFixed(1),
-      protein_g: +Number(row.protein_g).toFixed(2),
-      carbs_g: +Number(row.carbs_g).toFixed(2),
-      fat_g: +Number(row.fat_g).toFixed(2),
+      calories: +(Number(row.calories) + Number(ex.calories)).toFixed(1),
+      protein_g: +(Number(row.protein_g) + Number(ex.protein_g)).toFixed(2),
+      carbs_g: +(Number(row.carbs_g) + Number(ex.carbs_g)).toFixed(2),
+      fat_g: +(Number(row.fat_g) + Number(ex.fat_g)).toFixed(2),
     };
   } catch {
     return { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
@@ -270,17 +325,39 @@ async function getRecentDailyNet(userId: number, dateStr: string, maintenance: n
   const consumedRes = await pool.query(
     `SELECT mpc.date::text AS date,
        COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
-         THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
-         ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END), 0) AS calories
+         THEN COALESCE(f.calories, uf.calories) * COALESCE(o.quantity_g, mp.quantity_g)
+         ELSE COALESCE(f.calories, uf.calories) * COALESCE(o.quantity_g, mp.quantity_g) / 100 END), 0) AS calories
      FROM meal_portion_completions mpc
      JOIN meal_portions mp ON mp.id = mpc.portion_id
-     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
-     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
+     LEFT JOIN meal_plan_portion_overrides o
+       ON o.user_id = mpc.user_id AND o.date = mpc.date AND o.portion_id = mp.id
+     LEFT JOIN foods f ON f.id = COALESCE(o.food_id, mp.food_id)
+       AND (CASE WHEN o.food_id IS NOT NULL THEN COALESCE(o.food_source, 'database') ELSE mp.food_source END) = 'database'
+     LEFT JOIN user_foods uf ON uf.id = COALESCE(o.food_id, mp.food_id)
+       AND (CASE WHEN o.food_id IS NOT NULL THEN COALESCE(o.food_source, 'database') ELSE mp.food_source END) = 'user'
      WHERE mpc.user_id = $1 AND mpc.date = ANY($2::date[])
+       AND COALESCE(o.removed, FALSE) = FALSE
      GROUP BY mpc.date`,
     [userId, dates]
   );
   const eatenByDate = new Map<string, number>(consumedRes.rows.map((r: any) => [r.date, Number(r.calories)]));
+  // Eaten day-added extras per date
+  const extrasByDateRes = await pool.query(
+    `SELECT o.date::text AS date,
+       COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.calories * o.quantity_g ELSE xf.calories * o.quantity_g / 100 END), 0) AS calories
+     FROM meal_plan_portion_overrides o
+     JOIN LATERAL (
+       SELECT serving_unit, calories FROM foods WHERE id = o.food_id AND o.food_source = 'database'
+       UNION ALL
+       SELECT serving_unit, calories FROM user_foods WHERE id = o.food_id AND o.food_source = 'user'
+     ) xf ON TRUE
+     WHERE o.user_id = $1 AND o.date = ANY($2::date[]) AND o.portion_id IS NULL AND o.completed = TRUE
+     GROUP BY o.date`,
+    [userId, dates]
+  );
+  for (const r of extrasByDateRes.rows) {
+    eatenByDate.set(r.date, (eatenByDate.get(r.date) ?? 0) + Number(r.calories));
+  }
 
   const burnedRes = await pool.query(
     `SELECT wec.date::text AS date, we.sets, we.reps_min, we.reps_max, we.rest_seconds,

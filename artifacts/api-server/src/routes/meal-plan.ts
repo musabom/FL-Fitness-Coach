@@ -36,7 +36,37 @@ function sumMacros(portions: ReturnType<typeof calcPortion>[]) {
   );
 }
 
-async function getMealSummary(mealId: number, completedPortionIds: Set<number>) {
+interface DayOverride {
+  id: number; portion_id: number | null; food_id: number | null;
+  food_source: string | null; quantity_g: number | null;
+  removed: boolean; completed: boolean;
+}
+
+// Fetch food rows (name/unit/macros) for override swaps and day-added extras.
+async function fetchFoodInfo(pairs: Array<{ food_id: number; food_source: string }>) {
+  const dbIds = pairs.filter(p => p.food_source !== "user").map(p => p.food_id);
+  const userIds = pairs.filter(p => p.food_source === "user").map(p => p.food_id);
+  const out = new Map<string, any>();
+  if (dbIds.length) {
+    const r = await pool.query(
+      `SELECT id, food_name, serving_unit, serving_weight_g, calories, protein_g, carbs_g, fat_g
+       FROM foods WHERE id = ANY($1)`, [dbIds]);
+    for (const row of r.rows) out.set(`database_${row.id}`, row);
+  }
+  if (userIds.length) {
+    const r = await pool.query(
+      `SELECT id, food_name, serving_unit, serving_weight_g, calories, protein_g, carbs_g, fat_g
+       FROM user_foods WHERE id = ANY($1)`, [userIds]);
+    for (const row of r.rows) out.set(`user_${row.id}`, row);
+  }
+  return out;
+}
+
+async function getMealSummary(
+  mealId: number,
+  completedPortionIds: Set<number>,
+  dayOverrides: DayOverride[] = [],
+) {
   const mealRes = await pool.query(
     `SELECT id, meal_name FROM user_meals WHERE id = $1`,
     [mealId]
@@ -60,18 +90,58 @@ async function getMealSummary(mealId: number, completedPortionIds: Set<number>) 
     [mealId]
   );
 
-  const portions = portionsRes.rows.map((row) => {
-    const macros = calcPortion(row, Number(row.quantity_g));
-    return {
+  // Day-scoped overrides: quantity / swapped food / removed, plus extras.
+  const ovByPortion = new Map<number, DayOverride>();
+  const extras: DayOverride[] = [];
+  for (const ov of dayOverrides) {
+    if (ov.portion_id === null) extras.push(ov);
+    else ovByPortion.set(ov.portion_id, ov);
+  }
+  const foodPairs: Array<{ food_id: number; food_source: string }> = [];
+  for (const ov of dayOverrides) {
+    if (ov.food_id != null) foodPairs.push({ food_id: ov.food_id, food_source: ov.food_source ?? "database" });
+  }
+  const foodInfo = foodPairs.length ? await fetchFoodInfo(foodPairs) : new Map();
+
+  const portions: any[] = [];
+  for (const row of portionsRes.rows) {
+    const ov = ovByPortion.get(row.id);
+    if (ov?.removed) continue; // off today's plate — excluded from planned & consumed
+    let foodData = row;
+    if (ov?.food_id != null) {
+      const swapped = foodInfo.get(`${ov.food_source ?? "database"}_${ov.food_id}`);
+      if (swapped) foodData = { ...row, ...swapped };
+    }
+    const qty = ov?.quantity_g ?? Number(row.quantity_g);
+    const macros = calcPortion(foodData, Number(qty));
+    portions.push({
       id: row.id,
-      food_name: row.food_name,
-      quantity_g: Number(row.quantity_g),
-      serving_unit: row.serving_unit,
+      food_name: foodData.food_name,
+      quantity_g: Number(qty),
+      serving_unit: foodData.serving_unit,
       notes: row.notes ?? null,
       completed: completedPortionIds.has(row.id),
+      overridden: !!ov,
       ...macros,
-    };
-  });
+    });
+  }
+  for (const ex of extras) {
+    const food = foodInfo.get(`${ex.food_source ?? "database"}_${ex.food_id}`);
+    if (!food) continue;
+    const macros = calcPortion(food, Number(ex.quantity_g ?? 0));
+    portions.push({
+      id: -ex.id,
+      extra_id: ex.id,
+      is_extra: true,
+      food_name: food.food_name,
+      quantity_g: Number(ex.quantity_g ?? 0),
+      serving_unit: food.serving_unit,
+      notes: null,
+      completed: ex.completed,
+      overridden: true,
+      ...macros,
+    });
+  }
 
   const totals = sumMacros(portions);
   const consumed_totals = sumMacros(portions.filter(p => p.completed));
@@ -82,6 +152,7 @@ async function getMealSummary(mealId: number, completedPortionIds: Set<number>) 
     portions,
     totals,
     consumed_totals,
+    modified: dayOverrides.length > 0,
   };
 }
 
@@ -159,9 +230,22 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     completedPortionIds = new Set(mpcRes.rows.map((r: any) => Number(r.portion_id)));
   }
 
+  // Day-scoped overrides for this date (quantity/swap/removed + added extras)
+  const ovRes = await pool.query(
+    `SELECT id, meal_id, portion_id, food_id, food_source, quantity_g, removed, completed
+     FROM meal_plan_portion_overrides WHERE user_id = $1 AND date = $2`,
+    [userId, dateStr]
+  );
+  const ovByMeal = new Map<number, DayOverride[]>();
+  for (const ov of ovRes.rows) {
+    const list = ovByMeal.get(Number(ov.meal_id)) ?? [];
+    list.push(ov);
+    ovByMeal.set(Number(ov.meal_id), list);
+  }
+
   const entries = await Promise.all(
     allMealIds.map(async (row) => {
-      const meal = await getMealSummary(row.meal_id, completedPortionIds);
+      const meal = await getMealSummary(row.meal_id, completedPortionIds, ovByMeal.get(Number(row.meal_id)) ?? []);
       // A meal is "completed" if all portions are done OR the old meal-level completion exists
       const allPortionsDone = meal && meal.portions.length > 0 && meal.portions.every(p => p.completed);
       const mealLevelCompleted = row.completed_at !== null;
@@ -523,6 +607,122 @@ router.delete("/meal-plan/:date/exclude/:mealId", async (req, res): Promise<void
   );
 
   res.json({ message: "Meal exclusion removed" });
+});
+
+// ── Day-scoped meal overrides (edit today only, master plan untouched) ────────
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+async function ownsMeal(userId: number, mealId: number): Promise<boolean> {
+  const r = await pool.query(`SELECT id FROM user_meals WHERE id = $1 AND user_id = $2`, [mealId, userId]);
+  return r.rows.length > 0;
+}
+
+// Upsert an override for one planned portion (quantity / swap food / remove today)
+router.put("/meal-plan/:date/meals/:mealId/portions/:portionId/override", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const date = req.params["date"];
+  const mealId = Number(req.params["mealId"]);
+  const portionId = Number(req.params["portionId"]);
+  if (!DATE_RE.test(date) || !mealId || !portionId) { res.status(400).json({ error: "Invalid params" }); return; }
+  if (!(await ownsMeal(userId, mealId))) { res.status(404).json({ error: "Meal not found" }); return; }
+  const pCheck = await pool.query(`SELECT id FROM meal_portions WHERE id = $1 AND meal_id = $2`, [portionId, mealId]);
+  if (!pCheck.rows.length) { res.status(404).json({ error: "Portion not found" }); return; }
+
+  const { quantity_g, food_id, food_source, removed } = req.body as {
+    quantity_g?: number; food_id?: number; food_source?: string; removed?: boolean;
+  };
+  if (quantity_g !== undefined && (typeof quantity_g !== "number" || quantity_g <= 0 || quantity_g > 10000)) {
+    res.status(400).json({ error: "Invalid quantity" }); return;
+  }
+  if (food_source !== undefined && !["database", "user"].includes(food_source)) {
+    res.status(400).json({ error: "Invalid food_source" }); return;
+  }
+
+  const result = await pool.query(
+    `INSERT INTO meal_plan_portion_overrides (user_id, date, meal_id, portion_id, quantity_g, food_id, food_source, removed)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, FALSE))
+     ON CONFLICT (user_id, date, meal_id, portion_id) DO UPDATE SET
+       quantity_g = COALESCE($5, meal_plan_portion_overrides.quantity_g),
+       food_id = COALESCE($6, meal_plan_portion_overrides.food_id),
+       food_source = COALESCE($7, meal_plan_portion_overrides.food_source),
+       removed = COALESCE($8, meal_plan_portion_overrides.removed)
+     RETURNING *`,
+    [userId, date, mealId, portionId, quantity_g ?? null, food_id ?? null, food_source ?? null, removed ?? null]
+  );
+  res.json(result.rows[0]);
+});
+
+// Reset one portion back to the plan
+router.delete("/meal-plan/:date/meals/:mealId/portions/:portionId/override", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const date = req.params["date"];
+  if (!DATE_RE.test(date)) { res.status(400).json({ error: "Invalid date" }); return; }
+  await pool.query(
+    `DELETE FROM meal_plan_portion_overrides WHERE user_id = $1 AND date = $2 AND meal_id = $3 AND portion_id = $4`,
+    [userId, date, Number(req.params["mealId"]), Number(req.params["portionId"])]
+  );
+  res.json({ ok: true });
+});
+
+// Add an ad-hoc food to a meal, today only
+router.post("/meal-plan/:date/meals/:mealId/extras", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const date = req.params["date"];
+  const mealId = Number(req.params["mealId"]);
+  if (!DATE_RE.test(date) || !mealId) { res.status(400).json({ error: "Invalid params" }); return; }
+  if (!(await ownsMeal(userId, mealId))) { res.status(404).json({ error: "Meal not found" }); return; }
+  const { food_id, food_source, quantity_g } = req.body as { food_id?: number; food_source?: string; quantity_g?: number };
+  if (!food_id || typeof quantity_g !== "number" || quantity_g <= 0 || quantity_g > 10000) {
+    res.status(400).json({ error: "food_id and a valid quantity_g are required" }); return;
+  }
+  const src = food_source === "user" ? "user" : "database";
+  const result = await pool.query(
+    `INSERT INTO meal_plan_portion_overrides (user_id, date, meal_id, portion_id, food_id, food_source, quantity_g)
+     VALUES ($1, $2, $3, NULL, $4, $5, $6) RETURNING *`,
+    [userId, date, mealId, food_id, src, quantity_g]
+  );
+  res.status(201).json(result.rows[0]);
+});
+
+// Toggle an extra eaten / not eaten
+router.post("/meal-plan/extras/:id/toggle", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const result = await pool.query(
+    `UPDATE meal_plan_portion_overrides SET completed = NOT completed
+     WHERE id = $1 AND user_id = $2 AND portion_id IS NULL RETURNING id, completed`,
+    [Number(req.params["id"]), userId]
+  );
+  if (!result.rows.length) { res.status(404).json({ error: "Extra not found" }); return; }
+  res.json(result.rows[0]);
+});
+
+// Remove an added extra
+router.delete("/meal-plan/extras/:id", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  await pool.query(
+    `DELETE FROM meal_plan_portion_overrides WHERE id = $1 AND user_id = $2 AND portion_id IS NULL`,
+    [Number(req.params["id"]), userId]
+  );
+  res.json({ ok: true });
+});
+
+// Reset the whole meal back to the plan for this date
+router.delete("/meal-plan/:date/meals/:mealId/overrides", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const date = req.params["date"];
+  if (!DATE_RE.test(date)) { res.status(400).json({ error: "Invalid date" }); return; }
+  await pool.query(
+    `DELETE FROM meal_plan_portion_overrides WHERE user_id = $1 AND date = $2 AND meal_id = $3`,
+    [userId, date, Number(req.params["mealId"])]
+  );
+  res.json({ ok: true });
 });
 
 export default router;

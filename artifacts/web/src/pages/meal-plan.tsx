@@ -5,6 +5,7 @@ import { useLocation, Link } from "wouter";
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2,
   Circle, Loader2, UtensilsCrossed, X, CalendarDays, ArrowLeft, UserCheck,
+  Repeat, RotateCcw, Search,
 } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,9 @@ interface PortionRow {
   fat_g: number;
   notes?: string | null;
   completed: boolean;
+  overridden?: boolean;
+  is_extra?: boolean;
+  extra_id?: number;
 }
 
 interface MealSummary {
@@ -63,6 +67,12 @@ interface MealSummary {
   portions: PortionRow[];
   totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
   consumed_totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  modified?: boolean;
+}
+
+interface PickedFood {
+  id: number; food_name: string; serving_unit: string;
+  calories: number; source: "database" | "user";
 }
 
 interface PlanEntry {
@@ -150,15 +160,106 @@ function CalendarPicker({ selectedDate, onSelectDate, onClose }: { selectedDate:
 
 // ── Meal card ─────────────────────────────────────────────────────────────────
 
-function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
+// ── Food picker (day-only swap / add) ─────────────────────────────────────────
+
+function FoodPickerSheet({ title, onConfirm, onClose }: {
+  title: string;
+  onConfirm: (food: PickedFood, quantity: number) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<PickedFood | null>(null);
+  const [qty, setQty] = useState("");
+  const buildUrl = useClientUrl();
+  const { data: foods = [], isLoading } = useQuery<PickedFood[]>({
+    queryKey: ["food-search", q],
+    queryFn: () => customFetch<PickedFood[]>(buildUrl(`${BASE}/foods/search?q=${encodeURIComponent(q)}`)),
+  });
+  const shown = foods.slice(0, 30);
+  return (
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      <div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-[#0F1F3D] border-t border-border/50 rounded-t-3xl p-5 pb-8 max-h-[75vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-bold text-foreground">{title} <span className="text-[10px] font-medium text-amber-400">· today only</span></p>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-muted-foreground"><X className="w-4 h-4" /></button>
+        </div>
+
+        {!picked ? (
+          <>
+            <div className="relative mb-3">
+              <Search className="w-4 h-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
+              <input
+                autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search foods..."
+                className="w-full rounded-xl bg-[#1B3260]/50 border border-border/40 text-sm text-foreground ps-9 pe-3 py-2.5 focus:outline-none focus:border-primary/50"
+              />
+            </div>
+            <div className="overflow-y-auto flex-1 space-y-1.5">
+              {isLoading && <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-primary animate-spin" /></div>}
+              {!isLoading && shown.map(f => (
+                <button key={`${f.source}-${f.id}`}
+                  onClick={() => { setPicked(f); setQty(f.serving_unit === "per_piece" ? "1" : "100"); }}
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl bg-[#1B3260]/40 border border-border/30 hover:border-primary/40">
+                  <span className="text-sm font-medium text-foreground">{f.food_name}</span>
+                  <span className="text-[10px] text-muted-foreground ms-2">
+                    {Math.round(f.calories)} kcal / {f.serving_unit === "per_piece" ? "pc" : "100g"}
+                  </span>
+                </button>
+              ))}
+              {!isLoading && shown.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">No foods found</p>}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-foreground font-medium">{picked.food_name}</p>
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus type="number" min="0.1" step="any" value={qty} onChange={e => setQty(e.target.value)}
+                className="flex-1 rounded-xl bg-[#1B3260]/50 border border-border/40 text-sm text-foreground px-3 py-2.5 focus:outline-none focus:border-primary/50"
+              />
+              <span className="text-xs text-muted-foreground w-10">{picked.serving_unit === "per_piece" ? "pc" : "g"}</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setPicked(null)} className="flex-1 rounded-xl py-2.5 text-xs font-semibold bg-muted text-muted-foreground">Back</button>
+              <button
+                onClick={() => { const n = Number(qty); if (n > 0) onConfirm(picked, n); }}
+                className="flex-1 rounded-xl py-2.5 text-xs font-bold bg-primary text-[#081025]">
+                Confirm
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion, onOverrideQty, onRemoveToday, onSwapRequest, onAddFoodRequest, onToggleExtra, onDeleteExtra, onResetMeal }: {
   entry: PlanEntry;
   onRemove: () => void;
   onToggleComplete: () => void;
   onTogglePortion: (portionId: number, completed: boolean) => void;
+  onOverrideQty: (portionId: number, quantity: number) => void;
+  onRemoveToday: (portionId: number) => void;
+  onSwapRequest: (portionId: number) => void;
+  onAddFoodRequest: () => void;
+  onToggleExtra: (extraId: number) => void;
+  onDeleteExtra: (extraId: number) => void;
+  onResetMeal: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editingQty, setEditingQty] = useState<{ id: number; value: string } | null>(null);
   const meal = entry.meal;
   if (!meal) return null;
+
+  const commitQty = (portionId: number) => {
+    const n = Number(editingQty?.value);
+    setEditingQty(null);
+    if (n > 0) onOverrideQty(portionId, n);
+  };
 
   const completedCount = meal.portions.filter(p => p.completed).length;
   const total = meal.portions.length;
@@ -180,10 +281,16 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
           {total > 0 && (
             <p className="text-[10px] text-muted-foreground mt-0.5">
               {total} food{total !== 1 ? "s" : ""} · {completedCount}/{total} eaten
+              {meal.modified && <span className="text-amber-400 font-semibold"> · edited today</span>}
             </p>
           )}
         </button>
 
+        {meal.modified && (
+          <button onClick={onResetMeal} className="shrink-0 w-8 h-8 flex items-center justify-center text-amber-400/80 hover:text-amber-300 transition-colors" aria-label="Reset to plan" title="Reset to plan">
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        )}
         <button onClick={onRemove} className="shrink-0 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove meal">
           <Trash2 className="w-4 h-4" />
         </button>
@@ -206,13 +313,13 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
         </div>
       )}
 
-      {/* Portions list (expandable with checkboxes) */}
+      {/* Portions list (expandable with checkboxes + day-only edits) */}
       {expanded && meal.portions.length > 0 && (
         <div className="border-t border-border/30 px-4 divide-y divide-border/20">
           {meal.portions.map((p) => (
             <div key={p.id} className={`flex items-start gap-3 py-2.5 transition-opacity ${p.completed ? "opacity-50" : ""}`}>
               <button
-                onClick={() => onTogglePortion(p.id, p.completed)}
+                onClick={() => p.is_extra ? onToggleExtra(p.extra_id!) : onTogglePortion(p.id, p.completed)}
                 className="shrink-0 mt-0.5 text-muted-foreground hover:text-primary transition-colors"
                 aria-label={p.completed ? "Mark uneaten" : "Mark eaten"}
               >
@@ -224,22 +331,65 @@ function MealCard({ entry, onRemove, onToggleComplete, onTogglePortion }: {
                 <div className="flex justify-between items-start gap-2">
                   <span className={`text-sm font-medium break-words ${p.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
                     {p.food_name}
+                    {p.is_extra && <span className="ms-1.5 text-[9px] font-bold text-primary bg-primary/15 rounded px-1 py-0.5 align-middle">today</span>}
+                    {!p.is_extra && p.overridden && <span className="ms-1.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-400 align-middle" title="Edited today" />}
                   </span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {p.serving_unit === "per_piece"
-                      ? `${p.quantity_g} pc`
-                      : `${Math.round(p.quantity_g)}g`}
-                    {" · "}{Math.round(p.calories)} kcal
-                  </span>
+                  {editingQty?.id === p.id && !p.is_extra ? (
+                    <span className="shrink-0 flex items-center gap-1">
+                      <input
+                        autoFocus type="number" min="0.1" step="any" value={editingQty.value}
+                        onChange={e => setEditingQty({ id: p.id, value: e.target.value })}
+                        onBlur={() => commitQty(p.id)}
+                        onKeyDown={e => { if (e.key === "Enter") commitQty(p.id); if (e.key === "Escape") setEditingQty(null); }}
+                        className="w-16 rounded-lg bg-[#1B3260]/60 border border-primary/40 text-xs text-foreground px-2 py-1 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-muted-foreground">{p.serving_unit === "per_piece" ? "pc" : "g"}</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => !p.is_extra && setEditingQty({ id: p.id, value: String(p.quantity_g) })}
+                      className={`shrink-0 text-xs tabular-nums ${p.is_extra ? "text-muted-foreground" : "text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-primary"}`}
+                      title={p.is_extra ? undefined : "Change quantity for today"}
+                    >
+                      {p.serving_unit === "per_piece" ? `${p.quantity_g} pc` : `${Math.round(p.quantity_g)}g`}
+                      {" · "}{Math.round(p.calories)} kcal
+                    </button>
+                  )}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">
-                  {Math.round(p.protein_g)}g P · {Math.round(p.carbs_g)}g C · {Math.round(p.fat_g)}g F
+                <div className="flex items-center justify-between gap-2 mt-0.5">
+                  <span className="text-[10px] text-muted-foreground">
+                    {Math.round(p.protein_g)}g P · {Math.round(p.carbs_g)}g C · {Math.round(p.fat_g)}g F
+                  </span>
+                  <span className="flex items-center gap-2.5 shrink-0">
+                    {p.is_extra ? (
+                      <button onClick={() => onDeleteExtra(p.extra_id!)} className="text-muted-foreground hover:text-destructive" title="Remove added food">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => onSwapRequest(p.id)} className="text-muted-foreground hover:text-primary" title="Swap food for today">
+                          <Repeat className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => onRemoveToday(p.id)} className="text-muted-foreground hover:text-amber-400" title="Remove for today">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </span>
                 </div>
                 {p.notes && <p className="text-[10px] text-muted-foreground/60 italic mt-0.5">Note: {p.notes}</p>}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Add a food for today only */}
+      {expanded && (
+        <button onClick={onAddFoodRequest}
+          className="mx-4 mb-1 mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:text-primary/80">
+          <Plus className="w-3.5 h-3.5" /> Add food · today only
+        </button>
       )}
 
       {expanded && meal.portions.length === 0 && (
@@ -498,6 +648,41 @@ export default function MealPlan() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] }),
   });
 
+  // ── Day-only overrides (quantity / swap / remove / add — master plan untouched)
+  const [picker, setPicker] = useState<{ mealId: number; portionId: number | null } | null>(null);
+  const invalidateDay = () => {
+    queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-today"] });
+  };
+  const overrideMutation = useMutation({
+    mutationFn: ({ mealId, portionId, body }: { mealId: number; portionId: number; body: Record<string, unknown> }) =>
+      customFetch(buildUrl(`${BASE}/meal-plan/${date}/meals/${mealId}/portions/${portionId}/override`), {
+        method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" },
+      }),
+    onSettled: invalidateDay,
+  });
+  const addExtraMutation = useMutation({
+    mutationFn: ({ mealId, food, quantity }: { mealId: number; food: PickedFood; quantity: number }) =>
+      customFetch(buildUrl(`${BASE}/meal-plan/${date}/meals/${mealId}/extras`), {
+        method: "POST",
+        body: JSON.stringify({ food_id: food.id, food_source: food.source, quantity_g: quantity }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSettled: invalidateDay,
+  });
+  const toggleExtraMutation = useMutation({
+    mutationFn: (id: number) => customFetch(buildUrl(`${BASE}/meal-plan/extras/${id}/toggle`), { method: "POST" }),
+    onSettled: invalidateDay,
+  });
+  const deleteExtraMutation = useMutation({
+    mutationFn: (id: number) => customFetch(buildUrl(`${BASE}/meal-plan/extras/${id}`), { method: "DELETE" }),
+    onSettled: invalidateDay,
+  });
+  const resetMealMutation = useMutation({
+    mutationFn: (mealId: number) => customFetch(buildUrl(`${BASE}/meal-plan/${date}/meals/${mealId}/overrides`), { method: "DELETE" }),
+    onSettled: invalidateDay,
+  });
+
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const entries = dayPlan?.entries ?? [];
@@ -736,9 +921,32 @@ export default function MealPlan() {
                 portionMutation.mutate({ entryId: entry.entry_id, mealId: entry.meal.id, portionId, completed });
               }
             }}
+            onOverrideQty={(portionId, quantity) => entry.meal && overrideMutation.mutate({ mealId: entry.meal.id, portionId, body: { quantity_g: quantity } })}
+            onRemoveToday={(portionId) => entry.meal && overrideMutation.mutate({ mealId: entry.meal.id, portionId, body: { removed: true } })}
+            onSwapRequest={(portionId) => entry.meal && setPicker({ mealId: entry.meal.id, portionId })}
+            onAddFoodRequest={() => entry.meal && setPicker({ mealId: entry.meal.id, portionId: null })}
+            onToggleExtra={(extraId) => toggleExtraMutation.mutate(extraId)}
+            onDeleteExtra={(extraId) => deleteExtraMutation.mutate(extraId)}
+            onResetMeal={() => entry.meal && resetMealMutation.mutate(entry.meal.id)}
           />
         ))}
       </div>
+
+      {/* Day-only food picker (swap / add) */}
+      {picker && (
+        <FoodPickerSheet
+          title={picker.portionId !== null ? "Swap food" : "Add food"}
+          onClose={() => setPicker(null)}
+          onConfirm={(food, quantity) => {
+            if (picker.portionId !== null) {
+              overrideMutation.mutate({ mealId: picker.mealId, portionId: picker.portionId, body: { food_id: food.id, food_source: food.source, quantity_g: quantity } });
+            } else {
+              addExtraMutation.mutate({ mealId: picker.mealId, food, quantity });
+            }
+            setPicker(null);
+          }}
+        />
+      )}
 
       {/* Add Meal FAB */}
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30" style={{ width: "calc(min(672px, 100vw) - 40px)" }}>

@@ -647,6 +647,26 @@ async function runMigrationsInternal(): Promise<void> {
     )
   `);
 
+  // Day-scoped meal edits: quantity/food/removed overrides on planned portions,
+  // plus ad-hoc added foods (portion_id NULL). The master meal is never touched.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meal_plan_portion_overrides (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      meal_id INTEGER NOT NULL,
+      portion_id INTEGER REFERENCES meal_portions(id) ON DELETE CASCADE,
+      food_id INTEGER,
+      food_source VARCHAR(20) DEFAULT 'database',
+      quantity_g REAL,
+      removed BOOLEAN DEFAULT FALSE,
+      completed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, date, meal_id, portion_id)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_mppo_user_date ON meal_plan_portion_overrides(user_id, date)`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS food_stock (
       id SERIAL PRIMARY KEY,
