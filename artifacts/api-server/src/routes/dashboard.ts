@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
+import { calcExerciseRowCalories } from "../lib/workout-calories";
+import { resolveCalendarSlotIndexForDate } from "../lib/cycle-dates";
 
 const router: IRouter = Router();
 
@@ -11,25 +13,9 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
   return (res.locals["userId"] as number | undefined) ?? req.session.userId;
 }
 
-const EFFORT_MET: Record<string, number> = { light: 3.5, moderate: 5.0, heavy: 6.0 };
-
-function calcExerciseCalories(row: {
-  exercise_type: string; met_value: string | null;
-  sets: string; reps_min: string; reps_max: string; rest_seconds: string;
-  duration_mins: string | null; effort_level: string | null;
-}, weightKg: number): number {
-  if (row.exercise_type === "cardio") {
-    const met = Number(row.met_value) || 5;
-    const dur = Number(row.duration_mins) || 0;
-    return +(met * weightKg * (dur / 60)).toFixed(1);
-  }
-  const sets = Number(row.sets);
-  const avgReps = (Number(row.reps_min) + Number(row.reps_max)) / 2;
-  const rest = Number(row.rest_seconds);
-  const durMins = (sets * (avgReps * 3 + rest)) / 60;
-  const met = EFFORT_MET[row.effort_level ?? "moderate"] ?? EFFORT_MET.moderate;
-  return +(met * weightKg * (durMins / 60)).toFixed(1);
-}
+// Calorie math lives in lib/workout-calories.ts — the same formula the
+// workout-plan endpoints use, so dashboard numbers always match the plan.
+const calcExerciseCalories = calcExerciseRowCalories;
 
 async function getNutritionData(userId: number, date: string) {
   try {
@@ -135,9 +121,11 @@ async function getWorkoutCalories(userId: number, date: string, weightKg: number
       );
       plannedRows = plannedRes.rows;
     } else {
-      // Cycle mode: find today's cycle workout
+      // Cycle mode: resolve today's cycle workout with the SAME logic as
+      // /workout-plan (calendar_based rest-day skipping; legacy in_cycle kept).
       const progRes = await pool.query(
-        `SELECT id, start_date, cycle_length FROM cycle_programs WHERE user_id = $1 AND is_default = TRUE AND is_active = TRUE LIMIT 1`,
+        `SELECT id, start_date, cycle_length, rest_day_mode, rest_days_of_week
+         FROM cycle_programs WHERE user_id = $1 AND is_default = TRUE AND is_active = TRUE LIMIT 1`,
         [userId]
       );
       if (progRes.rows.length > 0) {
@@ -145,27 +133,53 @@ async function getWorkoutCalories(userId: number, date: string, weightKg: number
         const startDateOnly = prog.start_date instanceof Date
           ? prog.start_date.toISOString().slice(0, 10)
           : String(prog.start_date).slice(0, 10);
-        const startMs = new Date(startDateOnly + "T00:00:00").getTime();
-        const dateMs = new Date(date + "T00:00:00").getTime();
-        const daysSince = Math.floor((dateMs - startMs) / 86400000);
-        const cycleLength = Number(prog.cycle_length);
-        if (daysSince >= 0 && cycleLength >= 1) {
-          const position = ((daysSince % cycleLength) + cycleLength) % cycleLength;
-          const slotRes = await pool.query(
-            `SELECT workout_id FROM cycle_program_slots WHERE program_id = $1 AND position = $2`,
-            [prog.id, position]
-          );
-          if (slotRes.rows[0]?.workout_id) {
-            const exercisesRes = await pool.query(
-              `SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
-                      e.exercise_type, e.met_value
-               FROM workout_exercises we
-               JOIN exercises e ON e.id = we.exercise_id
-               WHERE we.workout_id = $1`,
-              [slotRes.rows[0].workout_id]
+
+        // Per-date exclusion → no planned cycle workout that day
+        const exclusionRes = await pool.query(
+          `SELECT id FROM cycle_program_exclusions WHERE user_id = $1 AND program_id = $2 AND date = $3`,
+          [userId, prog.id, date]
+        );
+
+        let workoutId: number | null = null;
+        if (exclusionRes.rows.length === 0) {
+          const restDayMode: string = prog.rest_day_mode ?? "in_cycle";
+          if (restDayMode === "calendar_based") {
+            const restDows: number[] = Array.isArray(prog.rest_days_of_week)
+              ? (prog.rest_days_of_week as any[]).map(Number)
+              : [];
+            const slotsRes = await pool.query(
+              `SELECT workout_id FROM cycle_program_slots
+               WHERE program_id = $1 AND workout_id IS NOT NULL ORDER BY position`,
+              [prog.id]
             );
-            plannedRows = exercisesRes.rows;
+            const idx = resolveCalendarSlotIndexForDate(startDateOnly, date, restDows, slotsRes.rows.length);
+            if (idx !== null && slotsRes.rows[idx]) workoutId = Number(slotsRes.rows[idx].workout_id);
+          } else {
+            const startMs = new Date(startDateOnly + "T00:00:00").getTime();
+            const dateMs = new Date(date + "T00:00:00").getTime();
+            const daysSince = Math.floor((dateMs - startMs) / 86400000);
+            const cycleLength = Number(prog.cycle_length);
+            if (daysSince >= 0 && cycleLength >= 1) {
+              const position = ((daysSince % cycleLength) + cycleLength) % cycleLength;
+              const slotRes = await pool.query(
+                `SELECT workout_id FROM cycle_program_slots WHERE program_id = $1 AND position = $2`,
+                [prog.id, position]
+              );
+              if (slotRes.rows[0]?.workout_id) workoutId = Number(slotRes.rows[0].workout_id);
+            }
           }
+        }
+
+        if (workoutId !== null) {
+          const exercisesRes = await pool.query(
+            `SELECT we.sets, we.reps_min, we.reps_max, we.rest_seconds, we.duration_mins, we.effort_level,
+                    e.exercise_type, e.met_value
+             FROM workout_exercises we
+             JOIN exercises e ON e.id = we.exercise_id
+             WHERE we.workout_id = $1`,
+            [workoutId]
+          );
+          plannedRows = exercisesRes.rows;
         }
       }
     }
@@ -190,6 +204,54 @@ async function getWorkoutCalories(userId: number, date: string, weightKg: number
     // Phase 2 feature not yet implemented: workout tracking tables don't exist
     // Return zero workout calories as placeholder
     return { planned_calories: 0, burned_calories: 0 };
+  }
+}
+
+// The user's OWN plan for the date: total macros of the meals they scheduled
+// (weekday schedule minus exclusions, plus manual entries) — the same set the
+// /meal-plan endpoint shows. This is "my plan", distinct from the computed
+// baseline target in the plans table.
+async function getPlannedIntakeForDate(userId: number, date: string) {
+  try {
+    const d = new Date(date + "T00:00:00");
+    const dayOfWeek = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][d.getDay()];
+    const result = await pool.query(
+      `WITH day_meals AS (
+         SELECT meal_id FROM meal_plan_entries WHERE user_id = $1 AND date = $2
+         UNION
+         SELECT ms.meal_id FROM meal_schedule ms
+         WHERE ms.user_id = $1 AND ms.day_of_week = $3
+           AND NOT EXISTS (SELECT 1 FROM meal_plan_entries e  WHERE e.user_id = $1 AND e.date = $2 AND e.meal_id = ms.meal_id)
+           AND NOT EXISTS (SELECT 1 FROM meal_plan_exclusions x WHERE x.user_id = $1 AND x.date = $2 AND x.meal_id = ms.meal_id)
+       )
+       SELECT
+         COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
+           ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END), 0) AS calories,
+         COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g
+           ELSE COALESCE(f.protein_g, uf.protein_g) * mp.quantity_g / 100 END), 0) AS protein_g,
+         COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g
+           ELSE COALESCE(f.carbs_g, uf.carbs_g) * mp.quantity_g / 100 END), 0) AS carbs_g,
+         COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+           THEN COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g
+           ELSE COALESCE(f.fat_g, uf.fat_g) * mp.quantity_g / 100 END), 0) AS fat_g
+       FROM day_meals dm
+       JOIN meal_portions mp ON mp.meal_id = dm.meal_id
+       LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+       LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'`,
+      [userId, date, dayOfWeek]
+    );
+    const row = result.rows[0];
+    return {
+      calories: +Number(row.calories).toFixed(1),
+      protein_g: +Number(row.protein_g).toFixed(2),
+      carbs_g: +Number(row.carbs_g).toFixed(2),
+      fat_g: +Number(row.fat_g).toFixed(2),
+    };
+  } catch {
+    return { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
   }
 }
 
@@ -219,16 +281,22 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
   const calorieTarget = planRes.rows[0] ? Number(planRes.rows[0].calorie_target) : 0;
   const tdeeEstimated = planRes.rows[0] ? Number(planRes.rows[0].tdee_estimated) : 0;
 
-  const [nutrition, training] = await Promise.all([
+  const [nutrition, training, plannedIntake] = await Promise.all([
     getNutritionData(userId, dateStr),
     getWorkoutCalories(userId, dateStr, weightKg),
+    getPlannedIntakeForDate(userId, dateStr),
   ]);
 
   // Calculate balance: consumed - (metabolic rate + exercise burn)
   const totalBurned = tdeeEstimated + training.burned_calories;
   const balance = nutrition.consumed.calories - totalBurned;
 
-  res.json({ date: dateStr, nutrition, training, calorieTarget, tdeeEstimated, workoutBurned: training.burned_calories, totalBurned, balance });
+  res.json({
+    date: dateStr, nutrition, training, calorieTarget, tdeeEstimated,
+    workoutBurned: training.burned_calories, totalBurned, balance,
+    // "My plan" (user input) — distinct from the computed baseline target
+    today_plan: { intake: plannedIntake, planned_burn: training.planned_calories },
+  });
 });
 
 // GET /dashboard/weekly?week_start=YYYY-MM-DD  (defaults to current Mon)

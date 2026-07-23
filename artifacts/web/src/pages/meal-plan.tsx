@@ -621,23 +621,27 @@ export default function MealPlan() {
         {/* MacroBar grid vs target */}
         {plan && (
           <div className="space-y-2.5">
-            {/* Calories */}
+            {/* Calories — measured against the menu the user built */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Calories</span>
                 <span className="text-[11px] font-semibold tabular-nums">
                   <span className="text-[#2DD4BF]">{Math.round(consumedTotals.calories)}</span>
-                  <span className="text-muted-foreground"> / {plan.calorieTarget} kcal</span>
+                  <span className="text-muted-foreground"> / {Math.round(dailyTotals.calories)} kcal</span>
                 </span>
               </div>
-              {/* planned bar (dim) */}
-              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
-                <div className="h-full bg-[rgba(45,212,191,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#2DD4BF] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.calories / Math.max(1, dailyTotals.calories)) * 100, 100)}%` }} />
               </div>
-              {/* consumed bar */}
-              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
-                <div className="h-full bg-[#2DD4BF] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.calories / plan.calorieTarget) * 100, 100)}%` }} />
-              </div>
+              {/* Baseline target reference */}
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">
+                Target {plan.calorieTarget} kcal
+                {dailyTotals.calories > 0 && Math.round(dailyTotals.calories - plan.calorieTarget) !== 0 && (
+                  <span className={Math.round(dailyTotals.calories - plan.calorieTarget) > 50 ? "text-amber-400" : "text-[#3B82F6]"}>
+                    {" "}· menu {Math.round(dailyTotals.calories - plan.calorieTarget) > 0 ? "+" : ""}{Math.round(dailyTotals.calories - plan.calorieTarget)}
+                  </span>
+                )}
+              </p>
             </div>
 
             {/* Protein */}
@@ -646,14 +650,11 @@ export default function MealPlan() {
                 <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Protein</span>
                 <span className="text-[11px] font-semibold tabular-nums">
                   <span className="text-[#3B82F6]">{Math.round(consumedTotals.protein_g)}</span>
-                  <span className="text-muted-foreground"> / {plan.proteinG}g</span>
+                  <span className="text-muted-foreground"> / {Math.round(dailyTotals.protein_g)}g</span>
                 </span>
               </div>
-              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
-                <div className="h-full bg-[rgba(59,130,246,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
-              </div>
-              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
-                <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.protein_g / plan.proteinG) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.protein_g / Math.max(1, dailyTotals.protein_g)) * 100, 100)}%` }} />
               </div>
             </div>
 
@@ -663,14 +664,11 @@ export default function MealPlan() {
                 <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Carbs</span>
                 <span className="text-[11px] font-semibold tabular-nums">
                   <span className="text-[#F59E0B]">{Math.round(consumedTotals.carbs_g)}</span>
-                  <span className="text-muted-foreground"> / {plan.carbsG}g</span>
+                  <span className="text-muted-foreground"> / {Math.round(dailyTotals.carbs_g)}g</span>
                 </span>
               </div>
-              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
-                <div className="h-full bg-[rgba(245,158,11,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
-              </div>
-              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
-                <div className="h-full bg-[#F59E0B] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.carbs_g / plan.carbsG) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#F59E0B] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.carbs_g / Math.max(1, dailyTotals.carbs_g)) * 100, 100)}%` }} />
               </div>
             </div>
 
@@ -680,14 +678,11 @@ export default function MealPlan() {
                 <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">Fat</span>
                 <span className="text-[11px] font-semibold tabular-nums">
                   <span className="text-[#EAB308]">{Math.round(consumedTotals.fat_g)}</span>
-                  <span className="text-muted-foreground"> / {plan.fatG}g</span>
+                  <span className="text-muted-foreground"> / {Math.round(dailyTotals.fat_g)}g</span>
                 </span>
               </div>
-              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden mb-0.5">
-                <div className="h-full bg-[rgba(234,179,8,0.25)] rounded-full transition-all duration-500" style={{ width: `${Math.min((dailyTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
-              </div>
-              <div className="h-1.5 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
-                <div className="h-full bg-[#EAB308] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.fat_g / plan.fatG) * 100, 100)}%` }} />
+              <div className="h-2 bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+                <div className="h-full bg-[#EAB308] rounded-full transition-all duration-500" style={{ width: `${Math.min((consumedTotals.fat_g / Math.max(1, dailyTotals.fat_g)) * 100, 100)}%` }} />
               </div>
             </div>
           </div>

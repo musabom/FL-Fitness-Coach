@@ -39,6 +39,11 @@ interface TodayData {
     planned: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
   };
   training: { planned_calories: number; burned_calories: number };
+  /** "My plan" (user input): scheduled meals + today's actual workout burn */
+  today_plan?: {
+    intake: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+    planned_burn: number;
+  };
   tdee: number;
   totalBurned: number;
   balance: number;
@@ -661,68 +666,116 @@ export default function Dashboard() {
         {/* ─── DAILY VIEW ─── */}
         {view === "daily" && (
           <>
-            {/* ── AM I ON TRACK? — MiniStatPills + 2×2 MacroBars ── */}
-            <Card className="overflow-hidden">
-              {/* Overline */}
-              <div className="px-5 pt-4 pb-1">
-                <p className="fl-overline">{t("dashboard.onTrack")}</p>
-              </div>
-
-              {/* MiniStatPill row: Planned / Burned / Deficit */}
-              {(() => {
-                const tdee = plan.tdeeEstimated ?? plan.calorieTarget ?? 0;
-                const burnedCals = training.burned_calories ?? 0;
-                const deficit = consumed.calories - burnedCals - tdee;
-                const deficitColor = deficit < -200 ? "#2DD4BF" : deficit < 0 ? "#F59E0B" : "#EF4444";
-                return (
-                  <div className="flex gap-2 px-5 pt-3 pb-4">
-                    {[
-                      { label: t("dashboard.planned"), value: Math.round(plan.calorieTarget), unit: "kcal", color: "#F0F6FF" },
-                      { label: t("dashboard.burned"), value: Math.round(burnedCals), unit: "kcal", color: "#F97316" },
-                      { label: t("dashboard.total"), value: Math.abs(Math.round(deficit)), unit: deficit < 0 ? "deficit" : "surplus", color: deficitColor },
-                    ].map(pill => (
-                      <div key={pill.label} className="flex-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.05)] rounded-2xl px-2.5 py-3 flex flex-col items-center gap-1">
-                        <p className="fl-overline">{pill.label}</p>
-                        <span className="text-[22px] font-bold leading-none" style={{ color: pill.color, letterSpacing: "-0.02em" }}>{pill.value}</span>
-                        <span className="text-[10px] text-muted-foreground">{pill.unit}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {/* 2×2 MacroBar grid */}
-              <div className="grid grid-cols-2 gap-4 px-5 pb-5">
-                {[
-                  { label: t("dashboard.protein"), consumed: consumed.protein_g, planned: planned.protein_g || plan.proteinG, color: "#3B82F6", unit: "g" },
-                  { label: t("dashboard.carbs"),   consumed: consumed.carbs_g,   planned: planned.carbs_g   || plan.carbsG,   color: "#F59E0B", unit: "g" },
-                  { label: t("dashboard.fats"),    consumed: consumed.fat_g,     planned: planned.fat_g     || plan.fatG,     color: "#EAB308", unit: "g" },
-                  { label: t("dashboard.calories"),consumed: consumed.calories,  planned: plan.calorieTarget,                  color: "#2DD4BF", unit: "kcal" },
-                ].map(bar => {
-                  const pct = bar.planned > 0 ? Math.min(100, (bar.consumed / bar.planned) * 100) : 0;
-                  const net = bar.consumed - bar.planned;
-                  return (
-                    <div key={bar.label} className="space-y-1.5">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-[13px] font-semibold text-foreground">
-                          {Math.round(bar.consumed)}<span className="text-[10px] text-muted-foreground mx-0.5">/</span>{Math.round(bar.planned)}<span className="text-[10px] text-muted-foreground ml-0.5">{bar.unit}</span>
-                        </span>
-                        <span className="text-[11px] font-semibold" style={{ color: net >= 0 ? bar.color : "#7B95B8" }}>
-                          {net >= 0 ? "+" : ""}{Math.round(net)}{bar.unit === "kcal" ? "" : bar.unit}
-                        </span>
-                      </div>
-                      <div className="h-2.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, backgroundColor: bar.color }}
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground text-right">{bar.label}</p>
+            {/* ── TODAY'S PLAN (user input) + MY TARGET (baseline) ── */}
+            {(() => {
+              const tp = todayData?.today_plan;
+              const menuCals = tp?.intake.calories ?? 0;
+              const hasMenu = menuCals > 0;
+              // Denominators: the user's own menu; fall back to baseline targets
+              // when nothing is scheduled so the card stays useful.
+              const den = {
+                calories: hasMenu ? menuCals : plan.calorieTarget,
+                protein_g: hasMenu ? tp!.intake.protein_g : (planned.protein_g || plan.proteinG),
+                carbs_g: hasMenu ? tp!.intake.carbs_g : (planned.carbs_g || plan.carbsG),
+                fat_g: hasMenu ? tp!.intake.fat_g : (planned.fat_g || plan.fatG),
+              };
+              const left = Math.max(0, den.calories - consumed.calories);
+              const menuDelta = hasMenu ? Math.round(menuCals - plan.calorieTarget) : null;
+              const tdee = plan.tdeeEstimated ?? plan.calorieTarget ?? 0;
+              const burnedCals = training.burned_calories ?? 0;
+              const deficit = consumed.calories - burnedCals - tdee;
+              const deficitColor = deficit < -200 ? "#2DD4BF" : deficit < 0 ? "#F59E0B" : "#EF4444";
+              return (
+                <>
+                  {/* Primary — the plan the user actually built */}
+                  <Card className="overflow-hidden">
+                    <div className="px-5 pt-4 pb-1">
+                      <p className="fl-overline">{t("dashboard.todaysPlanTitle")}</p>
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
+
+                    <div className="flex gap-2 px-5 pt-3 pb-4">
+                      {[
+                        { label: t("dashboard.planned"), value: Math.round(den.calories), unit: "kcal", color: "#F0F6FF" },
+                        { label: t("dashboard.consumed"), value: Math.round(consumed.calories), unit: "kcal", color: "#2DD4BF" },
+                        { label: t("dashboard.left"), value: Math.round(left), unit: "kcal", color: "#7B95B8" },
+                      ].map(pill => (
+                        <div key={pill.label} className="flex-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.05)] rounded-2xl px-2.5 py-3 flex flex-col items-center gap-1">
+                          <p className="fl-overline">{pill.label}</p>
+                          <span className="text-[22px] font-bold leading-none" style={{ color: pill.color, letterSpacing: "-0.02em" }}>{pill.value}</span>
+                          <span className="text-[10px] text-muted-foreground">{pill.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 px-5 pb-5">
+                      {[
+                        { label: t("dashboard.protein"), consumed: consumed.protein_g, planned: den.protein_g, color: "#3B82F6", unit: "g" },
+                        { label: t("dashboard.carbs"),   consumed: consumed.carbs_g,   planned: den.carbs_g,   color: "#F59E0B", unit: "g" },
+                        { label: t("dashboard.fats"),    consumed: consumed.fat_g,     planned: den.fat_g,     color: "#EAB308", unit: "g" },
+                        { label: t("dashboard.calories"),consumed: consumed.calories,  planned: den.calories,  color: "#2DD4BF", unit: "kcal" },
+                      ].map(bar => {
+                        const pct = bar.planned > 0 ? Math.min(100, (bar.consumed / bar.planned) * 100) : 0;
+                        const net = bar.consumed - bar.planned;
+                        return (
+                          <div key={bar.label} className="space-y-1.5">
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-[13px] font-semibold text-foreground">
+                                {Math.round(bar.consumed)}<span className="text-[10px] text-muted-foreground mx-0.5">/</span>{Math.round(bar.planned)}<span className="text-[10px] text-muted-foreground ml-0.5">{bar.unit}</span>
+                              </span>
+                              <span className="text-[11px] font-semibold" style={{ color: net >= 0 ? bar.color : "#7B95B8" }}>
+                                {net >= 0 ? "+" : ""}{Math.round(net)}{bar.unit === "kcal" ? "" : bar.unit}
+                              </span>
+                            </div>
+                            <div className="h-2.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{ width: `${pct}%`, backgroundColor: bar.color }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground text-right">{bar.label}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+
+                  {/* Secondary — the computed baseline target */}
+                  <Card className="overflow-hidden mt-4">
+                    <div className="px-5 py-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="fl-overline">{t("dashboard.myTarget")}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{t("dashboard.fromProfile")}</p>
+                        </div>
+                        <Link href="/profile/edit" className="text-[11px] font-semibold text-primary hover:underline shrink-0">
+                          {t("dashboard.editGoal")}
+                        </Link>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <span className="text-xl font-bold text-foreground tabular-nums">{Math.round(plan.calorieTarget)}</span>
+                        <span className="text-[10px] text-muted-foreground">kcal</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3B82F6]/15 text-[#3B82F6] font-semibold">P {Math.round(planned.protein_g || plan.proteinG)}g</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] font-semibold">C {Math.round(planned.carbs_g || plan.carbsG)}g</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EAB308]/15 text-[#EAB308] font-semibold">F {Math.round(planned.fat_g || plan.fatG)}g</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: `${deficitColor}26`, color: deficitColor }}>
+                          {Math.abs(Math.round(deficit))} {deficit < 0 ? "deficit" : "surplus"}
+                        </span>
+                      </div>
+
+                      {menuDelta !== null && (
+                        <p className="text-[11px] mt-2.5">
+                          <span className="text-muted-foreground">{t("dashboard.menuVsTarget")}: </span>
+                          <span className={`font-semibold ${menuDelta > 50 ? "text-amber-400" : menuDelta < -50 ? "text-[#3B82F6]" : "text-primary"}`}>
+                            {menuDelta === 0 ? t("dashboard.onTargetLabel") : `${menuDelta > 0 ? "+" : ""}${menuDelta} kcal`}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+                </>
+              );
+            })()}
 
             {/* Daily Target — Hidden */}
             {false && (

@@ -45,6 +45,8 @@ interface DayMealPlan {
 interface TodayData {
   nutrition: { consumed: { calories: number }; planned: { calories: number } };
   training: { planned_calories: number; burned_calories: number };
+  calorieTarget?: number;
+  today_plan?: { intake: { calories: number }; planned_burn: number };
 }
 
 // ── tiny UI pieces ────────────────────────────────────────────────────────────
@@ -139,7 +141,10 @@ export default function Today() {
   const workouts = workoutDay?.entries ?? [];
   const meals = (mealDay?.entries ?? []).filter(e => e.meal);
   const workoutsDone = workouts.filter(w => w.completed).length;
-  const caloriesGoal = summary?.nutrition.planned.calories ?? mealDay?.daily_totals.calories ?? 0;
+  // Goal = the menu the user actually planned; baseline target is a caption.
+  const menuCalories = summary?.today_plan?.intake.calories ?? mealDay?.daily_totals.calories ?? 0;
+  const caloriesGoal = menuCalories > 0 ? menuCalories : (summary?.nutrition.planned.calories ?? 0);
+  const targetCalories = summary?.calorieTarget ?? summary?.nutrition.planned.calories ?? 0;
   const caloriesEaten = summary?.nutrition.consumed.calories ?? mealDay?.consumed_totals.calories ?? 0;
   const burned = summary?.training.burned_calories ?? workoutDay?.burned_calories ?? 0;
   const isRestDay = !!workoutDay?.is_calendar_rest_day && workouts.length === 0;
@@ -185,6 +190,14 @@ export default function Today() {
             </span>
           </div>
           <ProgressBar value={caloriesEaten} max={caloriesGoal} color="#2DD4BF" />
+          {targetCalories > 0 && menuCalories > 0 && Math.round(menuCalories) !== Math.round(targetCalories) && (
+            <p className="text-[9px] text-muted-foreground mt-1 text-right">
+              {t("dashboard.myTarget")} {Math.round(targetCalories)} {t("common.kcal")}
+              <span className={menuCalories - targetCalories > 50 ? " text-amber-400" : " text-[#3B82F6]"}>
+                {" "}· {menuCalories - targetCalories > 0 ? "+" : ""}{Math.round(menuCalories - targetCalories)}
+              </span>
+            </p>
+          )}
         </div>
         <div>
           <div className="flex justify-between items-center mb-1.5">

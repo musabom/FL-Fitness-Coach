@@ -26,6 +26,27 @@ function toDateStr(d: Date): string {
 }
 
 /**
+ * For a calendar_based cycle, returns which training-slot index (0-based, over
+ * the ordered non-null slots) falls on the given date — or null when the date
+ * is before the cycle start or on a rest weekday. Mirrors workout-plan.ts.
+ */
+export function resolveCalendarSlotIndexForDate(
+  startDateStr: string,
+  dateStr: string,
+  restDaysOfWeek: number[],
+  slotCount: number,
+): number | null {
+  if (slotCount < 1 || restDaysOfWeek.length >= 7) return null;
+  const startMs = new Date(startDateStr + "T00:00:00").getTime();
+  const dateMs = new Date(dateStr + "T00:00:00").getTime();
+  const daysSince = Math.floor((dateMs - startMs) / 86400000);
+  if (daysSince < 0) return null;
+  if (restDaysOfWeek.includes(new Date(dateStr + "T00:00:00").getDay())) return null;
+  const trainingBefore = daysSince - countRestDaysInRange(startDateStr, dateStr, restDaysOfWeek);
+  return ((trainingBefore % slotCount) + slotCount) % slotCount;
+}
+
+/**
  * For a calendar_based cycle, returns the calendar dates of the CURRENT round —
  * one date per training slot (rest weekdays are skipped). The current round is
  * the pass of the cycle that today falls inside (or the first pass when the
