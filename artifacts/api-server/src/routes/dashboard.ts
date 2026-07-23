@@ -303,6 +303,33 @@ async function getRecentDailyNet(userId: number, dateStr: string, maintenance: n
   return { avg_daily_net: +(totalNet / dataDays.length).toFixed(0), data_days: dataDays.length };
 }
 
+// Actual scale trend: least-squares slope (kg/day) over weigh-ins in the last
+// 21 days. Needs ≥2 weigh-ins spanning ≥5 days — otherwise too noisy to trust.
+async function getScaleTrend(userId: number, dateStr: string) {
+  const rows = await pool.query(
+    `SELECT recorded_at, weight_kg FROM weight_history
+     WHERE user_id = $1
+       AND recorded_at >= ($2::date - INTERVAL '21 days')
+       AND recorded_at < ($2::date + INTERVAL '1 day')
+     ORDER BY recorded_at`,
+    [userId, dateStr]
+  );
+  const pts = rows.rows.map((r: any) => ({
+    x: new Date(r.recorded_at).getTime() / 86400000,
+    y: Number(r.weight_kg),
+  }));
+  if (pts.length < 2) return { rate_kg_per_day: null as number | null, weighins: pts.length };
+  const span = pts[pts.length - 1].x - pts[0].x;
+  if (span < 5) return { rate_kg_per_day: null as number | null, weighins: pts.length };
+  const n = pts.length;
+  const mx = pts.reduce((s, p) => s + p.x, 0) / n;
+  const my = pts.reduce((s, p) => s + p.y, 0) / n;
+  const denom = pts.reduce((s, p) => s + (p.x - mx) ** 2, 0);
+  if (denom === 0) return { rate_kg_per_day: null as number | null, weighins: n };
+  const slope = pts.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0) / denom;
+  return { rate_kg_per_day: slope, weighins: n };
+}
+
 // GET /dashboard/today?date=YYYY-MM-DD
 router.get("/dashboard/today", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -338,31 +365,44 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
   const calorieTarget = planRes.rows[0] ? Number(planRes.rows[0].calorie_target) : 0;
   const tdeeEstimated = planRes.rows[0] ? Number(planRes.rows[0].tdee_estimated) : 0;
 
-  const [nutrition, training, plannedIntake, recentNet] = await Promise.all([
+  const [nutrition, training, plannedIntake, recentNet, scaleTrend] = await Promise.all([
     getNutritionData(userId, dateStr),
     getWorkoutCalories(userId, dateStr, weightKg),
     getPlannedIntakeForDate(userId, dateStr),
     prof ? getRecentDailyNet(userId, dateStr, maintenanceToday, weightKg)
          : Promise.resolve({ avg_daily_net: null, data_days: 0 }),
+    prof ? getScaleTrend(userId, dateStr)
+         : Promise.resolve({ rate_kg_per_day: null, weighins: 0 }),
   ]);
 
   // Calculate balance: consumed - (metabolic rate + exercise burn)
   const totalBurned = tdeeEstimated + training.burned_calories;
   const balance = nutrition.consumed.calories - totalBurned;
 
-  // ── Dynamic target-weight ETA from the 7-day actual pace ────────────────────
+  // ── Dynamic target-weight ETA — best available signal ───────────────────────
+  // scale trend (ground truth) > blend > calorie balance. Rates in kg/day,
+  // negative = losing weight.
   const targetWeightKg = prof ? Number(prof.target_weight_kg) : 0;
   const remainingKg = +(weightKg - targetWeightKg).toFixed(1); // >0 = must lose
   const direction = Math.abs(remainingKg) < 0.25 ? "at_target" : remainingKg > 0 ? "lose" : "gain";
+
+  const calRate = (recentNet.avg_daily_net !== null && recentNet.data_days >= 3)
+    ? recentNet.avg_daily_net / 7700 : null;
+  const scaleRate = scaleTrend.rate_kg_per_day;
+  let method: "scale" | "calories" | "blend" | null = null;
+  let rate: number | null = null;
+  if (scaleRate !== null && calRate !== null) { method = "blend"; rate = 0.7 * scaleRate + 0.3 * calRate; }
+  else if (scaleRate !== null) { method = "scale"; rate = scaleRate; }
+  else if (calRate !== null) { method = "calories"; rate = calRate; }
+
   let onTrack: boolean | null = null;
   let daysToTarget: number | null = null;
   let projectedDate: string | null = null;
-  if (direction !== "at_target" && recentNet.avg_daily_net !== null && recentNet.data_days >= 3) {
-    const net = recentNet.avg_daily_net;
-    const moving = direction === "lose" ? net < -25 : net > 25;
+  if (direction !== "at_target" && rate !== null) {
+    const moving = direction === "lose" ? rate < -0.004 : rate > 0.004; // ≥ ~30 kcal/day equivalent
     onTrack = moving;
     if (moving) {
-      const days = Math.round(Math.abs(remainingKg) * 7700 / Math.abs(net));
+      const days = Math.round(Math.abs(remainingKg) / Math.abs(rate));
       if (days <= 3650) {
         daysToTarget = days;
         const pd = new Date(dateStr + "T00:00:00");
@@ -388,6 +428,8 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
     eta: {
       direction, remaining_kg: remainingKg, target_weight_kg: targetWeightKg,
       avg_daily_net_7d: recentNet.avg_daily_net, data_days: recentNet.data_days,
+      method, rate_kg_per_week: rate !== null ? +(rate * 7).toFixed(2) : null,
+      weighins_used: scaleTrend.weighins,
       on_track: onTrack, days_to_target: daysToTarget, projected_date: projectedDate,
     },
   });

@@ -53,6 +53,8 @@ interface TodayData {
     direction: "lose" | "gain" | "at_target";
     remaining_kg: number; target_weight_kg: number;
     avg_daily_net_7d: number | null; data_days: number;
+    method: "scale" | "calories" | "blend" | null;
+    rate_kg_per_week: number | null; weighins_used: number;
     on_track: boolean | null; days_to_target: number | null; projected_date: string | null;
   };
   tdee: number;
@@ -113,16 +115,16 @@ function DeficitCard({ data, t, lang }: { data: TodayData | undefined; t: (k: st
         </div>
       </div>
 
-      {/* Dynamic ETA */}
+      {/* Dynamic ETA — best available signal (scale trend / calories / blend) */}
       {eta && eta.direction !== "at_target" && (
         <div className="mx-5 mb-4 px-3.5 py-3 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.05)]">
-          {eta.data_days < 3 ? (
+          {eta.method === null ? (
             <p className="text-[11px] text-muted-foreground">{t("dashboard.logMore")}</p>
           ) : eta.on_track && eta.days_to_target !== null ? (
             <>
               <p className="text-[11px] text-muted-foreground">
-                {t("dashboard.pace7d")}: <span className="font-semibold" style={{ color: (eta.avg_daily_net_7d ?? 0) < 0 ? "#2DD4BF" : "#F59E0B" }}>
-                  {(eta.avg_daily_net_7d ?? 0) > 0 ? "+" : ""}{Math.round(eta.avg_daily_net_7d ?? 0)} kcal
+                {t("dashboard.currentPace")}: <span className="font-semibold" style={{ color: (eta.rate_kg_per_week ?? 0) < 0 ? "#2DD4BF" : "#F59E0B" }}>
+                  {(eta.rate_kg_per_week ?? 0) > 0 ? "+" : ""}{(eta.rate_kg_per_week ?? 0).toFixed(2)} {t("dashboard.kgPerWeek")}
                 </span> · {Math.abs(eta.remaining_kg).toFixed(1)} {t("common.kg")} {t("dashboard.toGo")}
               </p>
               <p className="text-sm font-bold text-foreground mt-1">
@@ -130,12 +132,17 @@ function DeficitCard({ data, t, lang }: { data: TodayData | undefined; t: (k: st
                 <span className="text-primary"> → {eta.target_weight_kg} {t("common.kg")} </span>
                 <span className="text-muted-foreground font-medium">{t("dashboard.aroundDate")} {eta.projected_date ? fmtDate(eta.projected_date) : ""}</span>
               </p>
+              <p className="text-[9px] text-muted-foreground mt-1">
+                {eta.method !== "scale" && `${eta.data_days} ${t("dashboard.dataDays")}`}
+                {eta.method === "blend" && " · "}
+                {eta.method !== "calories" && `${eta.weighins_used} ${t("dashboard.weighInsLbl")}`}
+              </p>
             </>
           ) : (
             <p className="text-[11px] text-amber-400">
               {t("dashboard.notMoving")}
-              {eta.avg_daily_net_7d !== null && (
-                <span className="text-muted-foreground"> ({t("dashboard.pace7d")}: {eta.avg_daily_net_7d > 0 ? "+" : ""}{Math.round(eta.avg_daily_net_7d)} kcal)</span>
+              {eta.rate_kg_per_week !== null && (
+                <span className="text-muted-foreground"> ({eta.rate_kg_per_week > 0 ? "+" : ""}{eta.rate_kg_per_week.toFixed(2)} {t("dashboard.kgPerWeek")})</span>
               )}
             </p>
           )}
@@ -1160,13 +1167,53 @@ export default function Dashboard() {
                     <p className="text-sm text-muted-foreground">{weightGapStr}</p>
                   </div>
                 </div>
-                {plan.weeksEstimateLow !== null && plan.weeksEstimateHigh !== null ? (
-                  <div className="text-3xl font-light">
-                    {plan.weeksEstimateLow} - {plan.weeksEstimateHigh} <span className="text-lg text-muted-foreground">{t("dashboard.weeks")}</span>
-                  </div>
-                ) : (
-                  <div className="text-xl font-light text-muted-foreground">{t("dashboard.timelineNA")}</div>
-                )}
+                {(() => {
+                  const eta = todayData?.eta;
+                  const fmtD = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(lang === "ar" ? "ar" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+                  if (eta && eta.direction !== "at_target" && eta.on_track && eta.days_to_target !== null) {
+                    return (
+                      <>
+                        <div className="text-3xl font-light">
+                          ≈ {(eta.days_to_target / 7).toFixed(1)} <span className="text-lg text-muted-foreground">{t("dashboard.weeks")}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          → <span className="text-primary font-semibold">{eta.target_weight_kg} {t("common.kg")}</span> {t("dashboard.aroundDate")} <span className="text-foreground font-medium">{eta.projected_date ? fmtD(eta.projected_date) : ""}</span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                          {t("dashboard.currentPace")}: <span style={{ color: (eta.rate_kg_per_week ?? 0) < 0 ? "#2DD4BF" : "#F59E0B" }} className="font-semibold">
+                            {(eta.rate_kg_per_week ?? 0) > 0 ? "+" : ""}{(eta.rate_kg_per_week ?? 0).toFixed(2)} {t("dashboard.kgPerWeek")}
+                          </span>
+                          {" · "}
+                          {eta.method !== "scale" && `${eta.data_days} ${t("dashboard.dataDays")}`}
+                          {eta.method === "blend" && " · "}
+                          {eta.method !== "calories" && `${eta.weighins_used} ${t("dashboard.weighInsLbl")}`}
+                        </p>
+                      </>
+                    );
+                  }
+                  if (eta && eta.direction !== "at_target" && eta.method !== null && eta.on_track === false) {
+                    return (
+                      <p className="text-sm text-amber-400">
+                        {t("dashboard.notMoving")}
+                        {eta.rate_kg_per_week !== null && (
+                          <span className="text-muted-foreground"> ({eta.rate_kg_per_week > 0 ? "+" : ""}{eta.rate_kg_per_week.toFixed(2)} {t("dashboard.kgPerWeek")})</span>
+                        )}
+                      </p>
+                    );
+                  }
+                  return (
+                    <>
+                      {plan.weeksEstimateLow !== null && plan.weeksEstimateHigh !== null ? (
+                        <div className="text-3xl font-light">
+                          {plan.weeksEstimateLow} - {plan.weeksEstimateHigh} <span className="text-lg text-muted-foreground">{t("dashboard.weeks")}</span>
+                        </div>
+                      ) : (
+                        <div className="text-xl font-light text-muted-foreground">{t("dashboard.timelineNA")}</div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground mt-2">{t("dashboard.formulaEstimate")}</p>
+                    </>
+                  );
+                })()}
                 {plan.goalMode === "recomposition" && (
                   <p className="text-xs text-muted-foreground mt-4 p-3 bg-muted rounded-lg border border-border/50">
                     {t("dashboard.recompositionNote")}
