@@ -73,6 +73,8 @@ interface MealSummary {
 interface PickedFood {
   id: number; food_name: string; serving_unit: string;
   calories: number; source: "database" | "user";
+  cooking_method?: string; food_group?: string;
+  protein_g?: number; carbs_g?: number; fat_g?: number;
 }
 
 interface PlanEntry {
@@ -203,10 +205,26 @@ function FoodPickerSheet({ title, onConfirm, onClose }: {
                 <button key={`${f.source}-${f.id}`}
                   onClick={() => { setPicked(f); setQty(f.serving_unit === "per_piece" ? "1" : "100"); }}
                   className="w-full text-left px-3.5 py-2.5 rounded-xl bg-[#1B3260]/40 border border-border/30 hover:border-primary/40">
-                  <span className="text-sm font-medium text-foreground">{f.food_name}</span>
-                  <span className="text-[10px] text-muted-foreground ms-2">
-                    {Math.round(f.calories)} kcal / {f.serving_unit === "per_piece" ? "pc" : "100g"}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {f.food_name}
+                      {f.cooking_method && (
+                        <span className="ms-1.5 text-[10px] font-semibold text-primary bg-primary/10 border border-primary/25 rounded-md px-1.5 py-0.5 capitalize align-middle">
+                          {f.cooking_method.replace(/_/g, " ")}
+                        </span>
+                      )}
+                      {f.source === "user" && (
+                        <span className="ms-1.5 text-[9px] font-semibold text-amber-400 bg-amber-400/10 rounded-md px-1 py-0.5 align-middle">custom</span>
+                      )}
+                    </span>
+                    <span className="text-[11px] font-semibold tabular-nums text-foreground shrink-0">
+                      {Math.round(f.calories)} <span className="text-[9px] font-normal text-muted-foreground">kcal/{f.serving_unit === "per_piece" ? "pc" : "100g"}</span>
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">
+                    {f.food_group ? `${f.food_group} · ` : ""}
+                    <span className="text-[#3B82F6]">P {Math.round(f.protein_g ?? 0)}</span> · <span className="text-[#F59E0B]">C {Math.round(f.carbs_g ?? 0)}</span> · <span className="text-[#EAB308]">F {Math.round(f.fat_g ?? 0)}</span>
+                  </div>
                 </button>
               ))}
               {!isLoading && shown.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">No foods found</p>}
@@ -214,7 +232,11 @@ function FoodPickerSheet({ title, onConfirm, onClose }: {
           </>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-foreground font-medium">{picked.food_name}</p>
+            <p className="text-sm text-foreground font-medium">
+              {picked.food_name}
+              {picked.cooking_method && <span className="text-muted-foreground capitalize"> · {picked.cooking_method.replace(/_/g, " ")}</span>}
+              <span className="text-[10px] text-muted-foreground"> · {Math.round(picked.calories)} kcal/{picked.serving_unit === "per_piece" ? "pc" : "100g"}</span>
+            </p>
             <div className="flex items-center gap-2">
               <input
                 autoFocus type="number" min="0.1" step="any" value={qty} onChange={e => setQty(e.target.value)}
