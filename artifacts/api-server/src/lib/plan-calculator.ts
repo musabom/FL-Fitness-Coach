@@ -37,14 +37,14 @@ interface PlanResult {
   customDeficitKcal: number | null;
 }
 
-function calcBMR(weightKg: number, heightCm: number, age: number, gender: string): number {
+export function calcBMR(weightKg: number, heightCm: number, age: number, gender: string): number {
   if (gender === "female") {
     return (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161;
   }
   return (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
 }
 
-function calcTDEE(bmr: number, activityLevel: string): number {
+export function calcTDEE(bmr: number, activityLevel: string): number {
   const multipliers: Record<string, number> = {
     sedentary: 1.2,
     lightly_active: 1.375,

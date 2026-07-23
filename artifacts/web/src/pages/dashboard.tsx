@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { Reorder } from "framer-motion";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { usePlan } from "@/hooks/use-plan";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,6 +8,7 @@ import {
   Settings, LogOut, Loader2, ChevronRight, ChevronDown,
   UtensilsCrossed, CalendarDays, ShoppingCart, Dumbbell, TrendingUp, ClipboardList, Flame, Zap, Edit2, Check, X,
   ArrowLeft, UserCheck, Bell, Search, AlertTriangle, RotateCcw, CheckCircle2, MessageCircle, Send,
+  GripVertical, SlidersHorizontal,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -44,9 +46,103 @@ interface TodayData {
     intake: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
     planned_burn: number;
   };
+  /** Live energy equation + dynamic target-weight ETA */
+  maintenance_today?: number;
+  deficit_card?: { maintenance: number; eaten: number; burned: number; net: number };
+  eta?: {
+    direction: "lose" | "gain" | "at_target";
+    remaining_kg: number; target_weight_kg: number;
+    avg_daily_net_7d: number | null; data_days: number;
+    on_track: boolean | null; days_to_target: number | null; projected_date: string | null;
+  };
   tdee: number;
   totalBurned: number;
   balance: number;
+}
+
+// ── Dashboard card layout (drag-and-drop order) ───────────────────────────────
+const DEFAULT_CARD_ORDER = [
+  "todays-plan", "my-target", "deficit", "workout", "weight", "quicklinks", "meal-links", "workout-links",
+] as const;
+
+function mergeLayout(stored: string[] | null | undefined): string[] {
+  const known = DEFAULT_CARD_ORDER as readonly string[];
+  if (!stored || !Array.isArray(stored)) return [...known];
+  const kept = stored.filter(id => known.includes(id));
+  const missing = known.filter(id => !kept.includes(id));
+  return [...kept, ...missing];
+}
+
+function DeficitCard({ data, t, lang }: { data: TodayData | undefined; t: (k: string) => string; lang: string }) {
+  const dc = data?.deficit_card;
+  const eta = data?.eta;
+  if (!dc) return null;
+  const isDeficit = dc.net < 0;
+  const netColor = isDeficit ? "#2DD4BF" : "#F59E0B";
+  const fmtDate = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString(lang === "ar" ? "ar" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-5 pt-4 pb-1 flex items-center justify-between">
+        <p className="fl-overline">{t("dashboard.deficitTitle")}</p>
+        {eta && eta.data_days > 0 && (
+          <span className="text-[9px] text-muted-foreground">{eta.data_days}/7 {t("dashboard.dataDays")}</span>
+        )}
+      </div>
+
+      {/* Energy equation */}
+      <div className="flex gap-2 px-5 pt-2 pb-3">
+        {[
+          { label: t("today.eaten"), value: Math.round(dc.eaten), color: "#2DD4BF", sign: "" },
+          { label: t("dashboard.maintenanceLbl"), value: Math.round(dc.maintenance), color: "#7B95B8", sign: "−" },
+          { label: t("today.burned"), value: Math.round(dc.burned), color: "#F97316", sign: "−" },
+        ].map(x => (
+          <div key={x.label} className="flex-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.05)] rounded-2xl px-2 py-2.5 flex flex-col items-center gap-0.5">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{x.sign} {x.label}</p>
+            <span className="text-lg font-bold leading-none tabular-nums" style={{ color: x.color }}>{x.value}</span>
+            <span className="text-[9px] text-muted-foreground">kcal</span>
+          </div>
+        ))}
+        <div className="flex-1 rounded-2xl px-2 py-2.5 flex flex-col items-center gap-0.5 border"
+          style={{ backgroundColor: `${netColor}14`, borderColor: `${netColor}4d` }}>
+          <p className="text-[9px] uppercase tracking-wider" style={{ color: netColor }}>= {t("dashboard.netToday")}</p>
+          <span className="text-lg font-bold leading-none tabular-nums" style={{ color: netColor }}>
+            {dc.net > 0 ? "+" : ""}{Math.round(dc.net)}
+          </span>
+          <span className="text-[9px]" style={{ color: netColor }}>{isDeficit ? t("dashboard.deficitWord") : t("dashboard.surplusWord")}</span>
+        </div>
+      </div>
+
+      {/* Dynamic ETA */}
+      {eta && eta.direction !== "at_target" && (
+        <div className="mx-5 mb-4 px-3.5 py-3 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(240,246,255,0.05)]">
+          {eta.data_days < 3 ? (
+            <p className="text-[11px] text-muted-foreground">{t("dashboard.logMore")}</p>
+          ) : eta.on_track && eta.days_to_target !== null ? (
+            <>
+              <p className="text-[11px] text-muted-foreground">
+                {t("dashboard.pace7d")}: <span className="font-semibold" style={{ color: (eta.avg_daily_net_7d ?? 0) < 0 ? "#2DD4BF" : "#F59E0B" }}>
+                  {(eta.avg_daily_net_7d ?? 0) > 0 ? "+" : ""}{Math.round(eta.avg_daily_net_7d ?? 0)} kcal
+                </span> · {Math.abs(eta.remaining_kg).toFixed(1)} {t("common.kg")} {t("dashboard.toGo")}
+              </p>
+              <p className="text-sm font-bold text-foreground mt-1">
+                ≈ {(eta.days_to_target / 7).toFixed(1)} {t("dashboard.etaWeeks")}
+                <span className="text-primary"> → {eta.target_weight_kg} {t("common.kg")} </span>
+                <span className="text-muted-foreground font-medium">{t("dashboard.aroundDate")} {eta.projected_date ? fmtDate(eta.projected_date) : ""}</span>
+              </p>
+            </>
+          ) : (
+            <p className="text-[11px] text-amber-400">
+              {t("dashboard.notMoving")}
+              {eta.avg_daily_net_7d !== null && (
+                <span className="text-muted-foreground"> ({t("dashboard.pace7d")}: {eta.avg_daily_net_7d > 0 ? "+" : ""}{Math.round(eta.avg_daily_net_7d)} kcal)</span>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
 }
 
 interface WeeklyDay {
@@ -386,6 +482,38 @@ export default function Dashboard() {
   const planned = todayData?.nutrition.planned ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
   const training = todayData?.training ?? { planned_calories: 0, burned_calories: 0 };
 
+  // ── Card layout (drag-and-drop order, account-synced) ───────────────────────
+  const [cardOrder, setCardOrder] = useState<string[]>([...DEFAULT_CARD_ORDER]);
+  const [editingLayout, setEditingLayout] = useState(false);
+  const { data: layoutData } = useQuery<{ layout: string[] | null }>({
+    queryKey: ["dashboard-layout", activeClient?.id],
+    queryFn: () => customFetch<{ layout: string[] | null }>(buildUrl(`${BASE}/profile/dashboard-layout`)),
+  });
+  useEffect(() => { setCardOrder(mergeLayout(layoutData?.layout)); }, [layoutData]);
+  const saveLayout = useMutation({
+    mutationFn: (layout: string[]) => customFetch(`${BASE}/profile/dashboard-layout`, {
+      method: "PATCH",
+      body: JSON.stringify({ layout }),
+      headers: { "Content-Type": "application/json" },
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard-layout"] }),
+    onError: () => {
+      toast({ title: "Failed to save layout", variant: "destructive" });
+      setCardOrder(mergeLayout(layoutData?.layout));
+    },
+  });
+  const ord = (id: string) => ({ order: Math.max(0, cardOrder.indexOf(id)) });
+  const CARD_LABELS: Record<string, string> = {
+    "todays-plan": t("dashboard.todaysPlanTitle"),
+    "my-target": t("dashboard.myTarget"),
+    "deficit": t("dashboard.deficitTitle"),
+    "workout": t("workoutPlan.title"),
+    "weight": t("dashboard.weight"),
+    "quicklinks": t("today.shortcuts"),
+    "meal-links": t("nutritionMeals.title"),
+    "workout-links": t("trainingBuilder.title"),
+  };
+
   const weeklyMaxCal = useMemo(
     () => Math.max(...(weeklyData?.days.map(d => Math.max(d.calories, d.burned_calories)) ?? [1])),
     [weeklyData]
@@ -645,7 +773,7 @@ export default function Dashboard() {
         )}
 
         {/* FLTabs — segmented pill */}
-        <div className="flex justify-center">
+        <div className="relative flex justify-center items-center">
           <div className="inline-flex gap-1 p-1 bg-card rounded-2xl border border-[rgba(240,246,255,0.06)]">
             {(["daily", "weekly"] as const).map(v => (
               <button
@@ -661,8 +789,18 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+          {view === "daily" && !activeClient && (
+            <button
+              onClick={() => setEditingLayout(true)}
+              aria-label={t("dashboard.editLayout")}
+              className="absolute end-0 w-9 h-9 rounded-xl bg-card border border-[rgba(240,246,255,0.06)] flex items-center justify-center text-muted-foreground hover:text-foreground"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
+        <div className="flex flex-col gap-6">
         {/* ─── DAILY VIEW ─── */}
         {view === "daily" && (
           <>
@@ -688,6 +826,7 @@ export default function Dashboard() {
               return (
                 <>
                   {/* Primary — the plan the user actually built */}
+                  <div style={ord("todays-plan")}>
                   <Card className="overflow-hidden">
                     <div className="px-5 pt-4 pb-1">
                       <p className="fl-overline">{t("dashboard.todaysPlanTitle")}</p>
@@ -738,9 +877,11 @@ export default function Dashboard() {
                       })}
                     </div>
                   </Card>
+                  </div>
 
                   {/* Secondary — the computed baseline target */}
-                  <Card className="overflow-hidden mt-4">
+                  <div style={ord("my-target")}>
+                  <Card className="overflow-hidden">
                     <div className="px-5 py-4">
                       <div className="flex items-center justify-between">
                         <div>
@@ -773,9 +914,15 @@ export default function Dashboard() {
                       )}
                     </div>
                   </Card>
+                  </div>
                 </>
               );
             })()}
+
+            {/* ── Daily Deficit + dynamic target ETA ── */}
+            <div style={ord("deficit")}>
+              <DeficitCard data={todayData} t={t} lang={lang} />
+            </div>
 
             {/* Daily Target — Hidden */}
             {false && (
@@ -867,6 +1014,7 @@ export default function Dashboard() {
             )}
 
             {/* Daily Workout Burn */}
+            <div style={ord("workout")}>
             <section className="space-y-3">
               <button
                 onClick={() => setCollapsedTraining(!collapsedTraining)}
@@ -911,7 +1059,10 @@ export default function Dashboard() {
               )}
             </section>
 
+            </div>
+
             {/* Weight & Timeline */}
+            <div style={ord("weight")}>
             <section className="space-y-3">
               <button
                 onClick={() => setCollapsedWeight(!collapsedWeight)}
@@ -1025,6 +1176,9 @@ export default function Dashboard() {
             </section>
 
             {/* ── Quick Actions 2×2 grid ────────────────────────────── */}
+            </div>
+
+            <div style={ord("quicklinks")}>
             <section className="space-y-3">
               <p className="fl-overline px-1">{t("dashboard.todaysPlan") ?? "Today's Plan"}</p>
               <div className="grid grid-cols-2 gap-3">
@@ -1054,6 +1208,7 @@ export default function Dashboard() {
                 ))}
               </div>
             </section>
+            </div>
           </>
         )}
 
@@ -1209,6 +1364,7 @@ export default function Dashboard() {
         )}
 
         {/* Quick Links — always visible */}
+        <div style={ord("meal-links")}>
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("nutritionMeals.title")}</p>
           <Link href="/nutrition/meals">
@@ -1249,6 +1405,9 @@ export default function Dashboard() {
           </Link>
         </section>
 
+        </div>
+
+        <div style={ord("workout-links")}>
         <section className="space-y-3">
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("workoutPlan.title")}</p>
           <Link href="/training/builder">
@@ -1276,8 +1435,47 @@ export default function Dashboard() {
             </Card>
           </Link>
         </section>
+        </div>
+
+        </div>
 
       </main>
+
+      {/* ── Edit-layout sheet (drag to reorder cards) ── */}
+      {editingLayout && (
+        <div className="fixed inset-0 z-[60]" onClick={() => { setEditingLayout(false); saveLayout.mutate(cardOrder); }}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+          <div
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-[#0F1F3D] border-t border-border/50 rounded-t-3xl p-5 pb-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-bold text-foreground">{t("dashboard.editLayout")}</p>
+              <button
+                onClick={() => { setEditingLayout(false); saveLayout.mutate(cardOrder); }}
+                className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold"
+              >
+                {t("dashboard.layoutDone")}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3">{t("dashboard.dragHint")}</p>
+            <Reorder.Group axis="y" values={cardOrder} onReorder={setCardOrder} className="space-y-1.5">
+              {cardOrder.map(id => (
+                <Reorder.Item
+                  key={id}
+                  value={id}
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-[#1B3260]/50 border border-border/40 cursor-grab active:cursor-grabbing select-none"
+                  whileDrag={{ scale: 1.03, backgroundColor: "rgba(45,212,191,0.12)" }}
+                >
+                  <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium text-foreground">{CARD_LABELS[id] ?? id}</span>
+                </Reorder.Item>
+              ))}
+            </Reorder.Group>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );

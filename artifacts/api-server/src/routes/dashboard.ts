@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
 import { calcExerciseRowCalories } from "../lib/workout-calories";
 import { resolveCalendarSlotIndexForDate } from "../lib/cycle-dates";
+import { calcBMR, calcTDEE } from "../lib/plan-calculator";
 
 const router: IRouter = Router();
 
@@ -255,6 +256,53 @@ async function getPlannedIntakeForDate(userId: number, date: string) {
   }
 }
 
+// Average daily energy net over the last 7 COMPLETED days (the given date is
+// excluded — a half-logged day would swing the estimate). Days with no logged
+// food are skipped: "didn't log" is missing data, not a fast.
+async function getRecentDailyNet(userId: number, dateStr: string, maintenance: number, weightKg: number) {
+  const start = new Date(dateStr + "T00:00:00");
+  const dates: string[] = [];
+  for (let i = 7; i >= 1; i--) {
+    const d = new Date(start); d.setDate(d.getDate() - i);
+    dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }
+
+  const consumedRes = await pool.query(
+    `SELECT mpc.date::text AS date,
+       COALESCE(SUM(CASE WHEN COALESCE(f.serving_unit, uf.serving_unit) = 'per_piece'
+         THEN COALESCE(f.calories, uf.calories) * mp.quantity_g
+         ELSE COALESCE(f.calories, uf.calories) * mp.quantity_g / 100 END), 0) AS calories
+     FROM meal_portion_completions mpc
+     JOIN meal_portions mp ON mp.id = mpc.portion_id
+     LEFT JOIN foods f ON f.id = mp.food_id AND mp.food_source = 'database'
+     LEFT JOIN user_foods uf ON uf.id = mp.food_id AND mp.food_source = 'user'
+     WHERE mpc.user_id = $1 AND mpc.date = ANY($2::date[])
+     GROUP BY mpc.date`,
+    [userId, dates]
+  );
+  const eatenByDate = new Map<string, number>(consumedRes.rows.map((r: any) => [r.date, Number(r.calories)]));
+
+  const burnedRes = await pool.query(
+    `SELECT wec.date::text AS date, we.sets, we.reps_min, we.reps_max, we.rest_seconds,
+            we.duration_mins, we.effort_level, e.exercise_type, e.met_value
+     FROM workout_exercise_completions wec
+     JOIN workout_exercises we ON we.id = wec.workout_exercise_id
+     JOIN exercises e ON e.id = we.exercise_id
+     WHERE wec.user_id = $1 AND wec.date = ANY($2::date[])`,
+    [userId, dates]
+  );
+  const burnedByDate = new Map<string, number>();
+  for (const row of burnedRes.rows) {
+    burnedByDate.set(row.date, (burnedByDate.get(row.date) ?? 0) + calcExerciseRowCalories(row, weightKg));
+  }
+
+  const dataDays = dates.filter(d => (eatenByDate.get(d) ?? 0) > 0);
+  if (dataDays.length === 0) return { avg_daily_net: null, data_days: 0 };
+  const totalNet = dataDays.reduce((sum, d) =>
+    sum + ((eatenByDate.get(d) ?? 0) - maintenance - (burnedByDate.get(d) ?? 0)), 0);
+  return { avg_daily_net: +(totalNet / dataDays.length).toFixed(0), data_days: dataDays.length };
+}
+
 // GET /dashboard/today?date=YYYY-MM-DD
 router.get("/dashboard/today", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
@@ -270,8 +318,17 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
     return;
   }
 
-  const profileRes = await pool.query(`SELECT weight_kg FROM user_profiles WHERE user_id = $1`, [userId]);
-  const weightKg = profileRes.rows[0] ? Number(profileRes.rows[0].weight_kg) : 80;
+  const profileRes = await pool.query(
+    `SELECT weight_kg, height_cm, age, gender, activity_level, target_weight_kg
+     FROM user_profiles WHERE user_id = $1`, [userId]);
+  const prof = profileRes.rows[0];
+  const weightKg = prof ? Number(prof.weight_kg) : 80;
+
+  // Maintenance recomputed LIVE from the CURRENT weight (not the frozen plan
+  // snapshot) so it tracks weight changes immediately.
+  const maintenanceToday = prof
+    ? Math.round(calcTDEE(calcBMR(weightKg, Number(prof.height_cm), Number(prof.age), prof.gender), prof.activity_level))
+    : 0;
 
   // Fetch plan (calorie target and TDEE)
   const planRes = await pool.query(
@@ -281,21 +338,58 @@ router.get("/dashboard/today", async (req, res): Promise<void> => {
   const calorieTarget = planRes.rows[0] ? Number(planRes.rows[0].calorie_target) : 0;
   const tdeeEstimated = planRes.rows[0] ? Number(planRes.rows[0].tdee_estimated) : 0;
 
-  const [nutrition, training, plannedIntake] = await Promise.all([
+  const [nutrition, training, plannedIntake, recentNet] = await Promise.all([
     getNutritionData(userId, dateStr),
     getWorkoutCalories(userId, dateStr, weightKg),
     getPlannedIntakeForDate(userId, dateStr),
+    prof ? getRecentDailyNet(userId, dateStr, maintenanceToday, weightKg)
+         : Promise.resolve({ avg_daily_net: null, data_days: 0 }),
   ]);
 
   // Calculate balance: consumed - (metabolic rate + exercise burn)
   const totalBurned = tdeeEstimated + training.burned_calories;
   const balance = nutrition.consumed.calories - totalBurned;
 
+  // ── Dynamic target-weight ETA from the 7-day actual pace ────────────────────
+  const targetWeightKg = prof ? Number(prof.target_weight_kg) : 0;
+  const remainingKg = +(weightKg - targetWeightKg).toFixed(1); // >0 = must lose
+  const direction = Math.abs(remainingKg) < 0.25 ? "at_target" : remainingKg > 0 ? "lose" : "gain";
+  let onTrack: boolean | null = null;
+  let daysToTarget: number | null = null;
+  let projectedDate: string | null = null;
+  if (direction !== "at_target" && recentNet.avg_daily_net !== null && recentNet.data_days >= 3) {
+    const net = recentNet.avg_daily_net;
+    const moving = direction === "lose" ? net < -25 : net > 25;
+    onTrack = moving;
+    if (moving) {
+      const days = Math.round(Math.abs(remainingKg) * 7700 / Math.abs(net));
+      if (days <= 3650) {
+        daysToTarget = days;
+        const pd = new Date(dateStr + "T00:00:00");
+        pd.setDate(pd.getDate() + days);
+        projectedDate = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}-${String(pd.getDate()).padStart(2, "0")}`;
+      }
+    }
+  }
+
   res.json({
     date: dateStr, nutrition, training, calorieTarget, tdeeEstimated,
     workoutBurned: training.burned_calories, totalBurned, balance,
     // "My plan" (user input) — distinct from the computed baseline target
     today_plan: { intake: plannedIntake, planned_burn: training.planned_calories },
+    // Live energy equation + dynamic ETA
+    maintenance_today: maintenanceToday,
+    deficit_card: {
+      maintenance: maintenanceToday,
+      eaten: nutrition.consumed.calories,
+      burned: training.burned_calories,
+      net: +(nutrition.consumed.calories - maintenanceToday - training.burned_calories).toFixed(0),
+    },
+    eta: {
+      direction, remaining_kg: remainingKg, target_weight_kg: targetWeightKg,
+      avg_daily_net_7d: recentNet.avg_daily_net, data_days: recentNet.data_days,
+      on_track: onTrack, days_to_target: daysToTarget, projected_date: projectedDate,
+    },
   });
 });
 

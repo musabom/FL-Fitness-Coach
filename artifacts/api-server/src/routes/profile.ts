@@ -268,6 +268,32 @@ router.post("/onboarding", async (req, res): Promise<void> => {
   }
 });
 
+// ── Dashboard layout preference (drag-and-drop card order) ───────────────────
+// GET is impersonation-aware (coach/admin sees the client's layout);
+// PATCH always writes the signed-in user's OWN layout.
+router.get("/profile/dashboard-layout", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const result = await pool.query(
+    `SELECT dashboard_layout FROM user_profiles WHERE user_id = $1`, [userId]
+  );
+  res.json({ layout: result.rows[0]?.dashboard_layout ?? null });
+});
+
+router.patch("/profile/dashboard-layout", async (req, res): Promise<void> => {
+  if (!req.session.userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+  const { layout } = req.body as { layout?: unknown };
+  const valid = Array.isArray(layout)
+    && layout.length <= 24
+    && layout.every(v => typeof v === "string" && /^[a-z0-9-]{1,40}$/.test(v));
+  if (!valid) { res.status(400).json({ error: "layout must be an array of card ids" }); return; }
+  await pool.query(
+    `UPDATE user_profiles SET dashboard_layout = $1::jsonb, updated_at = NOW() WHERE user_id = $2`,
+    [JSON.stringify(layout), req.session.userId]
+  );
+  res.json({ ok: true, layout });
+});
+
 router.get("/profile", async (req, res): Promise<void> => {
   const userId = requireAuth(req, res);
   if (!userId) return;

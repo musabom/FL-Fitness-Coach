@@ -70,6 +70,7 @@ async function runMigrationsInternal(): Promise<void> {
   await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_protein_per_kg REAL`);
   await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_fat_per_kg REAL`);
   await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS custom_deficit_kcal INTEGER`);
+  await pool.query(`ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS dashboard_layout JSONB`);
 
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)`);
 
