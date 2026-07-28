@@ -90,14 +90,36 @@ interface PlanEntry {
   workout: PlanWorkout;
 }
 
+/** An exercise added for this date only — plan and cycle untouched. */
+interface DayExtra {
+  id: number;
+  exercise_id: number;
+  exercise_name: string;
+  image_url?: string | null;
+  muscle_primary: string;
+  exercise_type: "strength" | "cardio";
+  equipment: string;
+  sets: number; reps_min: number; reps_max: number; rest_seconds: number;
+  duration_mins: number | null;
+  completed: boolean;
+  estimated_calories: number;
+}
+
 interface DayWorkoutPlan {
   date: string;
   day_of_week: string;
   entries: PlanEntry[];
+  extras?: DayExtra[];
   total_calories: number;
   burned_calories: number;
   /** True when a calendar_based cycle programme marks this day as a rest day. */
   is_calendar_rest_day?: boolean;
+}
+
+interface LibraryExercise {
+  id: number; exercise_name: string; muscle_primary: string;
+  exercise_type: "strength" | "cardio"; equipment: string;
+  image_url?: string | null;
 }
 
 interface LibraryWorkout {
@@ -284,6 +306,112 @@ function WorkoutCard({ entry, onRemove, onToggleComplete, onToggleExercise, onVi
   );
 }
 
+// ── Add Exercise (day only) Sheet ─────────────────────────────────────────────
+
+function AddExerciseSheet({ onClose, onAdd, isAdding }: {
+  onClose: () => void;
+  onAdd: (body: Record<string, unknown>) => void;
+  isAdding: boolean;
+}) {
+  const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<LibraryExercise | null>(null);
+  const [sets, setSets] = useState("4");
+  const [repsMin, setRepsMin] = useState("12");
+  const [repsMax, setRepsMax] = useState("15");
+  const [rest, setRest] = useState("60");
+  const [mins, setMins] = useState("20");
+  const buildUrl = useClientUrl();
+
+  const { data: exercises = [], isLoading } = useQuery<LibraryExercise[]>({
+    queryKey: ["exercises", q],
+    queryFn: () => customFetch<LibraryExercise[]>(buildUrl(`${BASE}/exercises?q=${encodeURIComponent(q)}`)),
+  });
+  const shown = exercises.slice(0, 40);
+  const isCardio = picked?.exercise_type === "cardio";
+
+  return (
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      <div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-[#0F1F3D] border-t border-border/50 rounded-t-3xl p-5 pb-8 max-h-[80vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-bold text-foreground">
+            {picked ? picked.exercise_name : "Add exercise"} <span className="text-[10px] font-medium text-amber-400">· today only</span>
+          </p>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-muted-foreground"><X className="w-4 h-4" /></button>
+        </div>
+
+        {!picked ? (
+          <>
+            <input
+              autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search exercises..."
+              className="w-full rounded-xl bg-[#1B3260]/50 border border-border/40 text-sm text-foreground px-3.5 py-2.5 mb-3 focus:outline-none focus:border-primary/50"
+            />
+            <div className="overflow-y-auto flex-1 space-y-1.5">
+              {isLoading && <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-primary animate-spin" /></div>}
+              {!isLoading && shown.map(ex => (
+                <button key={ex.id}
+                  onClick={() => { setPicked(ex); }}
+                  className="w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-xl bg-[#1B3260]/40 border border-border/30 hover:border-primary/40">
+                  <div className="w-9 h-9 rounded-lg bg-[#1B3260] overflow-hidden shrink-0 flex items-center justify-center">
+                    {ex.image_url ? <img src={ex.image_url} alt="" className="w-full h-full object-cover" /> : <Dumbbell className="w-4 h-4 text-primary" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{ex.exercise_name}</p>
+                    <p className="text-[10px] text-muted-foreground capitalize">{ex.muscle_primary} · {ex.equipment}</p>
+                  </div>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${ex.exercise_type === "cardio" ? "bg-blue-500/15 text-blue-400" : "bg-primary/10 text-primary"}`}>
+                    {ex.exercise_type}
+                  </span>
+                </button>
+              ))}
+              {!isLoading && shown.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">No exercises found</p>}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            {isCardio ? (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Duration (minutes)</label>
+                <input autoFocus type="number" min="1" value={mins} onChange={e => setMins(e.target.value)}
+                  className="w-full mt-1 rounded-xl bg-[#1B3260]/50 border border-border/40 text-sm text-foreground px-3 py-2.5 focus:outline-none focus:border-primary/50" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Sets", v: sets, set: setSets },
+                  { label: "Rest (sec)", v: rest, set: setRest },
+                  { label: "Reps min", v: repsMin, set: setRepsMin },
+                  { label: "Reps max", v: repsMax, set: setRepsMax },
+                ].map(f => (
+                  <div key={f.label}>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{f.label}</label>
+                    <input type="number" min="1" value={f.v} onChange={e => f.set(e.target.value)}
+                      className="w-full mt-1 rounded-xl bg-[#1B3260]/50 border border-border/40 text-sm text-foreground px-3 py-2 focus:outline-none focus:border-primary/50" />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setPicked(null)} className="flex-1 rounded-xl py-2.5 text-xs font-semibold bg-muted text-muted-foreground">Back</button>
+              <button
+                disabled={isAdding}
+                onClick={() => onAdd(isCardio
+                  ? { exercise_id: picked.id, duration_mins: Number(mins) }
+                  : { exercise_id: picked.id, sets: Number(sets), reps_min: Number(repsMin), reps_max: Number(repsMax), rest_seconds: Number(rest) })}
+                className="flex-1 rounded-xl py-2.5 text-xs font-bold bg-primary text-[#081025] disabled:opacity-60">
+                {isAdding ? "Adding..." : "Add to today"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Add Workout Sheet ─────────────────────────────────────────────────────────
 
 function AddWorkoutSheet({ date, existingWorkoutIds, onClose, onAdd, isAdding }: {
@@ -361,6 +489,7 @@ export default function WorkoutPlan() {
   const { t } = useLanguage();
   const [date, setDate] = useState(getTodayLocal());
   const [showSheet, setShowSheet] = useState(false);
+  const [showExerciseSheet, setShowExerciseSheet] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [imageModal, setImageModal] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -374,6 +503,28 @@ export default function WorkoutPlan() {
     queryFn: () => customFetch<DayWorkoutPlan>(buildUrl(`${BASE}/workout-plan?date=${date}`)),
     staleTime: 0,
     refetchOnMount: "always",
+  });
+
+  // ── Day-only extra exercises ───────────────────────────────────────────────
+  const invalidateDay = () => {
+    queryClient.invalidateQueries({ queryKey: ["workout-plan", date, activeClient?.id] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-today"] });
+  };
+  const addExtraMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      customFetch(buildUrl(`${BASE}/workout-plan/${date}/extras`), {
+        method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => setShowExerciseSheet(false),
+    onSettled: invalidateDay,
+  });
+  const toggleExtraMutation = useMutation({
+    mutationFn: (id: number) => customFetch(buildUrl(`${BASE}/workout-plan/extras/${id}/toggle`), { method: "POST" }),
+    onSettled: invalidateDay,
+  });
+  const deleteExtraMutation = useMutation({
+    mutationFn: (id: number) => customFetch(buildUrl(`${BASE}/workout-plan/extras/${id}`), { method: "DELETE" }),
+    onSettled: invalidateDay,
   });
 
   // Add workout to date
@@ -645,7 +796,7 @@ export default function WorkoutPlan() {
       </div>
 
       {/* Workout list */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 pb-28">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 pb-40">
         {isLoading && (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -691,6 +842,55 @@ export default function WorkoutPlan() {
             onViewImage={(url) => setImageModal(url)}
           />
         ))}
+
+        {/* Extra exercises added for this day only */}
+        {(dayPlan?.extras?.length ?? 0) > 0 && (
+          <div className="rounded-2xl bg-[#0F1F3D] border border-primary/25 overflow-hidden">
+            <div className="px-4 pt-3.5 pb-2 flex items-center gap-2">
+              <p className="text-[10px] font-semibold tracking-[0.12em] uppercase text-primary">Extra today</p>
+              <span className="text-[10px] text-muted-foreground">· not part of your plan</span>
+            </div>
+            <div className="px-4 pb-3 divide-y divide-border/20">
+              {dayPlan!.extras!.map(x => (
+                <div key={x.id} className={`flex items-center gap-3 py-2.5 ${x.completed ? "opacity-50" : ""}`}>
+                  <button onClick={() => toggleExtraMutation.mutate(x.id)}
+                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                    {x.completed ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5" />}
+                  </button>
+                  {x.image_url && (
+                    <button onClick={() => setImageModal(x.image_url!)}
+                      className="shrink-0 overflow-hidden border border-[rgba(240,246,255,0.06)]"
+                      style={{ width: 44, height: 44, borderRadius: 14 }}>
+                      <img src={x.image_url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${x.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {x.exercise_name}
+                      <span className="ms-1.5 text-[9px] font-bold text-primary bg-primary/15 rounded px-1 py-0.5 align-middle">today</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {x.exercise_type === "cardio"
+                        ? `${x.duration_mins} min`
+                        : `${x.sets} × ${x.reps_min}–${x.reps_max} reps`}
+                      {" · "}{Math.round(x.estimated_calories)} kcal
+                    </p>
+                  </div>
+                  <button onClick={() => deleteExtraMutation.mutate(x.id)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Add a single exercise for today only */}
+        <button onClick={() => setShowExerciseSheet(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl border border-dashed border-border/60 text-[11px] font-semibold text-primary hover:border-primary/40 transition-colors">
+          <Plus className="w-3.5 h-3.5" /> Add exercise · today only
+        </button>
       </div>
 
       {/* Add Workout FAB */}
@@ -713,6 +913,15 @@ export default function WorkoutPlan() {
           onClose={() => setShowSheet(false)}
           onAdd={(workoutId) => addMutation.mutate(workoutId)}
           isAdding={addMutation.isPending}
+        />
+      )}
+
+      {/* Add single exercise (day only) */}
+      {showExerciseSheet && (
+        <AddExerciseSheet
+          onClose={() => setShowExerciseSheet(false)}
+          onAdd={(body) => addExtraMutation.mutate(body)}
+          isAdding={addExtraMutation.isPending}
         />
       )}
 

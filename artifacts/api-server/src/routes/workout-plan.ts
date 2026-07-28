@@ -386,13 +386,49 @@ router.get("/workout-plan", async (req, res): Promise<void> => {
     return sum + completedCalories;
   }, 0);
 
-  console.log(`workout-plan ${dateStr}: mode=${trainingMode} cycleProgs=${cycleProgsRes.rows.length} cycleEntries=${cycleEntries.length} total=${validEntries.length} isCalendarRest=${isCalendarRestDay}`);
+  // ── Day-only extra exercises (added for this date, plan untouched) ──────────
+  const extrasRes = await pool.query(
+    `SELECT x.*, e.exercise_name, e.image_url, e.muscle_primary, e.exercise_type, e.equipment, e.met_value
+     FROM workout_plan_extra_exercises x
+     JOIN exercises e ON e.id = x.exercise_id
+     WHERE x.user_id = $1 AND x.date = $2
+     ORDER BY x.created_at`,
+    [userId, dateStr]
+  );
+  const extras = extrasRes.rows.map((x: any) => {
+    const isCardio = x.exercise_type === "cardio";
+    const estimated_calories = isCardio
+      ? estimateCardioCalories(Number(x.met_value) || 5, Number(x.duration_mins) || 0, weightKg)
+      : estimateStrengthCalories(Number(x.sets), Number(x.reps_min), Number(x.reps_max), Number(x.rest_seconds),
+          weightKg, x.effort_level || "moderate", x.met_value ? Number(x.met_value) : undefined);
+    return {
+      id: x.id,
+      exercise_id: x.exercise_id,
+      exercise_name: x.exercise_name,
+      image_url: x.image_url ?? null,
+      muscle_primary: x.muscle_primary,
+      exercise_type: x.exercise_type,
+      equipment: x.equipment,
+      sets: Number(x.sets),
+      reps_min: Number(x.reps_min),
+      reps_max: Number(x.reps_max),
+      rest_seconds: Number(x.rest_seconds),
+      duration_mins: x.duration_mins != null ? Number(x.duration_mins) : null,
+      effort_level: x.effort_level ?? null,
+      completed: !!x.completed,
+      estimated_calories,
+    };
+  });
+  const extrasPlanned = extras.reduce((s, x) => s + x.estimated_calories, 0);
+  const extrasBurned = extras.filter(x => x.completed).reduce((s, x) => s + x.estimated_calories, 0);
+
   res.json({
     date: dateStr,
     day_of_week: dayOfWeek,
     entries: validEntries,
-    total_calories: +total_calories.toFixed(1),
-    burned_calories: +burned_calories.toFixed(1),
+    extras,
+    total_calories: +(total_calories + extrasPlanned).toFixed(1),
+    burned_calories: +(burned_calories + extrasBurned).toFixed(1),
     is_calendar_rest_day: isCalendarRestDay,
   });
   } catch (err) {
@@ -663,6 +699,59 @@ router.delete("/workout-plan/:workoutId/exercises/:weId/complete", async (req, r
   );
 
   res.json({ workout_exercise_id: weId, date, completed: false });
+});
+
+// ── Day-only extra exercises ─────────────────────────────────────────────────
+
+router.post("/workout-plan/:date/extras", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const date = req.params["date"];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { res.status(400).json({ error: "Invalid date" }); return; }
+
+  const { exercise_id, sets, reps_min, reps_max, rest_seconds, duration_mins, effort_level } = req.body as Record<string, any>;
+  if (!exercise_id) { res.status(400).json({ error: "exercise_id is required" }); return; }
+
+  const exRes = await pool.query(
+    `SELECT id, exercise_type FROM exercises WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
+    [exercise_id, userId]
+  );
+  if (!exRes.rows.length) { res.status(404).json({ error: "Exercise not found" }); return; }
+  const isCardio = exRes.rows[0].exercise_type === "cardio";
+
+  const num = (v: any, d: number) => (typeof v === "number" && v > 0 && v < 1000 ? Math.round(v) : d);
+  const result = await pool.query(
+    `INSERT INTO workout_plan_extra_exercises
+       (user_id, date, exercise_id, sets, reps_min, reps_max, rest_seconds, duration_mins, effort_level)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [userId, date, exercise_id,
+     isCardio ? 1 : num(sets, 4), isCardio ? 0 : num(reps_min, 12), isCardio ? 0 : num(reps_max, 15),
+     isCardio ? 0 : num(rest_seconds, 60), isCardio ? num(duration_mins, 20) : null,
+     ["light", "moderate", "heavy"].includes(effort_level) ? effort_level : "moderate"]
+  );
+  res.status(201).json(result.rows[0]);
+});
+
+router.post("/workout-plan/extras/:id/toggle", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const result = await pool.query(
+    `UPDATE workout_plan_extra_exercises SET completed = NOT completed
+     WHERE id = $1 AND user_id = $2 RETURNING id, completed`,
+    [Number(req.params["id"]), userId]
+  );
+  if (!result.rows.length) { res.status(404).json({ error: "Extra not found" }); return; }
+  res.json(result.rows[0]);
+});
+
+router.delete("/workout-plan/extras/:id", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  await pool.query(
+    `DELETE FROM workout_plan_extra_exercises WHERE id = $1 AND user_id = $2`,
+    [Number(req.params["id"]), userId]
+  );
+  res.json({ ok: true });
 });
 
 export default router;

@@ -237,10 +237,27 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     [userId, dateStr]
   );
   const ovByMeal = new Map<number, DayOverride[]>();
+  const quickAddRows: any[] = [];
   for (const ov of ovRes.rows) {
+    if (ov.meal_id === null) { quickAddRows.push(ov); continue; } // standalone quick add
     const list = ovByMeal.get(Number(ov.meal_id)) ?? [];
     list.push(ov);
     ovByMeal.set(Number(ov.meal_id), list);
+  }
+
+  // Standalone quick-added foods for this date (not part of any planned meal)
+  let quickAdds: any[] = [];
+  if (quickAddRows.length) {
+    const info = await fetchFoodInfo(quickAddRows.map(q => ({ food_id: q.food_id, food_source: q.food_source ?? "database" })));
+    quickAdds = quickAddRows.map(q => {
+      const food = info.get(`${q.food_source ?? "database"}_${q.food_id}`);
+      if (!food) return null;
+      const macros = calcPortion(food, Number(q.quantity_g ?? 0));
+      return {
+        id: q.id, food_name: food.food_name, quantity_g: Number(q.quantity_g ?? 0),
+        serving_unit: food.serving_unit, completed: !!q.completed, ...macros,
+      };
+    }).filter(Boolean);
   }
 
   const entries = await Promise.all(
@@ -260,18 +277,19 @@ router.get("/meal-plan", async (req, res): Promise<void> => {
     })
   );
 
-  const dailyTotals = sumMacros(
-    entries.filter((e) => e.meal !== null).map((e) => e.meal!.totals)
-  );
+  // Totals include standalone quick-adds for the day
+  const dailyTotals = sumMacros([
+    ...entries.filter((e) => e.meal !== null).map((e) => e.meal!.totals),
+    ...quickAdds,
+  ]);
 
-  // consumed_totals: sum of completed portions across ALL meals
-  const consumedTotals = sumMacros(
-    entries
-      .filter((e) => e.meal !== null)
-      .flatMap((e) => e.meal!.portions.filter(p => p.completed))
-  );
+  // consumed_totals: sum of completed portions across ALL meals + eaten quick-adds
+  const consumedTotals = sumMacros([
+    ...entries.filter((e) => e.meal !== null).flatMap((e) => e.meal!.portions.filter(p => p.completed)),
+    ...quickAdds.filter(q => q.completed),
+  ]);
 
-  res.json({ date: dateStr, entries, daily_totals: dailyTotals, consumed_totals: consumedTotals });
+  res.json({ date: dateStr, entries, quick_adds: quickAdds, daily_totals: dailyTotals, consumed_totals: consumedTotals });
 });
 
 // ── POST /meal-plan ───────────────────────────────────────────────────────────
@@ -665,6 +683,25 @@ router.delete("/meal-plan/:date/meals/:mealId/portions/:portionId/override", asy
     [userId, date, Number(req.params["mealId"]), Number(req.params["portionId"])]
   );
   res.json({ ok: true });
+});
+
+// Quick-add a standalone food to a day (not part of any planned meal)
+router.post("/meal-plan/:date/quick-add", async (req, res): Promise<void> => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  const date = req.params["date"];
+  if (!DATE_RE.test(date)) { res.status(400).json({ error: "Invalid date" }); return; }
+  const { food_id, food_source, quantity_g } = req.body as { food_id?: number; food_source?: string; quantity_g?: number };
+  if (!food_id || typeof quantity_g !== "number" || quantity_g <= 0 || quantity_g > 10000) {
+    res.status(400).json({ error: "food_id and a valid quantity_g are required" }); return;
+  }
+  const src = food_source === "user" ? "user" : "database";
+  const result = await pool.query(
+    `INSERT INTO meal_plan_portion_overrides (user_id, date, meal_id, portion_id, food_id, food_source, quantity_g)
+     VALUES ($1, $2, NULL, NULL, $3, $4, $5) RETURNING *`,
+    [userId, date, food_id, src, quantity_g]
+  );
+  res.status(201).json(result.rows[0]);
 });
 
 // Add an ad-hoc food to a meal, today only

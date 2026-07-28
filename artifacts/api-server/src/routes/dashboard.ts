@@ -224,7 +224,26 @@ async function getWorkoutCalories(userId: number, date: string, weightKg: number
 
     const burned_calories = +burnedRes.rows.reduce((sum: number, row: any) => sum + calcExerciseCalories(row, weightKg), 0).toFixed(1);
 
-    return { planned_calories, burned_calories };
+    // Day-only extra exercises (added for this date)
+    const extrasRes = await pool.query(
+      `SELECT x.sets, x.reps_min, x.reps_max, x.rest_seconds, x.duration_mins, x.effort_level, x.completed,
+              e.exercise_type, e.met_value
+       FROM workout_plan_extra_exercises x
+       JOIN exercises e ON e.id = x.exercise_id
+       WHERE x.user_id = $1 AND x.date = $2`,
+      [userId, date]
+    );
+    let extraPlanned = 0, extraBurned = 0;
+    for (const row of extrasRes.rows) {
+      const cals = calcExerciseCalories(row, weightKg);
+      extraPlanned += cals;
+      if (row.completed) extraBurned += cals;
+    }
+
+    return {
+      planned_calories: +(planned_calories + extraPlanned).toFixed(1),
+      burned_calories: +(burned_calories + extraBurned).toFixed(1),
+    };
   } catch (error) {
     // Phase 2 feature not yet implemented: workout tracking tables don't exist
     // Return zero workout calories as placeholder
@@ -289,13 +308,13 @@ async function getPlannedIntakeForDate(userId: number, date: string) {
          COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.carbs_g * o.quantity_g ELSE xf.carbs_g * o.quantity_g / 100 END), 0) AS carbs_g,
          COALESCE(SUM(CASE WHEN xf.serving_unit = 'per_piece' THEN xf.fat_g * o.quantity_g ELSE xf.fat_g * o.quantity_g / 100 END), 0) AS fat_g
        FROM meal_plan_portion_overrides o
-       JOIN day_meals dm ON dm.meal_id = o.meal_id
        JOIN LATERAL (
          SELECT serving_unit, calories, protein_g, carbs_g, fat_g FROM foods WHERE id = o.food_id AND o.food_source = 'database'
          UNION ALL
          SELECT serving_unit, calories, protein_g, carbs_g, fat_g FROM user_foods WHERE id = o.food_id AND o.food_source = 'user'
        ) xf ON TRUE
-       WHERE o.user_id = $1 AND o.date = $2 AND o.portion_id IS NULL`,
+       WHERE o.user_id = $1 AND o.date = $2 AND o.portion_id IS NULL
+         AND (o.meal_id IS NULL OR EXISTS (SELECT 1 FROM day_meals dm WHERE dm.meal_id = o.meal_id))`,
       [userId, date, dayOfWeek]
     );
     const row = result.rows[0];
@@ -370,6 +389,18 @@ async function getRecentDailyNet(userId: number, dateStr: string, maintenance: n
   );
   const burnedByDate = new Map<string, number>();
   for (const row of burnedRes.rows) {
+    burnedByDate.set(row.date, (burnedByDate.get(row.date) ?? 0) + calcExerciseRowCalories(row, weightKg));
+  }
+  // Completed day-only extra exercises count toward the burn too
+  const extraBurnRes = await pool.query(
+    `SELECT x.date::text AS date, x.sets, x.reps_min, x.reps_max, x.rest_seconds, x.duration_mins,
+            x.effort_level, e.exercise_type, e.met_value
+     FROM workout_plan_extra_exercises x
+     JOIN exercises e ON e.id = x.exercise_id
+     WHERE x.user_id = $1 AND x.date = ANY($2::date[]) AND x.completed = TRUE`,
+    [userId, dates]
+  );
+  for (const row of extraBurnRes.rows) {
     burnedByDate.set(row.date, (burnedByDate.get(row.date) ?? 0) + calcExerciseRowCalories(row, weightKg));
   }
 

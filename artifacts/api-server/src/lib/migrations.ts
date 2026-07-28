@@ -666,6 +666,28 @@ async function runMigrationsInternal(): Promise<void> {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mppo_user_date ON meal_plan_portion_overrides(user_id, date)`);
+  // Standalone quick-added foods are not tied to a planned meal.
+  await pool.query(`ALTER TABLE meal_plan_portion_overrides ALTER COLUMN meal_id DROP NOT NULL`).catch(() => {});
+
+  // Extra exercises done on one day only (bonus cardio, added sets) — the
+  // master workouts and the training cycle are never modified.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_plan_extra_exercises (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      exercise_id INTEGER NOT NULL,
+      sets INTEGER NOT NULL DEFAULT 4,
+      reps_min INTEGER NOT NULL DEFAULT 12,
+      reps_max INTEGER NOT NULL DEFAULT 15,
+      rest_seconds INTEGER DEFAULT 60,
+      duration_mins INTEGER,
+      effort_level VARCHAR(10),
+      completed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_wpee_user_date ON workout_plan_extra_exercises(user_id, date)`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS food_stock (

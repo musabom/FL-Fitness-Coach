@@ -85,9 +85,16 @@ interface PlanEntry {
   is_scheduled?: boolean;
 }
 
+/** A food logged for this date only, outside any planned meal. */
+interface QuickAdd {
+  id: number; food_name: string; quantity_g: number; serving_unit: string;
+  calories: number; protein_g: number; carbs_g: number; fat_g: number; completed: boolean;
+}
+
 interface DayPlan {
   date: string;
   entries: PlanEntry[];
+  quick_adds?: QuickAdd[];
   daily_totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
   consumed_totals: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 }
@@ -671,7 +678,8 @@ export default function MealPlan() {
   });
 
   // ── Day-only overrides (quantity / swap / remove / add — master plan untouched)
-  const [picker, setPicker] = useState<{ mealId: number; portionId: number | null } | null>(null);
+  // mealId null = standalone quick add for the day
+  const [picker, setPicker] = useState<{ mealId: number | null; portionId: number | null } | null>(null);
   const invalidateDay = () => {
     queryClient.invalidateQueries({ queryKey: ["meal-plan", date, activeClient?.id] });
     queryClient.invalidateQueries({ queryKey: ["dashboard-today"] });
@@ -700,6 +708,15 @@ export default function MealPlan() {
     mutationFn: (id: number) => customFetch(buildUrl(`${BASE}/meal-plan/extras/${id}`), { method: "DELETE" }),
     onSettled: invalidateDay,
   });
+  const quickAddMutation = useMutation({
+    mutationFn: ({ food, quantity }: { food: PickedFood; quantity: number }) =>
+      customFetch(buildUrl(`${BASE}/meal-plan/${date}/quick-add`), {
+        method: "POST",
+        body: JSON.stringify({ food_id: food.id, food_source: food.source, quantity_g: quantity }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSettled: invalidateDay,
+  });
   const resetMealMutation = useMutation({
     mutationFn: (mealId: number) => customFetch(buildUrl(`${BASE}/meal-plan/${date}/meals/${mealId}/overrides`), { method: "DELETE" }),
     onSettled: invalidateDay,
@@ -711,8 +728,9 @@ export default function MealPlan() {
   const dailyTotals = dayPlan?.daily_totals ?? { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
 
   // Consumed = sum of completed portions across all meals
+  const quickAdds = dayPlan?.quick_adds ?? [];
   const consumedTotals = useMemo(() => {
-    return entries.reduce(
+    const fromMeals = entries.reduce(
       (acc, e) => ({
         calories: acc.calories + (e.meal?.consumed_totals?.calories ?? 0),
         protein_g: acc.protein_g + (e.meal?.consumed_totals?.protein_g ?? 0),
@@ -721,7 +739,14 @@ export default function MealPlan() {
       }),
       { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
     );
-  }, [entries]);
+    // Eaten quick-adds count toward the day's consumed totals too
+    return quickAdds.filter(q => q.completed).reduce((acc, q) => ({
+      calories: acc.calories + q.calories,
+      protein_g: acc.protein_g + q.protein_g,
+      carbs_g: acc.carbs_g + q.carbs_g,
+      fat_g: acc.fat_g + q.fat_g,
+    }), fromMeals);
+  }, [entries, quickAdds]);
 
   const existingMealIds = useMemo(() => new Set(entries.map(e => e.meal?.id ?? -1)), [entries]);
   const completedCount = entries.filter(e => e.completed).length;
@@ -913,7 +938,7 @@ export default function MealPlan() {
       </div>
 
       {/* Meals list */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 pb-28">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 pb-40">
         {isLoading && (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -952,16 +977,59 @@ export default function MealPlan() {
             onResetMeal={() => entry.meal && resetMealMutation.mutate(entry.meal.id)}
           />
         ))}
+
+        {/* Quick-added foods for this day (outside any planned meal) */}
+        {(dayPlan?.quick_adds?.length ?? 0) > 0 && (
+          <Card className="bg-[#0F1F3D] border-primary/25 overflow-hidden">
+            <div className="px-4 pt-3.5 pb-1.5 flex items-center gap-2">
+              <p className="text-[10px] font-semibold tracking-[0.12em] uppercase text-primary">Quick adds</p>
+              <span className="text-[10px] text-muted-foreground">· today only</span>
+            </div>
+            <div className="px-4 pb-3 divide-y divide-border/20">
+              {dayPlan!.quick_adds!.map(q => (
+                <div key={q.id} className={`flex items-center gap-3 py-2.5 ${q.completed ? "opacity-50" : ""}`}>
+                  <button onClick={() => toggleExtraMutation.mutate(q.id)}
+                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                    {q.completed ? <CheckCircle2 className="w-5 h-5 text-primary" /> : <Circle className="w-5 h-5" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${q.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {q.food_name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <span className="text-[#3B82F6]">P {Math.round(q.protein_g)}</span> · <span className="text-[#F59E0B]">C {Math.round(q.carbs_g)}</span> · <span className="text-[#EAB308]">F {Math.round(q.fat_g)}</span>
+                    </p>
+                  </div>
+                  <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                    {q.serving_unit === "per_piece" ? `${q.quantity_g} pc` : `${Math.round(q.quantity_g)}g`} · {Math.round(q.calories)} kcal
+                  </span>
+                  <button onClick={() => deleteExtraMutation.mutate(q.id)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive transition-colors" aria-label="Remove">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Quick add a food that isn't in any planned meal */}
+        <button onClick={() => setPicker({ mealId: null, portionId: null })}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl border border-dashed border-border/60 text-[11px] font-semibold text-primary hover:border-primary/40 transition-colors">
+          <Plus className="w-3.5 h-3.5" /> Quick add food · today only
+        </button>
       </div>
 
       {/* Day-only food picker (swap / add) */}
       {picker && (
         <FoodPickerSheet
-          title={picker.portionId !== null ? "Swap food" : "Add food"}
+          title={picker.portionId !== null ? "Swap food" : picker.mealId === null ? "Quick add food" : "Add food"}
           onClose={() => setPicker(null)}
           onConfirm={(food, quantity) => {
-            if (picker.portionId !== null) {
+            if (picker.portionId !== null && picker.mealId !== null) {
               overrideMutation.mutate({ mealId: picker.mealId, portionId: picker.portionId, body: { food_id: food.id, food_source: food.source, quantity_g: quantity } });
+            } else if (picker.mealId === null) {
+              quickAddMutation.mutate({ food, quantity });
             } else {
               addExtraMutation.mutate({ mealId: picker.mealId, food, quantity });
             }
